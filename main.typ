@@ -66,5 +66,5 @@
     #image("b" + str(calc.rem(n, 5) + 1) + ".png")
   ]
   
-  #pagebreak()
+  #pagebreak(weak: true)
 ]
