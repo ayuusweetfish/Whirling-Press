@@ -34,7 +34,7 @@
 #set page(width: 759pt, height: 2663pt, margin: 0pt)
 
 #for row in csv("list.csv", row-type: dictionary) [
-  #place-element(0pt, 174pt)[#image("a" + str(calc.rem(int(row.n), 9) + 1) + ".png")]
+  #place-element(0pt, 174pt)[#image(row.img_a)]
 
   #place-element(0pt, 0pt)[#image("frame.pdf")]
 
@@ -66,7 +66,7 @@
   #place-element(252pt, 1997.88pt, anchor: bottom + left)[#text(font: ("Instrument Sans", "Noto Sans CJK SC"), size: 16pt)[:]]
   #place-element(271pt, 1998.38pt, anchor: bottom + left)[#text(font: ("Instrument Sans", "Noto Sans CJK SC"), size: 16pt)[#row.sn]]
 
-  #place-element(545pt, 1842pt)[#image("b" + str(calc.rem(int(row.n), 5) + 1) + ".png")]
+  #place-element(545pt, 1842pt)[#image(row.img_b)]
   
   #pagebreak(weak: true)
 ]
