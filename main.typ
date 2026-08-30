@@ -1,4 +1,4 @@
-// SOURCE_DATE_EPOCH=0 typst compile --font-path demo_pack/fonts % /tmp/1.pdf
+// cat main.typ | SOURCE_DATE_EPOCH=0 typst compile --root demo_pack --font-path demo_pack - /tmp/1.pdf
 
 #let place-box(x, y, width: 100%, height: 100%, anchor: top + left, body) = {
   let dx = x
@@ -23,7 +23,7 @@
 
 #set page(width: 759pt, height: 2663pt, margin: 0pt)
 
-#let data = csv("demo_pack/list.tsv", delimiter: "\t")
+#let data = csv("list.tsv", delimiter: "\t")
 
 #set text(font: ("Instrument Sans", "Noto Sans CJK SC"))
 
@@ -31,8 +31,12 @@
   #let (n, sn, order_id, qty, name, addr) = row
   #let n = int(n)
 
+  #place(top + left, dx: 0pt, dy: 174pt)[
+    #image("a" + str(calc.rem(n, 9) + 1) + ".png")
+  ]
+
   #place(top + left)[
-    #image("demo_pack/frame-1.pdf")
+    #image("frame.pdf")
   ]
 
   #let fields = (
@@ -52,15 +56,13 @@
     place-box(252pt, 1872pt + i * 20.98pt, anchor: bottom + left)[
       #text(size: 16pt)[:]
     ]
-    place-box(271pt, 1872.5pt + i * 20.98pt, anchor: bottom + left)[ #text(size: 16pt)[#value]
+    place-box(271pt, 1872.5pt + i * 20.98pt, anchor: bottom + left)[
+      #text(size: 16pt)[#value]
     ]
   }
 
-  #place(top + left, dx: 0pt, dy: 174pt)[
-    #image("demo_pack/images/a" + str(calc.rem(n, 9) + 1) + ".png")
-  ]
   #place(top + left, dx: 545pt, dy: 1842pt)[
-    #image("demo_pack/images/b" + str(calc.rem(n, 5) + 1) + ".png")
+    #image("b" + str(calc.rem(n, 5) + 1) + ".png")
   ]
   
   #pagebreak()
