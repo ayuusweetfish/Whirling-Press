@@ -2,7 +2,7 @@
 
 #let place-element(
   x, y, width: 100%, height: 100%, anchor: top + left,
-  rotate: 0deg, skew-x: 0deg, skew-y: 0deg,
+  rotate: 0deg, scale-x: 100%, scale-y: 100%, skew-x: 0deg, skew-y: 0deg,
   body,
 ) = {
   let dx = x
@@ -22,9 +22,11 @@
 
   place(top + left, dx: dx, dy: dy)[
     #std.rotate(rotate, origin: anchor)[
-      #skew(ax: skew-x, ay: skew-y)[
-        #box(width: width, height: height)[
-          #align(anchor, body)
+      #scale(x: scale-x, y: scale-y, origin: anchor)[
+        #skew(ax: skew-x, ay: skew-y, origin: anchor)[
+          #box(width: width, height: height)[
+            #align(anchor, body)
+          ]
         ]
       ]
     ]
