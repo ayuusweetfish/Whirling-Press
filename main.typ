@@ -23,13 +23,12 @@
 
 #set page(width: 759pt, height: 2663pt, margin: 0pt)
 
-#let data = csv("list.tsv", delimiter: "\t")
+#let data = csv("list.csv", row-type: dictionary)
 
 #set text(font: ("Instrument Sans", "Noto Sans CJK SC"))
 
 #for row in data [
-  #let (n, sn, order_id, qty, name, addr) = row
-  #let n = int(n)
+  #let n = int(row.n)
 
   #place(top + left, dx: 0pt, dy: 174pt)[
     #image("a" + str(calc.rem(n, 9) + 1) + ".png")
@@ -40,13 +39,13 @@
   ]
 
   #let fields = (
-    ("Order ID", order_id),
+    ("Order ID", row.order_id),
     ("Price", "168 RMB"),
-    ("Quantity", qty),
+    ("Quantity", row.qty),
     ("From", "上海"),
-    ("Ship to", name),
-    ("Address", addr),
-    ("SN", sn),
+    ("Ship to", row.name),
+    ("Address", row.addr),
+    ("SN", row.sn),
   )
 
   #for (i, (label, value)) in fields.enumerate() {
