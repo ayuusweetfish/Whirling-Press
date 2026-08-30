@@ -5,20 +5,8 @@
   rotate: 0deg, scale-x: 100%, scale-y: 100%, skew-x: 0deg, skew-y: 0deg,
   body,
 ) = {
-  let dx = x
-  let dy = y
-
-  if anchor.x == right {
-    dx -= width
-  } else if anchor.x == center {
-    dx -= width / 2
-  }
-
-  if anchor.y == bottom {
-    dy -= height
-  } else if anchor.y == horizon {
-    dy -= height / 2
-  }
+  let dx = x - if anchor.x == right { width } else if anchor.x == center { width / 2 } else { 0pt }
+  let dy = y - if anchor.y == bottom { height } else if anchor.y == horizon { height / 2 } else { 0pt }
 
   place(top + left, dx: dx, dy: dy)[
     #std.rotate(rotate, origin: anchor)[
