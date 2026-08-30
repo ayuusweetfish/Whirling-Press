@@ -28,16 +28,39 @@
 #set text(font: ("Instrument Sans", "Noto Sans CJK SC"))
 
 #for row in data [
+  #let (n, sn, order_id, qty, name, addr) = row
+  #let n = int(n)
+
   #place(top + left)[
     #image("demo_pack/frame-1.pdf")
   ]
 
-  #place-box(271pt, 1872.5pt, anchor: bottom + left)[
-    #text(size: 16pt)[#row.at(3)]
-  ]
+  #let fields = (
+    ("Order ID", order_id),
+    ("Price", "168 RMB"),
+    ("Quantity", qty),
+    ("From", "上海"),
+    ("Ship to", name),
+    ("Address", addr),
+    ("SN", sn),
+  )
+
+  #for (i, (label, value)) in fields.enumerate() {
+    place-box(250pt, 1872.5pt + i * 20.98pt, anchor: bottom + right)[
+      #text(size: 16pt, style: "italic", tracking: -0.5pt)[#label]
+    ]
+    place-box(252pt, 1872pt + i * 20.98pt, anchor: bottom + left)[
+      #text(size: 16pt)[:]
+    ]
+    place-box(271pt, 1872.5pt + i * 20.98pt, anchor: bottom + left)[ #text(size: 16pt)[#value]
+    ]
+  }
 
   #place(top + left, dx: 0pt, dy: 174pt)[
-    #image("demo_pack/images/a1.png")
+    #image("demo_pack/images/a" + str(calc.rem(n, 9) + 1) + ".png")
+  ]
+  #place(top + left, dx: 545pt, dy: 1842pt)[
+    #image("demo_pack/images/b" + str(calc.rem(n, 5) + 1) + ".png")
   ]
   
   #pagebreak()
