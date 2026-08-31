@@ -1,24 +1,46 @@
 // cat main.typ | SOURCE_DATE_EPOCH=0 typst compile --root demo_pack --font-path demo_pack - /tmp/1.pdf
 
 #let place-element(
-  x, y, width: 100%, height: 100%, anchor: top + left,
-  rotate: 0deg, scale-x: 100%, scale-y: 100%, skew-x: 0deg, skew-y: 0deg,
+  x, y, width: auto, height: auto, anchor: top + left,
+  rotate: 0deg, scale-x: none, scale-y: none, scale: none, skew-x: 0deg, skew-y: 0deg,
+  debug: false,
   body,
-) = {
+) = context {
+  let (width, height) = if width != auto and height != auto {
+    (width, height)
+  } else {
+    let dims = measure(width: width, height: height, body)
+    (
+      if width == auto { dims.width } else { width },
+      if height == auto { dims.height } else { height },
+    )
+  }
+
+  let scale-x = if scale-x != none { scale-x } else if scale != none { scale } else { 100% }
+  let scale-y = if scale-y != none { scale-y } else if scale != none { scale } else { 100% }
+
   let dx = x - if anchor.x == right { width } else if anchor.x == center { width / 2 } else { 0pt }
   let dy = y - if anchor.y == bottom { height } else if anchor.y == horizon { height / 2 } else { 0pt }
 
   place(top + left, dx: dx, dy: dy)[
     #std.rotate(rotate, origin: anchor)[
-      #scale(x: scale-x, y: scale-y, origin: anchor)[
+      #std.scale(x: scale-x, y: scale-y, origin: anchor)[
         #skew(ax: skew-x, ay: skew-y, origin: anchor)[
           #box(width: width, height: height)[
             #align(anchor, body)
+            #if debug {
+              place(top + left, dx: 0pt, dy: 0pt, rect(width: 100%, height: 100%))
+            }
           ]
         ]
       ]
     ]
   ]
+  if debug {
+    place(top + left, dx: x - 2pt, dy: y - 2pt)[
+      #circle(radius: 2pt, fill: none, stroke: 1pt + black)
+    ]
+  }
 }
 
 #set page(width: 759pt, height: 2663pt, margin: 0pt)
@@ -27,6 +49,8 @@
   #place-element(0pt, 174pt)[#image(row.img_a)]
 
   #place-element(0pt, 0pt)[#image("frame.pdf")]
+
+  #place-element(740pt, 2631pt, anchor: bottom + right, width: 110pt)[#image("qr.svg")]
 
   #place-element(250pt, 1872.50pt, anchor: bottom + right)[#text(font: ("Instrument Sans", "Noto Sans CJK SC"), size: 16pt, style: "italic", tracking: -0.5pt)[Order ID]]
   #place-element(252pt, 1872.00pt, anchor: bottom + left)[#text(font: ("Instrument Sans", "Noto Sans CJK SC"), size: 16pt)[:]]
