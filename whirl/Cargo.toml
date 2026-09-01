@@ -6,3 +6,7 @@ edition = "2024"
 [dependencies]
 serde-saphyr = "1.2.0"
 serde = { version = "1.0", features = ["derive"] }
+
+typst = "0.15"
+typst-pdf = "0.15"
+typst-kit = { version = "0.15", features = ["scan-fonts"] }

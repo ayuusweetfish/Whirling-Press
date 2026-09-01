@@ -1,3 +1,5 @@
+mod render;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -49,7 +51,7 @@ fn is_default<T: Default + PartialEq>(v: &T) -> bool {
   *v == T::default()
 }
 
-fn main() {
+fn main_0() {
   let yaml = r#"
 - { x: 0, y: 174, content: !image { src: "{{img_a}}" } }
 - { x: 0, y: 0, content: !image { src: frame.pdf } }
@@ -69,4 +71,8 @@ fn main() {
   };
   println!("{}", serde_saphyr::to_string_with_options(&items, options.clone()).unwrap());
   println!("{:?}", serde_saphyr::from_str::<Vec<Item>>(&serde_saphyr::to_string_with_options(&items, options.clone()).unwrap()).unwrap());
+}
+
+fn main() {
+  render::run();
 }
