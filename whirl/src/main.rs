@@ -120,7 +120,7 @@ impl model::Element {
 }
 
 impl model::Layout {
-  fn typst_source(&self) -> String {
+  fn typst_source(&self, fields: &[String]) -> String {
     let (page_width, page_height) = self.page;
 
     let elements_typst = self.elements.iter().map(|e| e.typst_source())
@@ -129,13 +129,25 @@ impl model::Layout {
     include_str!("support.typ").to_string() + format!(r#"
 #set page(width: {page_width}pt, height: {page_height}pt, margin: 0pt)
 
-#for row in csv("list.csv", row-type: dictionary) [
-  #let (n, img_a, img_b, sn, order_id, qty, name, addr) = row
+#for ({}) in csv("list.csv", row-type: dictionary) [
   {elements_typst}
   #pagebreak(weak: true)
 ]
-"#).as_str()
+"#, fields.join(", ")).as_str()
   }
+}
+
+use std::fs::File;
+use std::io::{self, BufRead, BufReader};
+use std::path::Path;
+
+fn get_csv_fields<P: AsRef<Path>>(path: P) -> io::Result<Vec<String>> {
+  let file = File::open(path)?;
+  let mut reader = BufReader::new(file);
+  let mut first_line = String::new();
+  reader.read_line(&mut first_line)?;
+  let fields = first_line.trim_end().split(',').map(|s| s.to_string()).collect();
+  Ok(fields)
 }
 
 fn main_0() {
@@ -144,7 +156,9 @@ fn main_0() {
   let parse_result: Result<model::Layout, _> = serde_saphyr::from_str(yaml);
   let layout = parse_result.expect("parse failed");
 
-  let typst_source = layout.typst_source();
+  let list_fields = get_csv_fields("../demo_pack/list.csv").expect("Read CSV failed");
+
+  let typst_source = layout.typst_source(&list_fields);
   println!("{}", typst_source);
 }
 
