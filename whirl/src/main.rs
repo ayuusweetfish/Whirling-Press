@@ -24,7 +24,7 @@ fn expand_expr(s: &str) -> String {
     // {}-enclosed substitution
     let open_post = open + '{'.len_utf8();
     if let Some(close) = find_next_char(s, '}', open_post) {
-      result.push(format!("({})", &s[open_post..close]));
+      result.push(format!("({})", s[open_post..close].trim()));
       cur = close + '}'.len_utf8();
     } else {
       // Unmatched `{`: treat the rest as literal
@@ -43,6 +43,17 @@ fn expand_expr(s: &str) -> String {
 
   if result.is_empty() {
     "\"\"".to_string()
+
+  // Simplify cases with only one variable (XXX: doesn't handle higher codepoints for now!)
+  } else if result.len() == 1 && result[0].bytes().enumerate().all(|(i, b)| {
+    if i == 0 { b == b'(' }
+    else if i == result[0].len() - 1 { b == b')' }
+    else {
+      let c = b as char;
+      c.is_alphanumeric() || c == '_' || c == '-'
+    }
+  }) {
+    result[0][1..(result[0].len() - 1)].to_string()
   } else {
     result.join(" + ")
   }
@@ -128,16 +139,7 @@ impl model::Layout {
 }
 
 fn main_0() {
-  let yaml = r#"
-page: [759, 2663]
-elements:
-- { x: 0, y: 174, content: !image { src: "{img_a}" } }
-- { x: 0, y: 0, content: !image { src: frame.pdf } }
-- { x: 740, y: 2631, anchor: [1, 1], width: 110, content: !image { src: qr.svg } }
-- { x: 250, y: 1872.5, anchor: [1, 1], content: !text { family: [Instrument Sans, Noto Sans CJK SC], size: 16, italic: true, tracking: -0.5, text: Order ID } }
-- { x: 252, y: 1872, anchor: [0, 1], content: !text { family: [Instrument Sans, Noto Sans CJK SC], size: 16, text: ":" } }
-- { x: 271, y: 1872.5, anchor: [0, 1], content: !text { family: [Instrument Sans], size: 16, text: "{order_id} \"\\1\"" } }
-"#;
+  let yaml = include_str!("../../demo_pack/layout.yml");
 
   let parse_result: Result<model::Layout, _> = serde_saphyr::from_str(yaml);
   let layout = parse_result.expect("parse failed");
