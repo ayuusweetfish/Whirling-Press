@@ -66,9 +66,7 @@ pub enum Content {
   },
   #[serde(rename = "text")]
   Text {
-    #[serde(default, skip_serializing_if = "is_default")]
     family: Vec<String>,
-    #[serde(default = "default_text_size", skip_serializing_if = "is_default_text_size")]
     size: f32,
     #[serde(default, skip_serializing_if = "is_default")]
     bold: bool,
@@ -80,11 +78,8 @@ pub enum Content {
   },
 }
 
-fn default_scale() -> (f32, f32) { (1.0, 1.0) }
+pub fn default_scale() -> (f32, f32) { (1.0, 1.0) }
 fn is_default_scale(v: &(f32, f32)) -> bool { *v == default_scale() }
-
-fn default_text_size() -> f32 { 16.0 }
-fn is_default_text_size(v: &f32) -> bool { *v == default_text_size() }
 
 fn is_default<T: Default + PartialEq>(v: &T) -> bool {
   *v == T::default()
