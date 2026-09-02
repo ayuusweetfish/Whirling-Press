@@ -97,13 +97,13 @@ impl model::Element {
       model::Content::Image { src } => {
         format!("#image({})", expand_expr(src))
       }
-      model::Content::Text { family, size, bold, italic, tracking, text } => {
+      model::Content::Text { family, size, weight, italic, tracking, text } => {
         let mut args = Vec::new();
         let families = family.iter().map(|s| format!("\"{}\"", s)).collect::<Vec<_>>().join(", ");
         args.push(format!("font: ({})", families));
         args.push(format!("size: {}pt", size));
-        if *bold {
-          args.push(format!("weight: \"bold\""));
+        if *weight != model::Weight::default() {
+          args.push(format!("weight: {}", Into::<i32>::into(*weight)));
         }
         if *italic {
           args.push(format!("style: \"italic\""));

@@ -4,7 +4,7 @@ elements:
 - { x: 0, y: 0, content: !image { src: frame.pdf } }
 - { x: 740, y: 2631, anchor: [1, 1], width: 110, content: !image { src: qr.svg } }
 - { x: 250, y: 1872.5, anchor: [1, 1], content: !text { family: [Instrument Sans, Noto Sans CJK SC], size: 16, italic: true, tracking: -0.5, text: Order ID } }
-- { x: 252, y: 1872, anchor: [0, 1], content: !text { family: [Instrument Sans, Noto Sans CJK SC], size: 16, text: ":" } }
+- { x: 252, y: 1872, anchor: [0, 1], content: !text { family: [Instrument Sans, Noto Sans CJK SC], size: 16, text: ":", weight: 700 } }
 - { x: 271, y: 1872.5, anchor: [0, 1], content: !text { family: [Instrument Sans, Noto Sans CJK SC], size: 16, text: "{order_id}" } }
 - { x: 250, y: 1893.48, anchor: [1, 1], content: !text { family: [Instrument Sans, Noto Sans CJK SC], size: 16, italic: true, tracking: -0.5, text: Price } }
 - { x: 252, y: 1892.98, anchor: [0, 1], content: !text { family: [Instrument Sans, Noto Sans CJK SC], size: 16, text: ":" } }

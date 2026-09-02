@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Layout {
   pub page: (f32, f32),
   pub elements: Vec<Element>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Element {
   pub x: f32,
   pub y: f32,
@@ -23,14 +23,14 @@ pub struct Element {
   pub content: Content,
 }
 
-#[derive(Debug, Deserialize, Serialize, Default, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, Default, PartialEq, Copy)]
 #[serde(try_from = "(f32, f32)")]
 pub struct Anchor {
   pub x: AnchorAxis,
   pub y: AnchorAxis,
 }
 
-#[derive(Debug, Deserialize, Serialize, Default, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, Default, PartialEq, Copy)]
 pub enum AnchorAxis {
   #[default]
   Min,
@@ -58,7 +58,7 @@ impl TryFrom<(f32, f32)> for Anchor {
   }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum Content {
   #[serde(rename = "image")]
   Image {
@@ -69,13 +69,59 @@ pub enum Content {
     family: Vec<String>,
     size: f32,
     #[serde(default, skip_serializing_if = "is_default")]
-    bold: bool,
+    weight: Weight,
     #[serde(default, skip_serializing_if = "is_default")]
     italic: bool,
     #[serde(default, skip_serializing_if = "is_default")]
     tracking: f32,
     text: String,
   },
+}
+#[derive(Debug, Clone, Deserialize, Serialize, Default, PartialEq, Copy)]
+#[serde(try_from = "f32")]
+pub enum Weight {
+  Thin,
+  ExtraLight,
+  Light,
+  #[default]
+  Regular,
+  Medium,
+  SemiBold,
+  Bold,
+  ExtraBold,
+  Black,
+}
+impl TryFrom<f32> for Weight {
+  type Error = String;
+  fn try_from(value: f32) -> Result<Self, Self::Error> {
+    match value {
+      100.0 => Ok(Weight::Thin),
+      200.0 => Ok(Weight::ExtraLight),
+      300.0 => Ok(Weight::Light),
+      400.0 => Ok(Weight::Regular),
+      500.0 => Ok(Weight::Medium),
+      600.0 => Ok(Weight::SemiBold),
+      700.0 => Ok(Weight::Bold),
+      800.0 => Ok(Weight::ExtraBold),
+      900.0 => Ok(Weight::Black),
+      _ => Err("Weight value must be one of 100, 200, ..., 900".to_string()),
+    }
+  }
+}
+impl Into<i32> for Weight {
+  fn into(self) -> i32 {
+    match self {
+      Weight::Thin => 100,
+      Weight::ExtraLight => 200,
+      Weight::Light => 300,
+      Weight::Regular => 400,
+      Weight::Medium => 500,
+      Weight::SemiBold => 600,
+      Weight::Bold => 700,
+      Weight::ExtraBold => 800,
+      Weight::Black => 900,
+    }
+  }
 }
 
 pub fn default_scale() -> (f32, f32) { (1.0, 1.0) }
