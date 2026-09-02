@@ -2,6 +2,52 @@
 
 mod model;
 
+fn expand_expr(s: &str) -> String {
+  let mut result = Vec::new();
+  let mut cur = 0;
+
+  fn escape(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('"', "\\\"")
+  }
+
+  fn find_next_char(s: &str, t: char, byte_offs: usize) -> Option<usize> {
+    s.get(byte_offs..)?.find(t).map(|found_offs| byte_offs + found_offs)
+  }
+
+  while let Some(open) = find_next_char(s, '{', cur) {
+    // Emit previous literal part
+    let literal = &s[cur..open];
+    if !literal.is_empty() {
+      result.push(format!("\"{}\"", &escape(literal)));
+    }
+
+    // {}-enclosed substitution
+    let open_post = open + '{'.len_utf8();
+    if let Some(close) = find_next_char(s, '}', open_post) {
+      result.push(format!("({})", &s[open_post..close]));
+      cur = close + '}'.len_utf8();
+    } else {
+      // Unmatched `{`: treat the rest as literal
+      if open < s.len() {
+        result.push(format!("\"{}\"", &escape(&s[open..])));
+      }
+      cur = s.len();
+      break;
+    }
+  }
+
+  // Emit trailing literal part
+  if cur < s.len() {
+    result.push(format!("\"{}\"", &escape(&s[cur..])));
+  }
+
+  if result.is_empty() {
+    "\"\"".to_string()
+  } else {
+    result.join(" + ")
+  }
+}
+
 impl model::Element {
   fn typst_source(&self) -> String {
     let mut args = Vec::new();
@@ -38,7 +84,7 @@ impl model::Element {
     // Content
     let content = match &self.content {
       model::Content::Image { src } => {
-        format!("#image(\"{}\")", src)
+        format!("#image({})", expand_expr(src))
       }
       model::Content::Text { family, size, bold, italic, tracking, text } => {
         let mut args = Vec::new();
@@ -54,7 +100,7 @@ impl model::Element {
         if *tracking != 0.0 {
           args.push(format!("tracking: {}pt", tracking));
         }
-        format!("#text({}, \"{}\")", args.join(", "), text)
+        format!("#text({}, {})", args.join(", "), expand_expr(text))
       }
     };
 
@@ -85,12 +131,12 @@ fn main_0() {
   let yaml = r#"
 page: [759, 2663]
 elements:
-- { x: 0, y: 174, content: !image { src: "{{img_a}}" } }
+- { x: 0, y: 174, content: !image { src: "{img_a}" } }
 - { x: 0, y: 0, content: !image { src: frame.pdf } }
 - { x: 740, y: 2631, anchor: [1, 1], width: 110, content: !image { src: qr.svg } }
 - { x: 250, y: 1872.5, anchor: [1, 1], content: !text { family: [Instrument Sans, Noto Sans CJK SC], size: 16, italic: true, tracking: -0.5, text: Order ID } }
 - { x: 252, y: 1872, anchor: [0, 1], content: !text { family: [Instrument Sans, Noto Sans CJK SC], size: 16, text: ":" } }
-- { x: 271, y: 1872.5, anchor: [0, 1], content: !text { family: [Instrument Sans], size: 16, text: "{{order_id}}" } }
+- { x: 271, y: 1872.5, anchor: [0, 1], content: !text { family: [Instrument Sans], size: 16, text: "{order_id} \"\\1\"" } }
 "#;
 
   let parse_result: Result<model::Layout, _> = serde_saphyr::from_str(yaml);
