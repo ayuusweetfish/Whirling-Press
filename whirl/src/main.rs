@@ -1,4 +1,4 @@
-mod render;
+// mod render;
 
 mod model;
 
@@ -120,7 +120,7 @@ impl model::Element {
 }
 
 impl model::Layout {
-  fn typst_source(&self, fields: &[String]) -> String {
+  fn typst_source(&self, csv_path: &str, fields: &[String]) -> String {
     let (page_width, page_height) = self.page;
 
     let elements_typst = self.elements.iter().map(|e| e.typst_source())
@@ -129,20 +129,65 @@ impl model::Layout {
     include_str!("support.typ").to_string() + format!(r#"
 #set page(width: {page_width}pt, height: {page_height}pt, margin: 0pt)
 
-#for ({}) in csv("list.csv", row-type: dictionary) [
+#for ({}) in csv("{}", row-type: dictionary) [
   {elements_typst}
   #pagebreak(weak: true)
 ]
-"#, fields.join(", ")).as_str()
+"#, csv_path, fields.join(", ")).as_str()
   }
 }
 
-use std::fs::File;
-use std::io::{self, BufRead, BufReader};
-use std::path::Path;
+use std::io::{BufRead, BufReader};
+use std::path::{Path, PathBuf};
 
-fn get_csv_fields<P: AsRef<Path>>(path: P) -> io::Result<Vec<String>> {
-  let file = File::open(path)?;
+#[derive(Debug)]
+enum FindSingleError {
+  Io(std::io::Error),
+  NoneFound,
+  MultipleFound,
+}
+impl std::fmt::Display for FindSingleError {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      FindSingleError::Io(e) => write!(f, "IO error: {}", e),
+      FindSingleError::NoneFound => write!(f, "No file found"),
+      FindSingleError::MultipleFound => write!(f, "Multiple files found"),
+    }
+  }
+}
+impl std::error::Error for FindSingleError {}
+
+fn find_single_ext<P: AsRef<Path>>(dir: P, ext: &[&str]) -> Result<PathBuf, FindSingleError> {
+  let mut yml_files = std::fs::read_dir(&dir)
+    .map_err(|e| FindSingleError::Io(e))?
+    .flat_map(|entry| {
+      if let Ok(entry) = entry {
+        let path = entry.path();
+        if path.is_file() && path.extension().map_or(false,
+            |file_ext| ext.iter().any(|target_ext| file_ext == *target_ext)) {
+          Some(path.strip_prefix(&dir).unwrap().to_path_buf())
+        } else {
+          None
+        }
+      } else {
+        None
+      }
+    });
+
+  let first = yml_files.next();
+  if let Some(path) = first {
+    if yml_files.next().is_none() {
+      Ok(path)
+    } else {
+      Err(FindSingleError::MultipleFound)
+    }
+  } else {
+    Err(FindSingleError::NoneFound)
+  }
+}
+
+fn get_csv_fields<P: AsRef<Path>>(path: P) -> std::io::Result<Vec<String>> {
+  let file = std::fs::File::open(path)?;
   let mut reader = BufReader::new(file);
   let mut first_line = String::new();
   reader.read_line(&mut first_line)?;
@@ -150,19 +195,50 @@ fn get_csv_fields<P: AsRef<Path>>(path: P) -> io::Result<Vec<String>> {
   Ok(fields)
 }
 
-fn main_0() {
-  let yaml = include_str!("../../demo_pack/layout.yml");
+#[derive(Debug)]
+enum ProcessError {
+  FindYaml(FindSingleError),
+  ParseYaml(serde_saphyr::Error),
+  FindCsv(FindSingleError),
+  CsvNameUtf8,
+  Io(std::path::PathBuf, std::io::Error),
+}
+impl std::fmt::Display for ProcessError {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{:?}", self)
+  }
+}
+impl std::error::Error for ProcessError {}
 
-  let parse_result: Result<model::Layout, _> = serde_saphyr::from_str(yaml);
-  let layout = parse_result.expect("parse failed");
+fn process_pack<P: AsRef<Path>>(path: P) -> Result<(), ProcessError> {
+  let yaml_file = find_single_ext(&path, &["yml", "yaml"])
+    .map_err(|e| ProcessError::FindYaml(e))?;
+  let p = path.as_ref().join(&yaml_file);
+  let yaml = std::fs::read_to_string(&p)
+    .map_err(|e| ProcessError::Io(p.to_path_buf(), e))?;
 
-  let list_fields = get_csv_fields("../demo_pack/list.csv").expect("Read CSV failed");
+  let parse_result: Result<model::Layout, _> = serde_saphyr::from_str(&yaml);
+  let layout = parse_result
+    .map_err(|e| ProcessError::ParseYaml(e))?;
 
-  let typst_source = layout.typst_source(&list_fields);
+  let csv_file = find_single_ext(&path, &["csv"])
+    .map_err(|e| ProcessError::FindCsv(e))?;
+  let p = path.as_ref().join(&csv_file);
+  let list_fields = get_csv_fields(&p)
+    .map_err(|e| ProcessError::Io(p.to_path_buf(), e))?;
+
+  let typst_source = layout.typst_source(
+    &csv_file.to_str().ok_or(ProcessError::CsvNameUtf8)?,
+    &list_fields);
   println!("{}", typst_source);
+
+  Ok(())
 }
 
 fn main() {
-  render::run();
-  // main_0();
+  // render::run();
+  let process_result = process_pack("../demo_pack");
+  if let Err(e) = process_result {
+    println!("{:?}", e);
+  }
 }
