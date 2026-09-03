@@ -1,4 +1,4 @@
-// mod render;
+mod render;
 
 mod model;
 
@@ -163,6 +163,6 @@ fn main_0() {
 }
 
 fn main() {
-  // render::run();
-  main_0();
+  render::run();
+  // main_0();
 }

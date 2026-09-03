@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime};
@@ -14,74 +14,31 @@ use typst_kit::fonts::FontStore;
 use typst_pdf::PdfOptions;
 
 
-pub struct TypstWorld {
+pub struct SimpleWorld {
   root: PathBuf,
   source: Source,
   library: LazyHash<Library>,
   fonts: FontStore,
-  files: Arc<Mutex<HashMap<FileId, FileEntry>>>,
+  files: Arc<RwLock<HashMap<FileId, Bytes>>>,
+    // trait `typst::World` requires `Sync`
 }
 
-#[derive(Clone, Debug)]
-struct FileEntry {
-  bytes: Bytes,
-  source: Option<Source>,
-}
-
-impl FileEntry {
-  fn new(bytes: Vec<u8>, source: Option<Source>) -> Self {
-    Self {
-      bytes: Bytes::new(bytes),
-      source,
-    }
-  }
-
-  fn source(&mut self, id: FileId) -> FileResult<Source> {
-    let source = if let Some(source) = &self.source {
-      source
-    } else {
-      let text = std::str::from_utf8(&self.bytes).or(Err(FileError::InvalidUtf8))?;
-      let text = text.trim_start_matches('\u{feff}');
-      let source = Source::new(id, text.into());
-      self.source.insert(source)
-    };
-    Ok(source.clone())
-  }
-}
-
-impl TypstWorld {
+impl SimpleWorld {
   pub fn new(root: impl Into<PathBuf>, source: &str) -> Self {
-    let root = root.into();
-
     let mut fonts = FontStore::new();
     fonts.extend(typst_kit::fonts::system());
-    println!("{:?}", fonts.book());
 
     Self {
       library: LazyHash::new(Library::default()),
-      root,
+      root: root.into(),
       fonts,
       source: Source::detached(source),
-      files: Arc::new(Mutex::new(HashMap::new())),
+      files: Arc::new(RwLock::new(HashMap::new())),
     }
-  }
-
-  fn file(&self, id: FileId) -> FileResult<FileEntry> {
-    let mut files = self.files.lock().or(Err(FileError::AccessDenied))?;
-    if let Some(entry) = files.get(&id) {
-      return Ok(entry.clone());
-    }
-
-    let path = id.vpath().realize(&self.root).or(Err(FileError::AccessDenied))?;
-    let bytes = std::fs::read(&path).map_err(|e| FileError::from_io(e, &path))?;
-    Ok(files
-      .entry(id)
-      .or_insert(FileEntry::new(bytes, None))
-      .clone())
   }
 }
 
-impl typst::World for TypstWorld {
+impl typst::World for SimpleWorld {
   fn library(&self) -> &LazyHash<Library> {
     &self.library
   }
@@ -98,12 +55,17 @@ impl typst::World for TypstWorld {
     if id == self.source.id() {
       Ok(self.source.clone())
     } else {
-      self.file(id)?.source(id)
+      Err(FileError::NotSource)
     }
   }
 
   fn file(&self, id: FileId) -> FileResult<Bytes> {
-    self.file(id).map(|f| f.bytes.clone())
+    if let Some(bytes) = self.files.read().unwrap().get(&id) {
+      return Ok(bytes.clone());
+    }
+    let path = id.vpath().realize(&self.root).or(Err(FileError::AccessDenied))?;
+    let bytes_u8 = std::fs::read(&path).map_err(|e| FileError::from_io(e, &path))?;
+    Ok(self.files.write().unwrap().entry(id).or_insert(Bytes::new(bytes_u8)).clone())
   }
 
   fn font(&self, id: usize) -> Option<Font> {
@@ -116,7 +78,7 @@ impl typst::World for TypstWorld {
 }
 
 pub(crate) fn run() {
-  let world = TypstWorld::new("../demo_pack", r#"
+  let world = SimpleWorld::new("../demo_pack", r#"
 #set page(width: 759pt, height: 2663pt, margin: 0pt)
 #place(top + left, dx: 0pt, dy: 174pt)[#image("qr.svg")]
 #place(top + left, dx: 0pt, dy: 174pt)[#text(font: ("Source Code Pro", "Noto Serif"), size: 16pt, "AAAing 哈哈哈")]
