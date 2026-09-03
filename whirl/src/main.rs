@@ -1,6 +1,5 @@
-// mod render;
-
 mod model;
+mod render;
 
 fn expand_expr(s: &str) -> String {
   let mut result = Vec::new();
@@ -133,7 +132,7 @@ impl model::Layout {
   {elements_typst}
   #pagebreak(weak: true)
 ]
-"#, csv_path, fields.join(", ")).as_str()
+"#, fields.join(", "), csv_path).as_str()
   }
 }
 
@@ -202,6 +201,7 @@ enum ProcessError {
   FindCsv(FindSingleError),
   CsvNameUtf8,
   Io(std::path::PathBuf, std::io::Error),
+  Render(render::RenderError),
 }
 impl std::fmt::Display for ProcessError {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -232,11 +232,17 @@ fn process_pack<P: AsRef<Path>>(path: P) -> Result<(), ProcessError> {
     &list_fields);
   println!("{}", typst_source);
 
+  let pdf_bytes = render::run(path, &typst_source)
+    .map_err(|e| ProcessError::Render(e))?;
+
+  let p = Path::new("/tmp/output.pdf");
+  std::fs::write(&p, pdf_bytes)
+    .map_err(|e| ProcessError::Io(p.to_path_buf(), e))?;
+  println!("Generated {}", p.display());
   Ok(())
 }
 
 fn main() {
-  // render::run();
   let process_result = process_pack("../demo_pack");
   if let Err(e) = process_result {
     println!("{:?}", e);

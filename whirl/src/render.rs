@@ -80,14 +80,17 @@ impl typst::World for SimpleWorld {
   }
 }
 
-pub(crate) fn run() {
-  let world = SimpleWorld::new("../demo_pack", r#"
-#set page(width: 759pt, height: 2663pt, margin: 0pt)
-#place(top + left, dx: 0pt, dy: 174pt)[#image("qr.svg")]
-#place(top + left, dx: 0pt, dy: 174pt)[#text(font: ("Instrument Sans", "Noto Sans CJK SC", "Noto Serif CJK SC"), size: 16pt, "AAAing 0123 上海哈哈哈")]
-"#);
-  let document = typst::compile(&world).output.expect("Typst compilation failed");
-  let pdf = typst_pdf::pdf(&document, &PdfOptions::default()).expect("PDF export failed");
-  std::fs::write("/tmp/output.pdf", pdf).expect("File write failed");
-  println!("Generated /tmp/output.pdf");
+#[derive(Debug)]
+pub(crate) enum RenderError {
+  TypstCompilation(Vec<typst::diag::SourceDiagnostic>),
+  TypstPdfOutput(Vec<typst::diag::SourceDiagnostic>),
+}
+
+pub(crate) fn run<P: AsRef<std::path::Path>>(root: P, source: &str) -> Result<Vec<u8>, RenderError> {
+  let world = SimpleWorld::new(root.as_ref(), source);
+  let document = typst::compile(&world).output
+    .map_err(|e| RenderError::TypstCompilation(e.to_vec()))?;
+  let pdf_bytes = typst_pdf::pdf(&document, &PdfOptions::default())
+    .map_err(|e| RenderError::TypstCompilation(e.to_vec()))?;
+  Ok(pdf_bytes)
 }
