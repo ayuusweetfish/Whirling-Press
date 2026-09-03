@@ -210,7 +210,7 @@ impl std::fmt::Display for ProcessError {
 }
 impl std::error::Error for ProcessError {}
 
-fn process_pack<P: AsRef<Path>>(path: P) -> Result<(), ProcessError> {
+fn process_pack<P: AsRef<Path>>(path: P) -> Result<Vec<u8>, ProcessError> {
   let yaml_file = find_single_ext(&path, &["yml", "yaml"])
     .map_err(|e| ProcessError::FindYaml(e))?;
   let p = path.as_ref().join(&yaml_file);
@@ -233,21 +233,22 @@ fn process_pack<P: AsRef<Path>>(path: P) -> Result<(), ProcessError> {
   }
 
   let typst_source = layout.typst_source(&escape_path(csv_file)?, &list_fields);
-  println!("{}", typst_source);
 
-  let pdf_bytes = render::run(path, &typst_source)
+  let output_bytes = render::run(path, &typst_source)
     .map_err(|e| ProcessError::Render(e))?;
-
-  let p = Path::new("/tmp/output.pdf");
-  std::fs::write(&p, pdf_bytes)
-    .map_err(|e| ProcessError::Io(p.to_path_buf(), e))?;
-  println!("Generated {}", p.display());
-  Ok(())
+  Ok(output_bytes)
 }
 
 fn main() {
   let process_result = process_pack("../demo_pack");
-  if let Err(e) = process_result {
-    println!("{:?}", e);
+  match process_result {
+    Err(e) => println!("{:?}", e),
+    Ok(bytes) => {
+      let p = Path::new("/tmp/output.pdf");
+      match std::fs::write(&p, bytes) {
+        Err(e) => println!("{:?}", e),
+        Ok(_) => println!("Generated {}", p.display()),
+      }
+    },
   }
 }
