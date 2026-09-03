@@ -225,17 +225,19 @@ fn process_pack<P: AsRef<Path>>(path: P) -> Result<Vec<u8>, ProcessError> {
   Ok(output_bytes)
 }
 
-use clap::{Parser, ValueEnum};
+use argh::{FromArgs, FromArgValue};
 
-#[derive(Debug, Parser)]
-#[command(version, about)]
+#[derive(Debug, FromArgs)]
+#[argh(description = "A simplistic VPD (variable data printing) tool", help_triggers("-h", "--help"))]
 struct Args {
-  root: String,
-  output: String,
-  #[arg(short, long, value_enum, default_value_t)]
+  #[argh(positional)]
+  pack_root: Option<String>,
+  #[argh(option, short = 'o', description = "output file; GUI is started if not given")]
+  output: Option<String>,
+  #[argh(option, short = 'f', description = "output format (pdf, pdf_zip, png)", default = "Default::default()")]
   format: ArgsFormat,
 }
-#[derive(Debug, Clone, Default, ValueEnum)]
+#[derive(Debug, Clone, Default, FromArgValue)]
 enum ArgsFormat {
   #[default]
   Pdf,
@@ -244,19 +246,26 @@ enum ArgsFormat {
 }
 
 fn main() {
-  let args = Args::parse();
-
+  let args: Args = argh::from_env();
   println!("{:?}", args);
 
-  let process_result = process_pack(&args.root);
-  match process_result {
-    Err(e) => println!("{:?}", e),
-    Ok(bytes) => {
-      let p = Path::new(&args.output);
-      match std::fs::write(&p, bytes) {
+  if let Some(pack_root) = args.pack_root {
+    if let Some(output) = args.output {
+      let process_result = process_pack(&pack_root);
+      match process_result {
         Err(e) => println!("{:?}", e),
-        Ok(_) => println!("Generated {}", p.display()),
+        Ok(bytes) => {
+          let p = Path::new(&output);
+          match std::fs::write(&p, bytes) {
+            Err(e) => println!("{:?}", e),
+            Ok(_) => println!("Generated {}", p.display()),
+          }
+        },
       }
-    },
+    } else {
+      // TODO: Start GUI loaded with root
+    }
+  } else {
+    // TODO: Start empty GUI
   }
 }

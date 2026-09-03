@@ -11,4 +11,4 @@ typst = "0.15"
 typst-pdf = "0.15"
 typst-kit = { version = "0.15", features = ["scan-fonts"] }
 
-clap = { version = "4.6", features = ["derive"] }
+argh = "0.1"
