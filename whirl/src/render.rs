@@ -87,15 +87,12 @@ pub(crate) enum RenderError {
   TypstPdfOutput(Vec<typst::diag::SourceDiagnostic>),
 }
 
-use crate::opt_pdf;
-
 pub(crate) fn to_pdf<P: AsRef<std::path::Path>>(root: P, source: &str) -> Result<Vec<u8>, RenderError> {
   let world = SimpleWorld::new(root.as_ref(), source);
   let doc = typst::compile(&world).output
     .map_err(|e| RenderError::TypstCompilation(e.to_vec()))?;
   let pdf_bytes = typst_pdf::pdf(&doc, &PdfOptions::default())
     .map_err(|e| RenderError::TypstCompilation(e.to_vec()))?;
-  let pdf_bytes = opt_pdf::optimize(&pdf_bytes);
   Ok(pdf_bytes)
 }
 
@@ -107,7 +104,6 @@ pub(crate) fn to_pdf_seq<P: AsRef<std::path::Path>>(root: P, source: &str) -> Re
     let doc = PagedDocument::new([p.clone()].into(), doc.info().clone());
     let pdf_bytes = typst_pdf::pdf(&doc, &PdfOptions::default())
       .map_err(|e| RenderError::TypstCompilation(e.to_vec()))?;
-    let pdf_bytes = opt_pdf::optimize(&pdf_bytes);
     Ok::<_, RenderError>(pdf_bytes)
   }).collect::<Result<_, _>>()?;
   Ok(pdf_seq_bytes)

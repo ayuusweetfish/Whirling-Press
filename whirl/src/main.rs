@@ -237,6 +237,8 @@ struct Args {
   output: Option<String>,
   #[argh(option, short = 'f', description = "output format (pdf, pdf_seq, png_seq)", default = "Default::default()")]
   format: ArgsFormat,
+  #[argh(switch, short = 'c', description = "compress output harder")]
+  compress: bool,
 }
 #[derive(Debug, Clone, Default, FromArgValue)]
 enum ArgsFormat {
@@ -246,11 +248,12 @@ enum ArgsFormat {
   PngSeq,
 }
 
-fn process_and_write(pack_root: &str, output: &str, format: ArgsFormat) -> Result<(), ProcessError> {
+fn process_and_write(pack_root: &str, output: &str, format: ArgsFormat, compress: bool) -> Result<(), ProcessError> {
   match format {
     ArgsFormat::Pdf => {
       let bytes = process_pack(&pack_root, render::to_pdf)?;
       let p = Path::new(&output);
+      let bytes = opt_pdf::optimize(&bytes, compress);
       std::fs::write(&p, bytes).map_err(|e| ProcessError::Io(p.to_path_buf(), e))?;
     },
     ArgsFormat::PdfSeq => {
@@ -259,6 +262,7 @@ fn process_and_write(pack_root: &str, output: &str, format: ArgsFormat) -> Resul
       for (i, bytes) in seq.into_iter().enumerate() {
         let mut p = Path::new(&output).to_path_buf();
         p.push(format!("{:0width$}.pdf", i + 1));
+        let bytes = opt_pdf::optimize(&bytes, compress);
         std::fs::write(&p, bytes).map_err(|e| ProcessError::Io(p, e))?;
       }
     },
@@ -269,11 +273,10 @@ fn process_and_write(pack_root: &str, output: &str, format: ArgsFormat) -> Resul
 
 fn main() {
   let args: Args = argh::from_env();
-  println!("{:?}", args);
 
   if let Some(pack_root) = args.pack_root {
     if let Some(output) = args.output {
-      match process_and_write(&pack_root, &output, args.format) {
+      match process_and_write(&pack_root, &output, args.format, args.compress) {
         Err(e) => println!("{:?}", e),
         Ok(_) => (),
       }

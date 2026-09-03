@@ -2,7 +2,7 @@ use lopdf::{Document, Object, ObjectId};
 
 use std::collections::HashMap;
 
-pub(crate) fn try_optimize(bytes: &[u8]) -> Option<Vec<u8>> {
+pub(crate) fn try_optimize(bytes: &[u8], recompress: bool) -> Option<Vec<u8>> {
   let mut doc = Document::load_mem(bytes).ok()?;
   let mut stream_map: HashMap<&[u8], Vec<ObjectId>> = HashMap::new();
 
@@ -64,7 +64,7 @@ pub(crate) fn try_optimize(bytes: &[u8]) -> Option<Vec<u8>> {
   }
 
   // Re-compress everything for the most space savings!
-  if false {
+  if recompress {
     doc.decompress();
     doc.compress();
   }
@@ -74,6 +74,6 @@ pub(crate) fn try_optimize(bytes: &[u8]) -> Option<Vec<u8>> {
   Some(buf)
 }
 
-pub(crate) fn optimize(bytes: &[u8]) -> Vec<u8> {
-  try_optimize(&bytes).unwrap_or_else(|| bytes.to_vec())
+pub(crate) fn optimize(bytes: &[u8], recompress: bool) -> Vec<u8> {
+  try_optimize(&bytes, recompress).unwrap_or_else(|| bytes.to_vec())
 }
