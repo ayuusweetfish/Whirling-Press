@@ -25,12 +25,15 @@ pub struct SimpleWorld {
 
 impl SimpleWorld {
   pub fn new(root: impl Into<PathBuf>, source: &str) -> Self {
+    let root = root.into();
+
     let mut fonts = FontStore::new();
+    fonts.extend(typst_kit::fonts::scan(&root));
     fonts.extend(typst_kit::fonts::system());
 
     Self {
       library: LazyHash::new(Library::default()),
-      root: root.into(),
+      root,
       fonts,
       source: Source::detached(source),
       files: Arc::new(RwLock::new(HashMap::new())),
@@ -81,7 +84,7 @@ pub(crate) fn run() {
   let world = SimpleWorld::new("../demo_pack", r#"
 #set page(width: 759pt, height: 2663pt, margin: 0pt)
 #place(top + left, dx: 0pt, dy: 174pt)[#image("qr.svg")]
-#place(top + left, dx: 0pt, dy: 174pt)[#text(font: ("Source Code Pro", "Noto Serif"), size: 16pt, "AAAing 哈哈哈")]
+#place(top + left, dx: 0pt, dy: 174pt)[#text(font: ("Instrument Sans", "Noto Sans CJK SC", "Noto Serif CJK SC"), size: 16pt, "AAAing 0123 上海哈哈哈")]
 "#);
   let document = typst::compile(&world).output.expect("Typst compilation failed");
   let pdf = typst_pdf::pdf(&document, &PdfOptions::default()).expect("PDF export failed");
