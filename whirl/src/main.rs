@@ -225,12 +225,34 @@ fn process_pack<P: AsRef<Path>>(path: P) -> Result<Vec<u8>, ProcessError> {
   Ok(output_bytes)
 }
 
+use clap::{Parser, ValueEnum};
+
+#[derive(Debug, Parser)]
+#[command(version, about)]
+struct Args {
+  root: String,
+  output: String,
+  #[arg(short, long, value_enum, default_value_t)]
+  format: ArgsFormat,
+}
+#[derive(Debug, Clone, Default, ValueEnum)]
+enum ArgsFormat {
+  #[default]
+  Pdf,
+  PdfZip,
+  Png,
+}
+
 fn main() {
-  let process_result = process_pack("../demo_pack");
+  let args = Args::parse();
+
+  println!("{:?}", args);
+
+  let process_result = process_pack(&args.root);
   match process_result {
     Err(e) => println!("{:?}", e),
     Ok(bytes) => {
-      let p = Path::new("/tmp/output.pdf");
+      let p = Path::new(&args.output);
       match std::fs::write(&p, bytes) {
         Err(e) => println!("{:?}", e),
         Ok(_) => println!("Generated {}", p.display()),
