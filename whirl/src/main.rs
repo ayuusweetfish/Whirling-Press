@@ -1,5 +1,6 @@
 mod model;
 mod render;
+mod opt_pdf;
 
 #[derive(Debug)]
 enum ExprError {

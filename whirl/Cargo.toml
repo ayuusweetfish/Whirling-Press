@@ -12,4 +12,6 @@ typst-pdf = "0.15"
 typst-layout = "0.15"
 typst-kit = { version = "0.15", features = ["scan-fonts"] }
 
+lopdf = "0.44"
+
 argh = "0.1"
