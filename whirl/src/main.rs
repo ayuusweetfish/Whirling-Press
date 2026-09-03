@@ -245,22 +245,36 @@ enum ArgsFormat {
   PngSeq,
 }
 
+fn process_and_write(pack_root: &str, output: &str, format: ArgsFormat) -> Result<(), ProcessError> {
+  match format {
+    ArgsFormat::Pdf => {
+      let bytes = process_pack(&pack_root, render::to_pdf)?;
+      let p = Path::new(&output);
+      std::fs::write(&p, bytes).map_err(|e| ProcessError::Io(p.to_path_buf(), e))?;
+    },
+    ArgsFormat::PdfSeq => {
+      let seq = process_pack(&pack_root, render::to_pdf_seq)?;
+      let width = (seq.len().ilog10() + 1).max(3) as usize;
+      for (i, bytes) in seq.into_iter().enumerate() {
+        let mut p = Path::new(&output).to_path_buf();
+        p.push(format!("{:0width$}.pdf", i + 1));
+        std::fs::write(&p, bytes).map_err(|e| ProcessError::Io(p, e))?;
+      }
+    },
+    _ => (),
+  }
+  Ok(())
+}
+
 fn main() {
   let args: Args = argh::from_env();
   println!("{:?}", args);
 
   if let Some(pack_root) = args.pack_root {
     if let Some(output) = args.output {
-      let process_result = process_pack(&pack_root, render::to_pdf);
-      match process_result {
+      match process_and_write(&pack_root, &output, args.format) {
         Err(e) => println!("{:?}", e),
-        Ok(bytes) => {
-          let p = Path::new(&output);
-          match std::fs::write(&p, bytes) {
-            Err(e) => println!("{:?}", e),
-            Ok(_) => println!("Generated {}", p.display()),
-          }
-        },
+        Ok(_) => (),
       }
     } else {
       // TODO: Start GUI loaded with root
