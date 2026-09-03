@@ -227,9 +227,12 @@ fn process_pack<P: AsRef<Path>>(path: P) -> Result<(), ProcessError> {
   let list_fields = get_csv_fields(&p)
     .map_err(|e| ProcessError::Io(p.to_path_buf(), e))?;
 
-  let typst_source = layout.typst_source(
-    &csv_file.to_str().ok_or(ProcessError::CsvNameUtf8)?,
-    &list_fields);
+  fn escape_path<P: AsRef<Path>>(path: P) -> Result<String, ProcessError> {
+    Ok(path.as_ref().to_str().ok_or(ProcessError::CsvNameUtf8)?.to_string()
+      .replace('\\', "\\\\").replace('"', "\\\""))
+  }
+
+  let typst_source = layout.typst_source(&escape_path(csv_file)?, &list_fields);
   println!("{}", typst_source);
 
   let pdf_bytes = render::run(path, &typst_source)
