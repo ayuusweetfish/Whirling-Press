@@ -37,3 +37,5 @@
     ]
   }
 }
+
+#let str(value) = std.str(value)

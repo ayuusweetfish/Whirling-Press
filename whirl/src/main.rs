@@ -1,7 +1,12 @@
 mod model;
 mod render;
 
-fn expand_expr(s: &str) -> String {
+#[derive(Debug)]
+enum ExprError {
+  NonexistentField(usize, String),
+}
+
+fn expand_expr(s: &str, fields: &[String]) -> Result<String, ExprError> {
   let mut result = Vec::new();
   let mut cur = 0;
 
@@ -23,7 +28,11 @@ fn expand_expr(s: &str) -> String {
     // {}-enclosed substitution
     let open_post = open + '{'.len_utf8();
     if let Some(close) = find_next_char(s, '}', open_post) {
-      result.push(format!("({})", s[open_post..close].trim()));
+      let field = s[open_post..close].trim();
+      if fields.iter().position(|s| s == field).is_none() {
+        return Err(ExprError::NonexistentField(open_post, field.to_string()));
+      }
+      result.push(format!("row.at(\"{}\")", escape(field)));
       cur = close + '}'.len_utf8();
     } else {
       // Unmatched `{`: treat the rest as literal
@@ -40,26 +49,15 @@ fn expand_expr(s: &str) -> String {
     result.push(format!("\"{}\"", &escape(&s[cur..])));
   }
 
-  if result.is_empty() {
+  Ok(if result.is_empty() {
     "\"\"".to_string()
-
-  // Simplify cases with only one variable (XXX: doesn't handle higher codepoints for now!)
-  } else if result.len() == 1 && result[0].bytes().enumerate().all(|(i, b)| {
-    if i == 0 { b == b'(' }
-    else if i == result[0].len() - 1 { b == b')' }
-    else {
-      let c = b as char;
-      c.is_alphanumeric() || c == '_' || c == '-'
-    }
-  }) {
-    result[0][1..(result[0].len() - 1)].to_string()
   } else {
     result.join(" + ")
-  }
+  })
 }
 
 impl model::Element {
-  fn typst_source(&self) -> String {
+  fn typst_source(&self, fields: &[String]) -> Result<String, ExprError> {
     let mut args = Vec::new();
 
     args.push(format!("{}pt, {}pt", self.x, self.y));
@@ -94,7 +92,7 @@ impl model::Element {
     // Content
     let content = match &self.content {
       model::Content::Image { src } => {
-        format!("#image({})", expand_expr(src))
+        format!("#image({})", expand_expr(src, fields)?)
       }
       model::Content::Text { family, size, weight, italic, tracking, text } => {
         let mut args = Vec::new();
@@ -110,29 +108,31 @@ impl model::Element {
         if *tracking != 0.0 {
           args.push(format!("tracking: {}pt", tracking));
         }
-        format!("#text({}, {})", args.join(", "), expand_expr(text))
+        format!("#text({}, {})", args.join(", "), expand_expr(text, fields)?)
       }
     };
 
-    format!("#place-element({})[{}]", args.join(", "), content)
+    Ok(format!("#place-element({})[{}]", args.join(", "), content))
   }
 }
 
 impl model::Layout {
-  fn typst_source(&self, csv_path: &str, fields: &[String]) -> String {
+  fn typst_source(&self, csv_path: &str, fields: &[String]) -> Result<String, (usize, ExprError)> {
     let (page_width, page_height) = self.page;
 
-    let elements_typst = self.elements.iter().map(|e| e.typst_source())
-      .collect::<Vec<_>>().join("\n  ");
+    let elements_typst = self.elements.iter()
+      .enumerate()
+      .map(|(i, el)| el.typst_source(fields).map_err(|e| (i, e)))
+      .collect::<Result<Vec<_>, _>>()?.join("\n  ");
 
-    include_str!("support.typ").to_string() + format!(r#"
+    Ok(include_str!("support.typ").to_string() + format!(r#"
 #set page(width: {page_width}pt, height: {page_height}pt, margin: 0pt)
 
-#for ({}) in csv("{}", row-type: dictionary) [
+#for row in csv("{}", row-type: dictionary) [
   {elements_typst}
   #pagebreak(weak: true)
 ]
-"#, fields.join(", "), csv_path).as_str()
+"#, csv_path).as_str())
   }
 }
 
@@ -145,16 +145,6 @@ enum FindSingleError {
   NoneFound,
   MultipleFound,
 }
-impl std::fmt::Display for FindSingleError {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    match self {
-      FindSingleError::Io(e) => write!(f, "IO error: {}", e),
-      FindSingleError::NoneFound => write!(f, "No file found"),
-      FindSingleError::MultipleFound => write!(f, "Multiple files found"),
-    }
-  }
-}
-impl std::error::Error for FindSingleError {}
 
 fn find_single_ext<P: AsRef<Path>>(dir: P, ext: &[&str]) -> Result<PathBuf, FindSingleError> {
   let mut yml_files = std::fs::read_dir(&dir)
@@ -201,14 +191,9 @@ enum ProcessError {
   FindCsv(FindSingleError),
   CsvNameUtf8,
   Io(std::path::PathBuf, std::io::Error),
+  Expr(usize, ExprError),
   Render(render::RenderError),
 }
-impl std::fmt::Display for ProcessError {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{:?}", self)
-  }
-}
-impl std::error::Error for ProcessError {}
 
 fn process_pack<P: AsRef<Path>>(path: P) -> Result<Vec<u8>, ProcessError> {
   let yaml_file = find_single_ext(&path, &["yml", "yaml"])
@@ -232,7 +217,8 @@ fn process_pack<P: AsRef<Path>>(path: P) -> Result<Vec<u8>, ProcessError> {
       .replace('\\', "\\\\").replace('"', "\\\""))
   }
 
-  let typst_source = layout.typst_source(&escape_path(csv_file)?, &list_fields);
+  let typst_source = layout.typst_source(&escape_path(csv_file)?, &list_fields)
+    .map_err(|(i, e)| ProcessError::Expr(i, e))?;
 
   let output_bytes = render::run(path, &typst_source)
     .map_err(|e| ProcessError::Render(e))?;
