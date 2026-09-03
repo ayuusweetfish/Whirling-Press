@@ -2990,6 +2990,7 @@ dependencies = [
  "serde-saphyr",
  "typst",
  "typst-kit",
+ "typst-layout",
  "typst-pdf",
 ]
 

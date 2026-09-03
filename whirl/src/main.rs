@@ -195,7 +195,7 @@ enum ProcessError {
   Render(render::RenderError),
 }
 
-fn process_pack<P: AsRef<Path>>(path: P) -> Result<Vec<u8>, ProcessError> {
+  fn process_pack<P: AsRef<Path>, R, F: FnOnce(P, &str) -> Result<R, render::RenderError>>(path: P, render: F) -> Result<R, ProcessError> {
   let yaml_file = find_single_ext(&path, &["yml", "yaml"])
     .map_err(|e| ProcessError::FindYaml(e))?;
   let p = path.as_ref().join(&yaml_file);
@@ -220,9 +220,9 @@ fn process_pack<P: AsRef<Path>>(path: P) -> Result<Vec<u8>, ProcessError> {
   let typst_source = layout.typst_source(&escape_path(csv_file)?, &list_fields)
     .map_err(|(i, e)| ProcessError::Expr(i, e))?;
 
-  let output_bytes = render::run(path, &typst_source)
+  let output = render(path, &typst_source)
     .map_err(|e| ProcessError::Render(e))?;
-  Ok(output_bytes)
+  Ok(output)
 }
 
 use argh::{FromArgs, FromArgValue};
@@ -234,15 +234,15 @@ struct Args {
   pack_root: Option<String>,
   #[argh(option, short = 'o', description = "output file; GUI is started if not given")]
   output: Option<String>,
-  #[argh(option, short = 'f', description = "output format (pdf, pdf_zip, png)", default = "Default::default()")]
+  #[argh(option, short = 'f', description = "output format (pdf, pdf_seq, png_seq)", default = "Default::default()")]
   format: ArgsFormat,
 }
 #[derive(Debug, Clone, Default, FromArgValue)]
 enum ArgsFormat {
   #[default]
   Pdf,
-  PdfZip,
-  Png,
+  PdfSeq,
+  PngSeq,
 }
 
 fn main() {
@@ -251,7 +251,7 @@ fn main() {
 
   if let Some(pack_root) = args.pack_root {
     if let Some(output) = args.output {
-      let process_result = process_pack(&pack_root);
+      let process_result = process_pack(&pack_root, render::to_pdf);
       match process_result {
         Err(e) => println!("{:?}", e),
         Ok(bytes) => {

@@ -9,6 +9,7 @@ serde = { version = "1.0", features = ["derive"] }
 
 typst = "0.15"
 typst-pdf = "0.15"
+typst-layout = "0.15"
 typst-kit = { version = "0.15", features = ["scan-fonts"] }
 
 argh = "0.1"

@@ -12,7 +12,8 @@ use typst::utils::LazyHash;
 use typst::{Library, LibraryExt};
 use typst_kit::fonts::FontStore;
 use typst_pdf::PdfOptions;
-
+use typst::model::Document;
+use typst_layout::PagedDocument;
 
 pub struct SimpleWorld {
   root: PathBuf,
@@ -86,11 +87,24 @@ pub(crate) enum RenderError {
   TypstPdfOutput(Vec<typst::diag::SourceDiagnostic>),
 }
 
-pub(crate) fn run<P: AsRef<std::path::Path>>(root: P, source: &str) -> Result<Vec<u8>, RenderError> {
+pub(crate) fn to_pdf<P: AsRef<std::path::Path>>(root: P, source: &str) -> Result<Vec<u8>, RenderError> {
   let world = SimpleWorld::new(root.as_ref(), source);
-  let document = typst::compile(&world).output
+  let doc = typst::compile(&world).output
     .map_err(|e| RenderError::TypstCompilation(e.to_vec()))?;
-  let pdf_bytes = typst_pdf::pdf(&document, &PdfOptions::default())
+  let pdf_bytes = typst_pdf::pdf(&doc, &PdfOptions::default())
     .map_err(|e| RenderError::TypstCompilation(e.to_vec()))?;
   Ok(pdf_bytes)
+}
+
+pub(crate) fn to_pdf_seq<P: AsRef<std::path::Path>>(root: P, source: &str) -> Result<Vec<Vec<u8>>, RenderError> {
+  let world = SimpleWorld::new(root.as_ref(), source);
+  let doc = typst::compile::<PagedDocument>(&world).output
+    .map_err(|e| RenderError::TypstCompilation(e.to_vec()))?;
+  let pdf_seq_bytes = doc.pages().iter().map(|p| {
+    let doc = PagedDocument::new([p.clone()].into(), doc.info().clone());
+    let pdf_bytes = typst_pdf::pdf(&doc, &PdfOptions::default())
+      .map_err(|e| RenderError::TypstCompilation(e.to_vec()))?;
+    Ok::<_, RenderError>(pdf_bytes)
+  }).collect::<Result<_, _>>()?;
+  Ok(pdf_seq_bytes)
 }
