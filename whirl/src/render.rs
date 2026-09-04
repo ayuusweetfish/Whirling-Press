@@ -84,7 +84,6 @@ impl typst::World for SimpleWorld {
 #[derive(Debug)]
 pub(crate) enum RenderError {
   TypstCompilation(Vec<typst::diag::SourceDiagnostic>),
-  TypstPdfOutput(Vec<typst::diag::SourceDiagnostic>),
 }
 
 pub(crate) fn to_pdf<P: AsRef<std::path::Path>>(root: P, source: &str) -> Result<Vec<u8>, RenderError> {
