@@ -281,9 +281,12 @@ fn process_and_write(pack_root: &str, output: &str, format: ArgsFormat, compress
 }
 
 fn start_gui() {
-  if cfg!(feature = "gui") {
+  #[cfg(feature = "gui")]
+  {
     gui::start();
-  } else {
+  }
+  #[cfg(not(feature = "gui"))]
+  {
     println!("This version built without GUI feature >_<");
     println!("Please specify <pack_root> and -o <output>");
   }

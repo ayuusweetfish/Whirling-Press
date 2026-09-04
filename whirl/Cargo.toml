@@ -18,7 +18,13 @@ argh = "0.1"
 
 egui = { version = "0.36", default-features = false, features = [], optional = true }
 eframe = { version = "0.36", default-features = false, features = ["accesskit", "wayland", "web_screen_reader", "wgpu", "x11"], optional = true }
+rfd = { version = "0.17", optional = true }
 
 [features]
-gui = ["dep:egui", "dep:eframe"]
+gui = ["dep:egui", "dep:eframe", "dep:rfd"]
 default = ["gui"]
+
+[profile.release]
+# lto = true
+# codegen-units = 1
+panic = "abort"

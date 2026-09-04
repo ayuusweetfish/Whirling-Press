@@ -42,10 +42,26 @@ impl WhirlApp {
 
 impl eframe::App for WhirlApp {
   fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+    let ctx = ui.ctx();
+
+    let dropped_files = ctx.input(|i| i.raw.dropped_files.clone());
+    if !dropped_files.is_empty() {
+      let file = &dropped_files[0];
+      let (name, bytes) = (
+        file.path().to_path_buf(),
+        file.bytes().unwrap(),
+      );
+      println!("{} {}", name.display(), bytes.len());
+    }
+
     egui::CentralPanel::default().show(ui, |ui| {
       ui.heading("Hello World!");
       ui.label("Whirling Press 飞旋印刷厂");
-      ui.add(egui::TextEdit::singleline(&mut self.s1).hint_text("Write something here"));
+      ui.add(egui::TextEdit::singleline(&mut self.s1).hint_text("Placeholder"));
+      if ui.button("Open file…").clicked()
+        && let Some(path) = rfd::FileDialog::new().pick_folder() {
+        self.s1 = path.display().to_string();
+      }
     });
   }
 }
