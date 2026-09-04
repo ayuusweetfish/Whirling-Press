@@ -15,3 +15,10 @@ typst-kit = { version = "0.15", features = ["scan-fonts"] }
 lopdf = "0.44"
 
 argh = "0.1"
+
+egui = { version = "0.36", default-features = false, features = [], optional = true }
+eframe = { version = "0.36", default-features = false, features = ["accesskit", "wayland", "web_screen_reader", "wgpu", "x11"], optional = true }
+
+[features]
+gui = ["dep:egui", "dep:eframe"]
+default = ["gui"]

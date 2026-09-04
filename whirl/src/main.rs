@@ -1,6 +1,8 @@
 mod model;
 mod render;
 mod opt_pdf;
+#[cfg(feature = "gui")]
+mod gui;
 
 #[derive(Debug)]
 enum ExprError {
@@ -233,7 +235,14 @@ use argh::{FromArgs, FromArgValue};
 struct Args {
   #[argh(positional)]
   pack_root: Option<String>,
-  #[argh(option, short = 'o', description = "output file; GUI is started if not given")]
+  #[cfg_attr(
+    feature = "gui",
+    argh(option, short = 'o', description = "output file; GUI is started if not given")
+  )]
+  #[cfg_attr(
+    not(feature = "gui"),
+    argh(option, short = 'o', description = "output file")
+  )]
   output: Option<String>,
   #[argh(option, short = 'f', description = "output format (pdf, pdf_seq, png_seq)", default = "Default::default()")]
   format: ArgsFormat,
@@ -271,6 +280,15 @@ fn process_and_write(pack_root: &str, output: &str, format: ArgsFormat, compress
   Ok(())
 }
 
+fn start_gui() {
+  if cfg!(feature = "gui") {
+    gui::start();
+  } else {
+    println!("This version built without GUI feature >_<");
+    println!("Please specify <pack_root> and -o <output>");
+  }
+}
+
 fn main() {
   let args: Args = argh::from_env();
 
@@ -282,8 +300,10 @@ fn main() {
       }
     } else {
       // TODO: Start GUI loaded with root
+      start_gui();
     }
   } else {
     // TODO: Start empty GUI
+    start_gui();
   }
 }
