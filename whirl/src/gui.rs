@@ -1,12 +1,15 @@
 use eframe::egui;
 
 pub(crate) fn start() {
-  let native_options = eframe::NativeOptions::default();
-  eframe::run_native("Whirling Press", native_options, Box::new(|cc| Ok(Box::new(WhirlApp::new(cc)))));
+  let _ = eframe::run_native(
+    "Whirling Press",
+    eframe::NativeOptions::default(),
+    Box::new(|cc| Ok(Box::new(WhirlApp::new(cc)))),
+  );
 }
 
 struct WhirlApp {
-  s1: String,
+  root_path: Option<std::path::PathBuf>,
 }
 
 impl WhirlApp {
@@ -35,16 +38,12 @@ impl WhirlApp {
     ctx.all_styles_mut(move |style| style.text_styles = text_styles.clone());
 
     Self {
-      s1: "Instrument Sans | Editing {address}".to_string(),
+      root_path: None,
     }
   }
-}
 
-impl eframe::App for WhirlApp {
-  fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
-    let ctx = ui.ctx();
-
-    let dropped_files = ctx.input(|i| i.raw.dropped_files.clone());
+  fn ui_landing(&mut self, ui: &mut egui::Ui) {
+    let dropped_files = ui.ctx().input(|i| i.raw.dropped_files.clone());
     if !dropped_files.is_empty() {
       let file = &dropped_files[0];
       let (name, bytes) = (
@@ -54,14 +53,38 @@ impl eframe::App for WhirlApp {
       println!("{} {}", name.display(), bytes.len());
     }
 
+    use egui::{Layout, Align};
+
     egui::CentralPanel::default().show(ui, |ui| {
-      ui.heading("Hello World!");
-      ui.label("Whirling Press 飞旋印刷厂");
-      ui.add(egui::TextEdit::singleline(&mut self.s1).hint_text("Placeholder"));
-      if ui.button("Open file…").clicked()
-        && let Some(path) = rfd::FileDialog::new().pick_folder() {
-        self.s1 = path.display().to_string();
-      }
+      ui.with_layout(Layout::top_down(Align::Center), |ui| {
+        ui.add_space(ui.available_height() * 0.3);
+        ui.heading("Whirling Press 飞旋印刷厂");
+        ui.add_space(18.0);
+        ui.separator();
+        ui.add_space(18.0);
+        if ui.button("Open content folder").clicked()
+          && let Some(path) = rfd::FileDialog::new().pick_folder() {
+          self.root_path = Some(path.to_path_buf());
+          ui.ctx().send_viewport_cmd(egui::ViewportCommand::Title(
+            format!("{} — Whirling Press", path.display())));
+        }
+        ui.add_space(6.0);
+        ui.label("or drag-and-drop");
+      });
     });
+  }
+
+  fn ui_edit(&mut self, ui: &mut egui::Ui) {
+    let root_path = self.root_path.as_ref().unwrap();
+  }
+}
+
+impl eframe::App for WhirlApp {
+  fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+    if let Some(_) = self.root_path {
+      self.ui_edit(ui);
+    } else {
+      self.ui_landing(ui);
+    }
   }
 }
