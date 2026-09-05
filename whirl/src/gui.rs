@@ -115,7 +115,7 @@ impl WhirlApp {
       .show_collapsible(ui, &mut self.attr_panel_expanded, |ui| {
         egui::ScrollArea::vertical().show(ui, |ui| {
           ui.with_layout(Layout::top_down_justified(Align::Min), |ui| {
-            let el = &mut self.layout.as_mut().unwrap().elements[0];
+            let el = &mut self.layout.as_mut().unwrap().elements[3];
             ui.heading(match &el.content {
               model::Content::Image { .. } => "Image",
               model::Content::Text { .. } => "Text",
@@ -157,7 +157,7 @@ impl WhirlApp {
       (model::Anchor { x: model::AnchorAxis::Max, y: model::AnchorAxis::Cen }, "Bottom Center"),
       (model::Anchor { x: model::AnchorAxis::Max, y: model::AnchorAxis::Max }, "Bottom Right"),
     ];
-    ComboBox::from_label("")
+    ComboBox::from_id_salt("element_anchor")
       .width(150.0)
       .selected_text(anchors_and_names.iter()
         .find(|(a, _)| *a == el.anchor)
@@ -218,6 +218,29 @@ impl WhirlApp {
         ui.label("Size");
         ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(size).range(0.0..=f32::INFINITY).speed(1.0));
         ui.end_row();
+        ui.label("Weight");
+        let weights_and_names = [
+          (model::Weight::Thin, "Thin (100)"),
+          (model::Weight::ExtraLight, "Extra Light (200)"),
+          (model::Weight::Light, "Light (300)"),
+          (model::Weight::Regular, "Regular (400)"),
+          (model::Weight::Medium, "Medium (500)"),
+          (model::Weight::SemiBold, "Semi Bold (600)"),
+          (model::Weight::Bold, "Bold (700)"),
+          (model::Weight::ExtraBold, "Extra Bold (800)"),
+          (model::Weight::Black, "Black (900)"),
+        ];
+        ComboBox::from_id_salt("font_weight")
+          .width(150.0)
+          .selected_text(weights_and_names.iter()
+            .find(|(a, _)| *a == *weight)
+            .map(|(_, name)| *name).unwrap())
+          .show_ui(ui, |ui| {
+            for (value, name) in weights_and_names {
+              ui.selectable_value(weight, value, name);
+            }
+          });
+        ui.end_row();
         ui.label("Italic");
         ui.checkbox(italic, "");
         ui.end_row();
@@ -230,13 +253,37 @@ impl WhirlApp {
 
   fn font_list_editor(ui: &mut egui::Ui, el: &mut Vec<String>) {
     ui.vertical(|ui| {
-      for s in el {
+      let mut to_prioritize = None;
+      let mut to_remove = None;
+      for (i, s) in el.iter().enumerate() {
+        // ui.dnd_drag_source(ui.id().with(("font_list", i)), i, |ui| {
         ui.horizontal(|ui| {
           let h = ui.available_height();
-          ui.add_sized([ui.available_width() - h - ui.style().spacing.item_spacing.x, h],
+          ui.add_sized([ui.available_width() - (h + ui.style().spacing.item_spacing.x) * 2.0, h],
             egui::Button::selectable(false, &*s));
-          ui.add_sized([h, h], egui::Button::new("×"));
+          if i == 0 {
+            ui.add_space(h + ui.style().spacing.item_spacing.x);
+          } else {
+            if ui.add_sized([h, h], egui::Button::new("↑")).on_hover_text("Move up").clicked() {
+              to_prioritize = Some(i);
+            }
+          }
+          if ui.add_sized([h, h], egui::Button::new("×")).on_hover_text("Remove").clicked() {
+            to_remove = Some(i);
+          }
         });
+        // });
+      }
+      if let Some(i) = to_prioritize {
+        el.swap(i, i - 1);
+      }
+      if let Some(i) = to_remove {
+        el.remove(i);
+      }
+      if ui.add_sized([ui.available_width(), 0.0],
+        egui::Button::selectable(false, "+")).on_hover_text("Add").clicked()
+      {
+        el.push("Instrument Sans".into());
       }
     });
   }
