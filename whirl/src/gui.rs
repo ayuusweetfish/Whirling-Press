@@ -1,10 +1,10 @@
 use eframe::egui;
 
-pub(crate) fn start() {
+pub(crate) fn start(root_path: Option<&str>) {
   let _ = eframe::run_native(
     "Whirling Press",
     eframe::NativeOptions::default(),
-    Box::new(|cc| Ok(Box::new(WhirlApp::new(cc)))),
+    Box::new(|cc| Ok(Box::new(WhirlApp::new(cc, root_path)))),
   );
 }
 
@@ -13,13 +13,11 @@ use crate::model;
 struct WhirlApp {
   root_path: Option<std::path::PathBuf>,
   attr_panel_expanded: bool,
-  v1: f32,
-  v2: f32,
-  anchor: model::Anchor,
+  layout: Option<model::Layout>,
 }
 
 impl WhirlApp {
-  fn new(cc: &eframe::CreationContext<'_>) -> Self {
+  fn new(cc: &eframe::CreationContext<'_>, root_path: Option<&str>) -> Self {
     let ctx = &cc.egui_ctx;
 
     use egui::{FontDefinitions, FontData, FontFamily, FontId};
@@ -51,11 +49,31 @@ impl WhirlApp {
       style.spacing.combo_height = 300.;
     });
 
-    Self {
+    let mut self_ = Self {
       root_path: None,
       attr_panel_expanded: true,
-      v1: 0.0, v2: 150.0,
-      anchor: Default::default(),
+      layout: None,
+    };
+
+    if let Some(root_path) = root_path {
+      self_.load_document(root_path, ctx);
+    }
+
+    self_
+  }
+
+  fn load_document<P: AsRef<std::path::Path>>(&mut self, root_path: P, ctx: &egui::Context) {
+    let root_path = root_path.as_ref();
+    match crate::process_pack_metadata(root_path) {
+      Ok((_, layout, _, fields)) => {
+        self.root_path = Some(root_path.to_path_buf());
+        self.layout = Some(layout);
+        ctx.send_viewport_cmd(egui::ViewportCommand::Title(
+          format!("{} — Whirling Press", root_path.display())));
+      },
+      Err(e) => {
+        println!("{:?}", e);
+      },
     }
   }
 
@@ -81,9 +99,7 @@ impl WhirlApp {
         ui.add_space(18.0);
         if ui.button("Open content folder").clicked()
           && let Some(path) = rfd::FileDialog::new().pick_folder() {
-          self.root_path = Some(path.to_path_buf());
-          ui.ctx().send_viewport_cmd(egui::ViewportCommand::Title(
-            format!("{} — Whirling Press", path.display())));
+          self.load_document(&path, ui.ctx());
         }
         ui.add_space(6.0);
         ui.label("or drag-and-drop");
@@ -92,10 +108,7 @@ impl WhirlApp {
   }
 
   fn ui_edit(&mut self, ui: &mut egui::Ui) {
-    let root_path = self.root_path.as_ref().unwrap();
-
-    use egui::{Layout, Align};
-    use egui::{Grid, DragValue, Button, ComboBox};
+    use egui::{Layout, Align, Grid};
 
     egui::Panel::right("attr_panel")
       .resizable(true).default_size(320.0).size_range(80.0..=800.0)
@@ -107,47 +120,7 @@ impl WhirlApp {
             .spacing([20.0, 4.0])
             .striped(true)
             .show(ui, |ui| {
-              ui.label("Position");
-              ui.horizontal(|ui| {
-                ui.add_sized([80.0, ui.available_height()], DragValue::new(&mut self.v1).speed(0.1));
-                ui.add_sized([80.0, ui.available_height()], DragValue::new(&mut self.v2).speed(0.1));
-              });
-              ui.end_row();
-              ui.label("Anchor");
-              let anchors_and_names = [
-                (model::Anchor { x: model::AnchorAxis::Min, y: model::AnchorAxis::Min }, "Top Left"),
-                (model::Anchor { x: model::AnchorAxis::Min, y: model::AnchorAxis::Cen }, "Top Center"),
-                (model::Anchor { x: model::AnchorAxis::Min, y: model::AnchorAxis::Max }, "Top Right"),
-                (model::Anchor { x: model::AnchorAxis::Cen, y: model::AnchorAxis::Min }, "Middle Left"),
-                (model::Anchor { x: model::AnchorAxis::Cen, y: model::AnchorAxis::Cen }, "Middle Center"),
-                (model::Anchor { x: model::AnchorAxis::Cen, y: model::AnchorAxis::Max }, "Middle Right"),
-                (model::Anchor { x: model::AnchorAxis::Max, y: model::AnchorAxis::Min }, "Bottom Left"),
-                (model::Anchor { x: model::AnchorAxis::Max, y: model::AnchorAxis::Cen }, "Bottom Center"),
-                (model::Anchor { x: model::AnchorAxis::Max, y: model::AnchorAxis::Max }, "Bottom Right"),
-              ];
-              ComboBox::from_label("")
-                .width(150.0)
-                .selected_text(anchors_and_names.iter()
-                  .find(|(a, _)| *a == self.anchor)
-                  .map(|(_, name)| *name).unwrap())
-                .show_ui(ui, |ui| {
-                  for (value, name) in anchors_and_names {
-                    ui.selectable_value(&mut self.anchor, value, name);
-                  }
-                });
-              ui.end_row();
-              ui.label("Scale");
-              ui.horizontal(|ui| {
-                ui.add_sized([80.0, ui.available_height()], DragValue::new(&mut self.v1).speed(0.1));
-                ui.add_sized([80.0, ui.available_height()], DragValue::new(&mut self.v2).speed(0.1));
-                ui.add_space(ui.available_width()); // XXX: Hack to extend the grid to fill remaining width?
-              });
-              ui.end_row();
-              ui.label("Rotation");
-              ui.horizontal(|ui| {
-                ui.add_sized([80.0, ui.available_height()], DragValue::new(&mut self.v1).speed(0.1));
-              });
-              ui.end_row();
+              Self::show_attrs(ui, &mut self.layout.as_mut().unwrap().elements[0]);
             });
         });
       });
@@ -155,6 +128,51 @@ impl WhirlApp {
       .frame(egui::Frame::canvas(ui.style()))
       .show(ui, |ui| {
       });
+  }
+
+  fn show_attrs(ui: &mut egui::Ui, el: &mut model::Element) {
+    use egui::{DragValue, Button, ComboBox};
+    ui.label("Position");
+    ui.horizontal(|ui| {
+      ui.add_sized([80.0, ui.available_height()], DragValue::new(&mut el.x).speed(0.1));
+      ui.add_sized([80.0, ui.available_height()], DragValue::new(&mut el.y).speed(0.1));
+    });
+    ui.end_row();
+    ui.label("Anchor");
+    let anchors_and_names = [
+      (model::Anchor { x: model::AnchorAxis::Min, y: model::AnchorAxis::Min }, "Top Left"),
+      (model::Anchor { x: model::AnchorAxis::Min, y: model::AnchorAxis::Cen }, "Top Center"),
+      (model::Anchor { x: model::AnchorAxis::Min, y: model::AnchorAxis::Max }, "Top Right"),
+      (model::Anchor { x: model::AnchorAxis::Cen, y: model::AnchorAxis::Min }, "Middle Left"),
+      (model::Anchor { x: model::AnchorAxis::Cen, y: model::AnchorAxis::Cen }, "Middle Center"),
+      (model::Anchor { x: model::AnchorAxis::Cen, y: model::AnchorAxis::Max }, "Middle Right"),
+      (model::Anchor { x: model::AnchorAxis::Max, y: model::AnchorAxis::Min }, "Bottom Left"),
+      (model::Anchor { x: model::AnchorAxis::Max, y: model::AnchorAxis::Cen }, "Bottom Center"),
+      (model::Anchor { x: model::AnchorAxis::Max, y: model::AnchorAxis::Max }, "Bottom Right"),
+    ];
+    ComboBox::from_label("")
+      .width(150.0)
+      .selected_text(anchors_and_names.iter()
+        .find(|(a, _)| *a == el.anchor)
+        .map(|(_, name)| *name).unwrap())
+      .show_ui(ui, |ui| {
+        for (value, name) in anchors_and_names {
+          ui.selectable_value(&mut el.anchor, value, name);
+        }
+      });
+    ui.end_row();
+    ui.label("Scale");
+    ui.horizontal(|ui| {
+      ui.add_sized([80.0, ui.available_height()], DragValue::new(&mut el.scale.0).speed(0.1));
+      ui.add_sized([80.0, ui.available_height()], DragValue::new(&mut el.scale.1).speed(0.1));
+      ui.add_space(ui.available_width()); // XXX: Hack to extend the grid to fill remaining width?
+    });
+    ui.end_row();
+    ui.label("Rotation");
+    ui.horizontal(|ui| {
+      ui.add_sized([80.0, ui.available_height()], DragValue::new(&mut el.rotation).speed(0.1));
+    });
+    ui.end_row();
   }
 }
 

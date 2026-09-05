@@ -198,29 +198,38 @@ enum ProcessError {
   Render(render::RenderError),
 }
 
-  fn process_pack<P: AsRef<Path>, R, F: FnOnce(P, &str) -> Result<R, render::RenderError>>(path: P, render: F) -> Result<R, ProcessError> {
-  let yaml_file = find_single_ext(&path, &["yml", "yaml"])
+fn process_pack_metadata<P: AsRef<Path>>(path: P) -> Result<
+  (PathBuf, model::Layout, PathBuf, Vec<String>),
+  ProcessError>
+{
+  let yaml_file_name = find_single_ext(&path, &["yml", "yaml"])
     .map_err(|e| ProcessError::FindYaml(e))?;
-  let p = path.as_ref().join(&yaml_file);
-  let yaml = std::fs::read_to_string(&p)
-    .map_err(|e| ProcessError::Io(p.to_path_buf(), e))?;
+  let yaml_path = path.as_ref().join(&yaml_file_name);
+  let yaml = std::fs::read_to_string(&yaml_path)
+    .map_err(|e| ProcessError::Io(yaml_path.to_path_buf(), e))?;
 
   let parse_result: Result<model::Layout, _> = serde_saphyr::from_str(&yaml);
   let layout = parse_result
     .map_err(|e| ProcessError::ParseYaml(e))?;
 
-  let csv_file = find_single_ext(&path, &["csv"])
+  let csv_file_name = find_single_ext(&path, &["csv"])
     .map_err(|e| ProcessError::FindCsv(e))?;
-  let p = path.as_ref().join(&csv_file);
-  let list_fields = get_csv_fields(&p)
-    .map_err(|e| ProcessError::Io(p.to_path_buf(), e))?;
+  let csv_path = path.as_ref().join(&csv_file_name);
+  let list_fields = get_csv_fields(&csv_path)
+    .map_err(|e| ProcessError::Io(csv_path.to_path_buf(), e))?;
+
+  Ok((yaml_file_name, layout, csv_file_name, list_fields))
+}
+
+fn process_pack<P: AsRef<Path>, R, F: FnOnce(P, &str) -> Result<R, render::RenderError>>(path: P, render: F) -> Result<R, ProcessError> {
+  let (yaml_file_name, layout, csv_file_name, list_fields) = process_pack_metadata(&path)?;
 
   fn escape_path<P: AsRef<Path>>(path: P) -> Result<String, ProcessError> {
     Ok(path.as_ref().to_str().ok_or(ProcessError::CsvNameUtf8)?.to_string()
       .replace('\\', "\\\\").replace('"', "\\\""))
   }
 
-  let typst_source = layout.typst_source(&escape_path(csv_file)?, &list_fields)
+  let typst_source = layout.typst_source(&escape_path(csv_file_name)?, &list_fields)
     .map_err(|(i, e)| ProcessError::Expr(i, e))?;
 
   let output = render(path, &typst_source)
@@ -280,10 +289,10 @@ fn process_and_write(pack_root: &str, output: &str, format: ArgsFormat, compress
   Ok(())
 }
 
-fn start_gui() {
+fn start_gui(root_path: Option<&str>) {
   #[cfg(feature = "gui")]
   {
-    gui::start();
+    gui::start(root_path);
   }
   #[cfg(not(feature = "gui"))]
   {
@@ -303,10 +312,10 @@ fn main() {
       }
     } else {
       // TODO: Start GUI loaded with root
-      start_gui();
+      start_gui(Some(&pack_root));
     }
   } else {
     // TODO: Start empty GUI
-    start_gui();
+    start_gui(None);
   }
 }
