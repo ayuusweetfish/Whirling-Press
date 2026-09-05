@@ -170,8 +170,8 @@ impl WhirlApp {
     ui.end_row();
     ui.label("Scale");
     ui.horizontal(|ui| {
-      ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.scale.0).speed(0.1));
-      ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.scale.1).speed(0.1));
+      ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.scale.0).speed(0.01));
+      ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.scale.1).speed(0.01));
     });
     ui.end_row();
     ui.label("Rotation");
