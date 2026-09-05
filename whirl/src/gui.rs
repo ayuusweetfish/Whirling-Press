@@ -113,15 +113,21 @@ impl WhirlApp {
     egui::Panel::right("attr_panel")
       .resizable(true).default_size(320.0).size_range(80.0..=800.0)
       .show_collapsible(ui, &mut self.attr_panel_expanded, |ui| {
-        ui.with_layout(Layout::top_down_justified(Align::Min), |ui| {
-          ui.heading("Text");
-          Grid::new("attr_grid")
-            .num_columns(2)
-            .spacing([20.0, 4.0])
-            .striped(true)
-            .show(ui, |ui| {
-              Self::show_attrs(ui, &mut self.layout.as_mut().unwrap().elements[0]);
+        egui::ScrollArea::vertical().show(ui, |ui| {
+          ui.with_layout(Layout::top_down_justified(Align::Min), |ui| {
+            let el = &mut self.layout.as_mut().unwrap().elements[0];
+            ui.heading(match &el.content {
+              model::Content::Image { .. } => "Image",
+              model::Content::Text { .. } => "Text",
             });
+            Grid::new("attr_grid")
+              .num_columns(2)
+              .spacing([20.0, 4.0])
+              .striped(true)
+              .show(ui, |ui| {
+                Self::show_attrs(ui, el);
+              });
+          });
         });
       });
     egui::CentralPanel::no_frame()
@@ -134,8 +140,9 @@ impl WhirlApp {
     use egui::{DragValue, Button, ComboBox};
     ui.label("Position");
     ui.horizontal(|ui| {
-      ui.add_sized([80.0, ui.available_height()], DragValue::new(&mut el.x).speed(0.1));
-      ui.add_sized([80.0, ui.available_height()], DragValue::new(&mut el.y).speed(0.1));
+      ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.x).speed(0.1));
+      ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.y).speed(0.1));
+      ui.add_space(ui.available_width()); // XXX: Hack to extend the grid to fill remaining width?
     });
     ui.end_row();
     ui.label("Anchor");
@@ -163,9 +170,8 @@ impl WhirlApp {
     ui.end_row();
     ui.label("Scale");
     ui.horizontal(|ui| {
-      ui.add_sized([80.0, ui.available_height()], DragValue::new(&mut el.scale.0).speed(0.1));
-      ui.add_sized([80.0, ui.available_height()], DragValue::new(&mut el.scale.1).speed(0.1));
-      ui.add_space(ui.available_width()); // XXX: Hack to extend the grid to fill remaining width?
+      ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.scale.0).speed(0.1));
+      ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.scale.1).speed(0.1));
     });
     ui.end_row();
     ui.label("Rotation");
@@ -173,6 +179,49 @@ impl WhirlApp {
       ui.add_sized([80.0, ui.available_height()], DragValue::new(&mut el.rotation).speed(0.1));
     });
     ui.end_row();
+    ui.label("Size limit");
+    ui.horizontal(|ui| {
+      ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.scale.0).speed(0.1));
+      ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.scale.1).speed(0.1));
+    });
+    ui.end_row();
+    match &mut el.content {
+      model::Content::Image { src } => {
+        ui.label("Source");
+        ui.add(egui::TextEdit::singleline(src));
+        ui.end_row();
+      },
+      model::Content::Text { family, size, weight, italic, tracking, text } => {
+        ui.label("Text");
+        ui.add(egui::TextEdit::multiline(text).desired_width(ui.available_width()));
+        ui.end_row();
+        ui.label("Family");
+        Self::font_list_editor(ui, family);
+        ui.end_row();
+        ui.label("Size");
+        ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(size).range(0.0..=f32::INFINITY).speed(1.0));
+        ui.end_row();
+        ui.label("Italic");
+        ui.checkbox(italic, "");
+        ui.end_row();
+        ui.label("Tracking");
+        ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(tracking).speed(0.1));
+        ui.end_row();
+      },
+    }
+  }
+
+  fn font_list_editor(ui: &mut egui::Ui, el: &mut Vec<String>) {
+    ui.vertical(|ui| {
+      for s in el {
+        ui.horizontal(|ui| {
+          let h = ui.available_height();
+          ui.add_sized([ui.available_width() - h - ui.style().spacing.item_spacing.x, h],
+            egui::Button::selectable(false, &*s));
+          ui.add_sized([h, h], egui::Button::new("×"));
+        });
+      }
+    });
   }
 }
 
