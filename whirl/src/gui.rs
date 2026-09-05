@@ -213,7 +213,8 @@ impl WhirlApp {
         ui.add(egui::TextEdit::multiline(text).desired_width(ui.available_width()));
         ui.end_row();
         ui.label("Family");
-        Self::font_list_editor(ui, family);
+        let font_family_list = vec!["Instrument Sans".to_string(), "Noto Sans CJK".to_string(), "Droid Sans Fallback".to_string()];
+        Self::font_list_editor(ui, &font_family_list, family);
         ui.end_row();
         ui.label("Size");
         ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(size).range(0.0..=f32::INFINITY).speed(1.0));
@@ -251,25 +252,49 @@ impl WhirlApp {
     }
   }
 
-  fn font_list_editor(ui: &mut egui::Ui, el: &mut Vec<String>) {
+  fn font_list_editor(ui: &mut egui::Ui, font_family_list: &[String], el: &mut Vec<String>) {
     ui.vertical(|ui| {
       let mut to_prioritize = None;
       let mut to_remove = None;
-      for (i, s) in el.iter().enumerate() {
+      let n = el.len();
+      for (i, s) in el.iter_mut().enumerate() {
         // ui.dnd_drag_source(ui.id().with(("font_list", i)), i, |ui| {
         ui.horizontal(|ui| {
           let h = ui.available_height();
-          ui.add_sized([ui.available_width() - (h + ui.style().spacing.item_spacing.x) * 2.0, h],
-            egui::Button::selectable(false, &*s));
-          if i == 0 {
-            ui.add_space(h + ui.style().spacing.item_spacing.x);
+          let button_w = if n > 1 {
+            ui.available_width() - (h + ui.style().spacing.item_spacing.x) * 2.0
           } else {
-            if ui.add_sized([h, h], egui::Button::new("↑")).on_hover_text("Move up").clicked() {
-              to_prioritize = Some(i);
+            ui.available_width()
+          };
+          let resp = ui.add_sized([button_w, h],
+            egui::Button::selectable(false, &*s));
+          egui::Popup::menu(&resp).id(ui.id().with(("font_family_popup", i)))
+            .show(|ui| {
+              ui.set_min_width(resp.rect.width() -
+                ui.style().spacing.menu_margin.left as f32 -
+                ui.style().spacing.menu_margin.right as f32);
+              egui::ScrollArea::vertical()
+                .max_height(ui.style().spacing.combo_height)
+                .show(ui, |ui| {
+                  ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
+                  for family in font_family_list {
+                    if ui.add(egui::Button::selectable(false, family)).clicked() {
+                      *s = family.clone();
+                    }
+                  }
+                }).inner
+            });
+          if n > 1 {
+            if i == 0 {
+              ui.add_space(h + ui.style().spacing.item_spacing.x);
+            } else {
+              if ui.add_sized([h, h], egui::Button::new("↑")).on_hover_text("Move up").clicked() {
+                to_prioritize = Some(i);
+              }
             }
-          }
-          if ui.add_sized([h, h], egui::Button::new("×")).on_hover_text("Remove").clicked() {
-            to_remove = Some(i);
+            if ui.add_sized([h, h], egui::Button::new("×")).on_hover_text("Remove").clicked() {
+              to_remove = Some(i);
+            }
           }
         });
         // });
@@ -283,7 +308,7 @@ impl WhirlApp {
       if ui.add_sized([ui.available_width(), 0.0],
         egui::Button::selectable(false, "+")).on_hover_text("Add").clicked()
       {
-        el.push("Instrument Sans".into());
+        el.push(font_family_list[0].clone());
       }
     });
   }
