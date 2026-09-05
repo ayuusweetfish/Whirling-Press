@@ -28,9 +28,12 @@ impl WhirlApp {
     let mut fonts = FontDefinitions::default();
     fonts.font_data.insert("f1".to_string(),
       std::sync::Arc::new(FontData::from_static(include_bytes!("../res/InstrumentSans_Regular.ttf"))));
+    fonts.font_data.insert("f2".to_string(),
+      std::sync::Arc::new(FontData::from_static(include_bytes!("../res/NotoEmoji_Regular_subset.ttf"))));
     fonts.font_data.insert("f9".to_string(),
       std::sync::Arc::new(FontData::from_static(include_bytes!("../res/DroidSansFallbackFull.ttf"))));
     fonts.families.get_mut(&FontFamily::Proportional).unwrap().push("f1".to_owned());
+    fonts.families.get_mut(&FontFamily::Proportional).unwrap().push("f2".to_owned());
     fonts.families.get_mut(&FontFamily::Proportional).unwrap().push("f9".to_owned());
     ctx.set_fonts(fonts);
 
@@ -165,13 +168,14 @@ impl eframe::App for WhirlApp {
           // which has less-than-ideal hover feedback
           let is_dark = ui.ctx().theme() == egui::Theme::Dark;
           if ui.add_sized([ui.available_height(), ui.available_height()],
-            egui::Button::selectable(false, if is_dark { "D" } else { "L" })).clicked() {
+            egui::Button::selectable(false,
+              egui::RichText::new(if is_dark { "🌙" } else { "☀️" }).size(14.0))).clicked() {
             ui.ctx().set_theme(if is_dark { egui::Theme::Light } else { egui::Theme::Dark });
           }
           ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
             if let Some(path) = &self.root_path {
               if ui.add_sized([ui.available_height(), ui.available_height()],
-                egui::Button::selectable(false, "🗎")).clicked() {
+                egui::Button::selectable(false, egui::RichText::new("📄").size(14.0))).clicked() {
               }
               ui.label(format!("759×2663, 25 elements — {}", path.to_string_lossy()));
             }
