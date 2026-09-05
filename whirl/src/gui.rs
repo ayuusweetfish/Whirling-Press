@@ -180,9 +180,26 @@ impl WhirlApp {
     });
     ui.end_row();
     ui.label("Size limit");
+    fn size_limit_editor(ui: &mut egui::Ui, value: &mut Option<f32>) {
+      let mut x = value.unwrap_or(0.0);
+      ui.add_sized([80.0, ui.style().spacing.interact_size.y],
+        DragValue::new(&mut x).range(0.0..=f32::INFINITY).speed(0.1)
+          .custom_formatter(|n, _| {
+            if n > 0.0 { format!("{n:.1}") } else { "—".to_string() }
+          })
+          .custom_parser(|s| {
+            let s = s.trim();
+            if s == "" || s.starts_with("—") || s.starts_with("-") {
+              Some(0.0)
+            } else {
+              s.parse().ok()
+            }
+          }));
+      *value = if x > 0.0 { Some(x) } else { None };
+    }
     ui.horizontal(|ui| {
-      ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.scale.0).speed(0.1));
-      ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.scale.1).speed(0.1));
+      size_limit_editor(ui, &mut el.width);
+      size_limit_editor(ui, &mut el.height);
     });
     ui.end_row();
     match &mut el.content {
