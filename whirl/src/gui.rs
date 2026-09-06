@@ -14,6 +14,7 @@ struct WhirlApp {
   root_path: Option<std::path::PathBuf>,
   attr_panel_expanded: bool,
   layout: Option<model::Layout>,
+  sel_element: Option<usize>,
 }
 
 impl WhirlApp {
@@ -53,6 +54,7 @@ impl WhirlApp {
       root_path: None,
       attr_panel_expanded: true,
       layout: None,
+      sel_element: None,
     };
 
     if let Some(root_path) = root_path {
@@ -115,24 +117,53 @@ impl WhirlApp {
       .show_collapsible(ui, &mut self.attr_panel_expanded, |ui| {
         egui::ScrollArea::vertical().show(ui, |ui| {
           ui.with_layout(Layout::top_down_justified(Align::Min), |ui| {
-            let el = &mut self.layout.as_mut().unwrap().elements[3];
-            ui.heading(match &el.content {
-              model::Content::Image { .. } => "Image",
-              model::Content::Text { .. } => "Text",
-            });
-            Grid::new("attr_grid")
-              .num_columns(2)
-              .spacing([20.0, 4.0])
-              .striped(true)
-              .show(ui, |ui| {
-                Self::show_attrs(ui, el);
+            if let Some(i) = self.sel_element {
+              let el = &mut self.layout.as_mut().unwrap().elements[i];
+              ui.heading(match &el.content {
+                model::Content::Image { .. } => "Image",
+                model::Content::Text { .. } => "Text",
               });
+              Grid::new("attr_grid")
+                .num_columns(2)
+                .spacing([20.0, 4.0])
+                .striped(true)
+                .show(ui, |ui| {
+                  Self::show_attrs(ui, el);
+                });
+            } else {
+              ui.label("");
+            }
           });
         });
       });
     egui::CentralPanel::no_frame()
       .frame(egui::Frame::canvas(ui.style()))
       .show(ui, |ui| {
+        ui.with_layout(egui::Layout::top_down(egui::Align::Max), |ui| {
+          egui::CollapsingHeader::new("Elements").default_open(true).show(ui, |ui| {
+            ui.allocate_ui(egui::vec2(180.0, 240.0), |ui| {
+              egui::ScrollArea::vertical().show(ui, |ui| {
+                let elements = &self.layout.as_mut().unwrap().elements;
+                for (index, el) in elements.iter().enumerate().rev() {
+                  let sel = self.sel_element.map_or(false, |i| i == index);
+                  ui.horizontal(|ui| {
+                    if ui.add_sized(
+                      egui::vec2(160.0, ui.style().spacing.interact_size.y),
+                      egui::Button::selectable(sel, "").left_text(
+                        match &el.content {
+                          model::Content::Image { src, .. } => format!("🖼️ {}", src),
+                          model::Content::Text { text, .. } => format!("💬 {}", text),
+                        },
+                      ).truncate(),
+                    ).clicked() {
+                      self.sel_element = Some(index);
+                    }
+                  });
+                }
+              });
+            });
+          });
+        });
       });
   }
 
