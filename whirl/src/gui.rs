@@ -1,11 +1,14 @@
 use eframe::egui;
 
 pub(crate) fn start(root_path: Option<&str>) {
-  let _ = eframe::run_native(
+  let result = eframe::run_native(
     "Whirling Press",
     eframe::NativeOptions::default(),
     Box::new(|cc| Ok(Box::new(WhirlApp::new(cc, root_path)))),
   );
+  if let Err(e) = result {
+    println!("{:?}", e);
+  }
 }
 
 use crate::model;
