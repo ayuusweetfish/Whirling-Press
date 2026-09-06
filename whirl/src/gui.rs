@@ -204,9 +204,19 @@ impl WhirlApp {
                 }
                 if let Some(i) = to_prioritize {
                   elements.swap(i, i + 1);
+                  if Some(i) == self.sel_element {
+                    self.sel_element = Some(i + 1);
+                  } else if Some(i + 1) == self.sel_element {
+                    self.sel_element = Some(i);
+                  }
                 }
                 if let Some(i) = to_remove {
                   elements.remove(i);
+                  match self.sel_element {
+                    Some(j) if j == i => self.sel_element = None,
+                    Some(j) if j > i => self.sel_element = Some(j - 1),
+                    _ => (),
+                  }
                 }
               });
             });
