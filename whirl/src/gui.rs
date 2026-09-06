@@ -204,10 +204,10 @@ impl WhirlApp {
                 }
                 if let Some(i) = to_prioritize {
                   elements.swap(i, i + 1);
-                  if Some(i) == self.sel_element {
-                    self.sel_element = Some(i + 1);
-                  } else if Some(i + 1) == self.sel_element {
-                    self.sel_element = Some(i);
+                  match self.sel_element {
+                    Some(j) if j == i => self.sel_element = Some(i + 1),
+                    Some(j) if j == i + 1 => self.sel_element = Some(i),
+                    _ => (),
                   }
                 }
                 if let Some(i) = to_remove {
