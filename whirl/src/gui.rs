@@ -141,11 +141,41 @@ impl WhirlApp {
       .show(ui, |ui| {
         ui.with_layout(egui::Layout::top_down(egui::Align::Max), |ui| {
           egui::CollapsingHeader::new("Elements").default_open(true).show(ui, |ui| {
-            ui.allocate_ui(egui::vec2(180.0, 240.0), |ui| {
+            let h = ui.style().spacing.interact_size.y;
+            ui.allocate_ui(egui::vec2(160.0 + (h + ui.style().spacing.item_spacing.x) * 2.0, 240.0), |ui| {
               egui::ScrollArea::vertical().show(ui, |ui| {
-                let elements = &self.layout.as_mut().unwrap().elements;
-                for (index, el) in elements.iter().enumerate().rev() {
-                  let sel = self.sel_element.map_or(false, |i| i == index);
+                let elements = &mut self.layout.as_mut().unwrap().elements;
+                // Button for adding new
+                let add_resp = ui.add_sized(
+                  [ui.available_width(), ui.style().spacing.interact_size.y],
+                  egui::Button::selectable(false, "+")
+                ).on_hover_text("Add");
+                egui::Popup::menu(&add_resp).id(ui.id().with("add_element_popup"))
+                  .show(|ui| {
+                    ui.set_min_width(add_resp.rect.width() -
+                      ui.style().spacing.menu_margin.left as f32 -
+                      ui.style().spacing.menu_margin.right as f32);
+                    if ui.add(egui::Button::selectable(false, "🖼️ Image")).clicked() {
+                      elements.push(model::Element::from_content(model::Content::Image {
+                        src: "".to_string(),
+                      }));
+                    }
+                    if ui.add(egui::Button::selectable(false, "💬 Text")).clicked() {
+                      elements.push(model::Element::from_content(model::Content::Text {
+                        family: vec!["Instrument Sans".to_string()],
+                        size: 16.0,
+                        weight: model::Weight::Regular,
+                        italic: false,
+                        tracking: 0.0,
+                        text: "".to_string(),
+                      }));
+                    }
+                  });
+                // List
+                let mut to_prioritize = None;
+                let mut to_remove = None;
+                for (i, el) in elements.iter().enumerate().rev() {
+                  let sel = self.sel_element.map_or(false, |j| j == i);
                   ui.horizontal(|ui| {
                     if ui.add_sized(
                       egui::vec2(160.0, ui.style().spacing.interact_size.y),
@@ -156,9 +186,25 @@ impl WhirlApp {
                         },
                       ).truncate(),
                     ).clicked() {
-                      self.sel_element = Some(index);
+                      self.sel_element = Some(i);
+                    }
+                    if i + 1 == elements.len() {
+                      ui.add_space(h + ui.style().spacing.item_spacing.x);
+                    } else {
+                      if ui.add_sized([h, h], egui::Button::new("↑")).on_hover_text("Move up").clicked() {
+                        to_prioritize = Some(i);
+                      }
+                    }
+                    if ui.add_sized([h, h], egui::Button::new("×")).on_hover_text("Remove").clicked() {
+                      to_remove = Some(i);
                     }
                   });
+                }
+                if let Some(i) = to_prioritize {
+                  elements.swap(i, i + 1);
+                }
+                if let Some(i) = to_remove {
+                  elements.remove(i);
                 }
               });
             });
