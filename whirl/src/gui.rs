@@ -58,7 +58,7 @@ impl WhirlApp {
       root_path: None,
       attr_panel_expanded: true,
       layout: None,
-      font_families: vec!["Instrument Sans".to_string(), "Noto Sans CJK SC".to_string(), "Droid Sans Fallback".to_string()],
+      font_families: crate::render::font_families(None::<&str>),
       sel_element: None,
     };
 
@@ -75,6 +75,7 @@ impl WhirlApp {
       Ok((_, layout, _, fields)) => {
         self.root_path = Some(root_path.to_path_buf());
         self.layout = Some(layout);
+        self.font_families = crate::render::font_families(Some(root_path));
         ctx.send_viewport_cmd(egui::ViewportCommand::Title(
           format!("{} — Whirling Press", root_path.display())));
       },

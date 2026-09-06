@@ -24,6 +24,30 @@ pub struct SimpleWorld {
     // trait `typst::World` requires `Sync`
 }
 
+pub(crate) fn font_families(root: Option<impl Into<PathBuf>>) -> Vec<String> {
+  let mut user_fonts: Vec<String> = if let Some(root) = root {
+    typst_kit::fonts::scan(&root.into()).map(|(_, font_info)| font_info.family.clone()).collect()
+  } else {
+    vec![]
+  };
+  user_fonts.sort();
+  user_fonts.dedup();
+  let mut system_fonts: Vec<String> =
+    typst_kit::fonts::system().map(|(_, font_info)| font_info.family.clone()).collect();
+  system_fonts.sort();
+  system_fonts.dedup();
+  // Remove system fonts that are overridden by user fonts
+  let mut i = 0;
+  system_fonts.retain(|val| {
+    while i < user_fonts.len() && user_fonts[i] < *val {
+      i += 1;
+    }
+    !(i < user_fonts.len() && user_fonts[i] == *val)
+  });
+  user_fonts.extend(system_fonts);
+  user_fonts
+}
+
 impl SimpleWorld {
   pub fn new(root: impl Into<PathBuf>, source: &str) -> Self {
     let root = root.into();
