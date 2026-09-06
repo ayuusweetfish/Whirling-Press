@@ -14,6 +14,7 @@ struct WhirlApp {
   root_path: Option<std::path::PathBuf>,
   attr_panel_expanded: bool,
   layout: Option<model::Layout>,
+  font_families: Vec<String>,
   sel_element: Option<usize>,
 }
 
@@ -54,6 +55,7 @@ impl WhirlApp {
       root_path: None,
       attr_panel_expanded: true,
       layout: None,
+      font_families: vec!["Instrument Sans".to_string(), "Noto Sans CJK SC".to_string(), "Droid Sans Fallback".to_string()],
       sel_element: None,
     };
 
@@ -128,7 +130,7 @@ impl WhirlApp {
                 .spacing([20.0, 4.0])
                 .striped(true)
                 .show(ui, |ui| {
-                  Self::show_attrs(ui, el);
+                  Self::show_attrs(ui, &self.font_families, el);
                 });
             } else {
               ui.label("");
@@ -162,7 +164,7 @@ impl WhirlApp {
                     }
                     if ui.add(egui::Button::selectable(false, "💬 Text")).clicked() {
                       elements.push(model::Element::from_content(model::Content::Text {
-                        family: vec!["Instrument Sans".to_string()],
+                        family: vec![self.font_families[0].clone()],
                         size: 16.0,
                         weight: model::Weight::Regular,
                         italic: false,
@@ -213,7 +215,7 @@ impl WhirlApp {
       });
   }
 
-  fn show_attrs(ui: &mut egui::Ui, el: &mut model::Element) {
+  fn show_attrs(ui: &mut egui::Ui, font_families: &[String], el: &mut model::Element) {
     use egui::{DragValue, Button, ComboBox};
     ui.label("Position");
     ui.horizontal(|ui| {
@@ -290,8 +292,7 @@ impl WhirlApp {
         ui.add(egui::TextEdit::multiline(text).desired_width(ui.available_width()));
         ui.end_row();
         ui.label("Family");
-        let font_family_list = vec!["Instrument Sans".to_string(), "Noto Sans CJK".to_string(), "Droid Sans Fallback".to_string()];
-        Self::font_list_editor(ui, &font_family_list, family);
+        Self::font_list_editor(ui, &font_families, family);
         ui.end_row();
         ui.label("Size");
         ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(size).range(0.0..=f32::INFINITY).speed(1.0));
@@ -329,7 +330,7 @@ impl WhirlApp {
     }
   }
 
-  fn font_list_editor(ui: &mut egui::Ui, font_family_list: &[String], el: &mut Vec<String>) {
+  fn font_list_editor(ui: &mut egui::Ui, font_families: &[String], el: &mut Vec<String>) {
     ui.vertical(|ui| {
       let mut to_prioritize = None;
       let mut to_remove = None;
@@ -354,8 +355,8 @@ impl WhirlApp {
                 .max_height(ui.style().spacing.combo_height)
                 .show(ui, |ui| {
                   ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
-                  for family in font_family_list {
-                    if ui.add(egui::Button::selectable(false, family)).clicked() {
+                  for family in font_families {
+                    if ui.add(egui::Button::selectable(*family == *s, family)).clicked() {
                       *s = family.clone();
                     }
                   }
@@ -385,7 +386,7 @@ impl WhirlApp {
       if ui.add_sized([ui.available_width(), 0.0],
         egui::Button::selectable(false, "+")).on_hover_text("Add").clicked()
       {
-        el.push(font_family_list[0].clone());
+        el.push(font_families[0].clone());
       }
     });
   }
