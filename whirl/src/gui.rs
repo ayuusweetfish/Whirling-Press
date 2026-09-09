@@ -150,7 +150,7 @@ impl WhirlApp {
     let (c_width, c_height) = ui.available_size().into();
 
     egui::CentralPanel::no_frame()
-      .frame(egui::Frame::canvas(ui.style()))
+      .frame(egui::Frame::canvas(ui.style()).stroke(egui::Stroke::NONE).corner_radius(0.0))
       .show(ui, |ui| {
         ui.with_layout(egui::Layout::top_down(egui::Align::Max), |ui| {
           egui::CollapsingHeader::new("Elements").default_open(true).show(ui, |ui| {
