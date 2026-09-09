@@ -397,7 +397,7 @@ impl WhirlApp {
             ui.available_width()
           };
           let resp = ui.add_sized([button_w, h],
-            egui::Button::selectable(false, &*s));
+            egui::Button::selectable(false, &*s).wrap_mode(egui::TextWrapMode::Truncate));
           egui::Popup::menu(&resp).id(ui.id().with(("font_family_popup", i)))
             .show(|ui| {
               ui.set_min_width(resp.rect.width() -
