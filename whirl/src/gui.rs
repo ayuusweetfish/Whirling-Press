@@ -132,7 +132,7 @@ impl WhirlApp {
                 model::Content::Image { .. } => "Image",
                 model::Content::Text { .. } => "Text",
               });
-              Grid::new("attr_grid")
+              Grid::new(("attr_grid", i))
                 .num_columns(2)
                 .spacing([20.0, 4.0])
                 .striped(true)
