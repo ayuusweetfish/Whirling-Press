@@ -19,6 +19,20 @@ struct WhirlApp {
   layout: Option<model::Layout>,
   font_families: Vec<String>,
   sel_element: Option<usize>,
+  canvas: CanvasState,
+}
+
+struct CanvasState {
+  pub zoom: f32,
+  pub origin: (f32, f32),
+}
+impl Default for CanvasState {
+  fn default() -> Self {
+    Self {
+      zoom: 1.0,
+      origin: (0.0, 0.0),
+    }
+  }
 }
 
 impl WhirlApp {
@@ -63,6 +77,7 @@ impl WhirlApp {
       layout: None,
       font_families: crate::render::font_families(None::<&str>),
       sel_element: None,
+      canvas: CanvasState::default(),
     };
 
     if let Some(root_path) = root_path {
@@ -157,8 +172,25 @@ impl WhirlApp {
           ui.available_size_before_wrap(),
           egui::Sense::click_and_drag()
         );
+
+        if ui.input(|i|
+          i.multi_touch().is_some() ||
+          i.events.iter().any(|event| matches!(event,
+            egui::Event::MouseWheel { .. } | egui::Event::Zoom { .. })))
+        {
+          ui.input(|i| {
+            self.canvas.zoom *= i.zoom_delta();
+            self.canvas.origin = (
+              self.canvas.origin.0 - i.translation_delta().x,
+              self.canvas.origin.1 - i.translation_delta().y,
+            );
+          });
+        }
+
         painter.add(egui::Shape::rect_filled(
-          egui::Rect::from_min_size([100.0, 100.0].into(), [100.0, 100.0].into()),
+          egui::Rect::from_min_size(
+            [c_width / 2.0 - self.canvas.origin.0, c_height / 2.0 - self.canvas.origin.1].into(),
+            [100.0 * self.canvas.zoom, 100.0 * self.canvas.zoom].into()),
           egui::CornerRadius::same(5),
           egui::Color32::from_rgba_premultiplied(255, 248, 240, 255),
         ));
