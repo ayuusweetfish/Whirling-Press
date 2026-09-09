@@ -33,10 +33,13 @@ impl WhirlApp {
       std::sync::Arc::new(FontData::from_static(include_bytes!("../res/InstrumentSans_Regular.ttf"))));
     fonts.font_data.insert("f2".to_string(),
       std::sync::Arc::new(FontData::from_static(include_bytes!("../res/NotoEmoji_Regular_subset.ttf"))));
+    fonts.font_data.insert("f3".to_string(),
+      std::sync::Arc::new(FontData::from_static(include_bytes!("../res/NotoSansMono_Condensed_Regular_subset.ttf"))));
     fonts.font_data.insert("f9".to_string(),
       std::sync::Arc::new(FontData::from_static(include_bytes!("../res/DroidSansFallbackFull.ttf"))));
     fonts.families.get_mut(&FontFamily::Proportional).unwrap().push("f1".to_owned());
     fonts.families.get_mut(&FontFamily::Proportional).unwrap().push("f2".to_owned());
+    fonts.families.get_mut(&FontFamily::Proportional).unwrap().push("f3".to_owned());
     fonts.families.get_mut(&FontFamily::Proportional).unwrap().push("f9".to_owned());
     ctx.set_fonts(fonts);
 
@@ -142,6 +145,10 @@ impl WhirlApp {
           });
         });
       });
+
+    // Both central and canvas
+    let (c_width, c_height) = ui.available_size().into();
+
     egui::CentralPanel::no_frame()
       .frame(egui::Frame::canvas(ui.style()))
       .show(ui, |ui| {
@@ -226,6 +233,19 @@ impl WhirlApp {
             });
           });
         });
+      });
+
+    egui::Area::new(ui.id().with("attr_panel_toggle"))
+      .fixed_pos(egui::pos2(c_width, c_height / 2.0))
+      .pivot(egui::Align2::RIGHT_CENTER)
+      .show(ui.ctx(), |ui| {
+        let h = ui.style().spacing.interact_size.y;
+        if ui.add(egui::Button::new(if self.attr_panel_expanded { "▸" } else { "◂" }))
+          .on_hover_text(if self.attr_panel_expanded { "Hide attributes" } else { "Show attributes" })
+          .clicked()
+        {
+          self.attr_panel_expanded = !self.attr_panel_expanded;
+        }
       });
   }
 
