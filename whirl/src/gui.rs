@@ -152,100 +152,118 @@ impl WhirlApp {
     egui::CentralPanel::no_frame()
       .frame(egui::Frame::canvas(ui.style()).stroke(egui::Stroke::NONE).corner_radius(0.0))
       .show(ui, |ui| {
-        ui.with_layout(egui::Layout::top_down(egui::Align::Max), |ui| {
-          egui::CollapsingHeader::new("Elements").default_open(true).show(ui, |ui| {
-            let h = ui.style().spacing.interact_size.y;
-            ui.allocate_ui(egui::vec2(160.0 + (h + ui.style().spacing.item_spacing.x) * 2.0, 240.0), |ui| {
-              egui::ScrollArea::vertical().show(ui, |ui| {
-                let elements = &mut self.layout.as_mut().unwrap().elements;
-                // Button for adding new
-                let add_resp = ui.add_sized(
-                  [ui.available_width(), ui.style().spacing.interact_size.y],
-                  egui::Button::selectable(false, "+")
-                ).on_hover_text("Add");
-                egui::Popup::menu(&add_resp).id(ui.id().with("add_element_popup"))
-                  .show(|ui| {
-                    ui.set_min_width(add_resp.rect.width() -
-                      ui.style().spacing.menu_margin.left as f32 -
-                      ui.style().spacing.menu_margin.right as f32);
-                    if ui.add(egui::Button::selectable(false, "🖼️ Image")).clicked() {
-                      elements.push(model::Element::from_content(model::Content::Image {
-                        src: "".to_string(),
-                      }));
+        // Painter
+        let (resp, painter) = ui.allocate_painter(
+          ui.available_size_before_wrap(),
+          egui::Sense::click_and_drag()
+        );
+        painter.add(egui::Shape::rect_filled(
+          egui::Rect::from_min_size([100.0, 100.0].into(), [100.0, 100.0].into()),
+          egui::CornerRadius::same(5),
+          egui::Color32::from_rgba_premultiplied(255, 248, 240, 255),
+        ));
+
+        // Elements exapndable menu
+        egui::Area::new(ui.id().with("elements_area"))
+          .fixed_pos(egui::pos2(0.0, 0.0))
+          .pivot(egui::Align2::LEFT_TOP)
+          .show(ui.ctx(), |ui| {
+            egui::Frame::menu(ui.style()).inner_margin(2.0).show(ui, |ui| {
+              egui::CollapsingHeader::new("Elements").default_open(true).show(ui, |ui| {
+                let h = ui.style().spacing.interact_size.y;
+                ui.allocate_ui(egui::vec2(160.0 + (h + ui.style().spacing.item_spacing.x) * 2.0, 240.0), |ui| {
+                  egui::ScrollArea::vertical().show(ui, |ui| {
+                    let elements = &mut self.layout.as_mut().unwrap().elements;
+                    // Button for adding new
+                    let add_resp = ui.add_sized(
+                      [ui.available_width(), ui.style().spacing.interact_size.y],
+                      egui::Button::selectable(false, "+")
+                    ).on_hover_text("Add");
+                    egui::Popup::menu(&add_resp).id(ui.id().with("add_element_popup"))
+                      .show(|ui| {
+                        ui.set_min_width(add_resp.rect.width() -
+                          ui.style().spacing.menu_margin.left as f32 -
+                          ui.style().spacing.menu_margin.right as f32);
+                        if ui.add(egui::Button::selectable(false, "🖼️ Image")).clicked() {
+                          elements.push(model::Element::from_content(model::Content::Image {
+                            src: "".to_string(),
+                          }));
+                        }
+                        if ui.add(egui::Button::selectable(false, "💬 Text")).clicked() {
+                          elements.push(model::Element::from_content(model::Content::Text {
+                            family: vec![self.font_families[0].clone()],
+                            size: 16.0,
+                            weight: model::Weight::Regular,
+                            italic: false,
+                            tracking: 0.0,
+                            text: "".to_string(),
+                          }));
+                        }
+                      });
+                    // List
+                    let mut to_prioritize = None;
+                    let mut to_remove = None;
+                    for (i, el) in elements.iter().enumerate().rev() {
+                      let sel = self.sel_element.map_or(false, |j| j == i);
+                      ui.horizontal(|ui| {
+                        if ui.add_sized(
+                          egui::vec2(160.0, ui.style().spacing.interact_size.y),
+                          egui::Button::selectable(sel, "").left_text(
+                            match &el.content {
+                              model::Content::Image { src, .. } => format!("🖼️ {}", src),
+                              model::Content::Text { text, .. } => format!("💬 {}", text),
+                            },
+                          ).truncate(),
+                        ).clicked() {
+                          self.sel_element = Some(i);
+                        }
+                        if i + 1 == elements.len() {
+                          ui.add_space(h + ui.style().spacing.item_spacing.x);
+                        } else {
+                          if ui.add_sized([h, h], egui::Button::new("↑")).on_hover_text("Move up").clicked() {
+                            to_prioritize = Some(i);
+                          }
+                        }
+                        if ui.add_sized([h, h], egui::Button::new("×")).on_hover_text("Remove").clicked() {
+                          to_remove = Some(i);
+                        }
+                      });
                     }
-                    if ui.add(egui::Button::selectable(false, "💬 Text")).clicked() {
-                      elements.push(model::Element::from_content(model::Content::Text {
-                        family: vec![self.font_families[0].clone()],
-                        size: 16.0,
-                        weight: model::Weight::Regular,
-                        italic: false,
-                        tracking: 0.0,
-                        text: "".to_string(),
-                      }));
-                    }
-                  });
-                // List
-                let mut to_prioritize = None;
-                let mut to_remove = None;
-                for (i, el) in elements.iter().enumerate().rev() {
-                  let sel = self.sel_element.map_or(false, |j| j == i);
-                  ui.horizontal(|ui| {
-                    if ui.add_sized(
-                      egui::vec2(160.0, ui.style().spacing.interact_size.y),
-                      egui::Button::selectable(sel, "").left_text(
-                        match &el.content {
-                          model::Content::Image { src, .. } => format!("🖼️ {}", src),
-                          model::Content::Text { text, .. } => format!("💬 {}", text),
-                        },
-                      ).truncate(),
-                    ).clicked() {
-                      self.sel_element = Some(i);
-                    }
-                    if i + 1 == elements.len() {
-                      ui.add_space(h + ui.style().spacing.item_spacing.x);
-                    } else {
-                      if ui.add_sized([h, h], egui::Button::new("↑")).on_hover_text("Move up").clicked() {
-                        to_prioritize = Some(i);
+                    if let Some(i) = to_prioritize {
+                      elements.swap(i, i + 1);
+                      match self.sel_element {
+                        Some(j) if j == i => self.sel_element = Some(i + 1),
+                        Some(j) if j == i + 1 => self.sel_element = Some(i),
+                        _ => (),
                       }
                     }
-                    if ui.add_sized([h, h], egui::Button::new("×")).on_hover_text("Remove").clicked() {
-                      to_remove = Some(i);
+                    if let Some(i) = to_remove {
+                      elements.remove(i);
+                      match self.sel_element {
+                        Some(j) if j == i => self.sel_element = None,
+                        Some(j) if j > i => self.sel_element = Some(j - 1),
+                        _ => (),
+                      }
                     }
                   });
-                }
-                if let Some(i) = to_prioritize {
-                  elements.swap(i, i + 1);
-                  match self.sel_element {
-                    Some(j) if j == i => self.sel_element = Some(i + 1),
-                    Some(j) if j == i + 1 => self.sel_element = Some(i),
-                    _ => (),
-                  }
-                }
-                if let Some(i) = to_remove {
-                  elements.remove(i);
-                  match self.sel_element {
-                    Some(j) if j == i => self.sel_element = None,
-                    Some(j) if j > i => self.sel_element = Some(j - 1),
-                    _ => (),
-                  }
-                }
+                });
               });
             });
           });
-        });
-      });
 
-    egui::Area::new(ui.id().with("attr_panel_toggle"))
-      .fixed_pos(egui::pos2(c_width, c_height / 2.0))
-      .pivot(egui::Align2::RIGHT_CENTER)
-      .show(ui.ctx(), |ui| {
-        let h = ui.style().spacing.interact_size.y;
-        if ui.add(egui::Button::new(if self.attr_panel_expanded { "▸" } else { "◂" }))
-          .on_hover_text(if self.attr_panel_expanded { "Hide attributes" } else { "Show attributes" })
-          .clicked()
-        {
-          self.attr_panel_expanded = !self.attr_panel_expanded;
-        }
+        // Panel toggle
+        egui::Area::new(ui.id().with("attr_panel_toggle"))
+          .fixed_pos(egui::pos2(c_width, c_height / 2.0))
+          .pivot(egui::Align2::RIGHT_CENTER)
+          .show(ui.ctx(), |ui| {
+            let h = ui.style().spacing.interact_size.y;
+            if ui.add(egui::Button::new(if self.attr_panel_expanded { "▸" } else { "◂" }))
+              .on_hover_text(if self.attr_panel_expanded { "Hide attributes" } else { "Show attributes" })
+              .clicked()
+            {
+              self.attr_panel_expanded = !self.attr_panel_expanded;
+            }
+          });
       });
   }
 
