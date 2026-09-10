@@ -181,15 +181,20 @@ impl WhirlApp {
           ui.input(|i| {
             self.canvas.zoom *= i.zoom_delta();
             self.canvas.origin = (
-              self.canvas.origin.0 - i.translation_delta().x,
-              self.canvas.origin.1 - i.translation_delta().y,
+              self.canvas.origin.0 - i.translation_delta().x / self.canvas.zoom,
+              self.canvas.origin.1 - i.translation_delta().y / self.canvas.zoom,
             );
           });
+        } else if resp.dragged() {
+          self.canvas.origin = (
+            self.canvas.origin.0 - resp.drag_delta().x / self.canvas.zoom,
+            self.canvas.origin.1 - resp.drag_delta().y / self.canvas.zoom,
+          );
         }
 
         painter.add(egui::Shape::rect_filled(
           egui::Rect::from_min_size(
-            [c_width / 2.0 - self.canvas.origin.0, c_height / 2.0 - self.canvas.origin.1].into(),
+            [c_width / 2.0 - self.canvas.origin.0 * self.canvas.zoom, c_height / 2.0 - self.canvas.origin.1 * self.canvas.zoom].into(),
             [100.0 * self.canvas.zoom, 100.0 * self.canvas.zoom].into()),
           egui::CornerRadius::same(5),
           egui::Color32::from_rgba_premultiplied(255, 248, 240, 255),
