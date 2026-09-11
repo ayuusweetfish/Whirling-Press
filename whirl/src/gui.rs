@@ -218,14 +218,16 @@ impl WhirlApp {
           egui::Color32::from_rgba_premultiplied(255, 248, 240, 255),
         ));
 
-        for el in &self.layout.as_ref().unwrap().elements {
-          painter.add(egui::Shape::rect_filled(
-            egui::Rect::from_min_size(
-              doc_to_canvas((el.x, el.y)).into(),
-              (5., 5.).into()),
-            egui::CornerRadius::same(1),
-            egui::Color32::from_rgba_premultiplied(24, 24, 24, 255),
-          ));
+        for (i, el) in self.layout.as_ref().unwrap().elements.iter().enumerate() {
+          if self.sel_element == Some(i) {
+            let r = (4.0 * self.canvas.zoom).clamp(2.0, 4.0);
+            painter.add(egui::Shape::Circle(egui::epaint::CircleShape {
+              center: doc_to_canvas((el.x, el.y)).into(),
+              radius: r,
+              fill: egui::Color32::from_rgba_premultiplied(128, 120, 96, 128),
+              stroke: egui::Stroke::new(r * 0.5, egui::Color32::from_rgba_premultiplied(24, 24, 24, 255)),
+            }));
+          }
         }
 
         // Elements exapndable menu
