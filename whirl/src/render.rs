@@ -140,11 +140,11 @@ pub(crate) struct RgbaBuffer {
   pub pixels: Vec<u8>,
 }
 
-pub(crate) fn element_to_rgba<P: AsRef<std::path::Path>>(root: P, source: &str, pixel_per_pt: f32) -> Result<RgbaBuffer, RenderError> {
-  let source = "#set page(width: auto, height: auto, margin: 32pt, fill: none)\n".to_string() + source;
-  let world = SimpleWorld::new(root.as_ref(), &source);
-  let doc = typst::compile::<PagedDocument>(&world).output
-    .map_err(|e| RenderError::TypstCompilation(e.to_vec()))?;
+pub(crate) fn to_rgba<P: AsRef<std::path::Path>>(root: P, source: &str, pixel_per_pt: f32) -> Result<RgbaBuffer, RenderError> {
+  let world = SimpleWorld::new(root.as_ref(), source);
+  let compiled = typst::compile::<PagedDocument>(&world);
+  for w in compiled.warnings { eprintln!("{w:?}"); }
+  let doc = compiled.output.map_err(|e| RenderError::TypstCompilation(e.to_vec()))?;
   let pixmap = typst_render::render(
     &doc.pages()[0],
     &typst_render::RenderOptions {

@@ -9,13 +9,13 @@ enum ExprError {
   NonexistentField(usize, String),
 }
 
+fn escape(s: &str) -> String {
+  s.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
 fn expand_expr(s: &str, fields: &[String]) -> Result<String, ExprError> {
   let mut result = Vec::new();
   let mut cur = 0;
-
-  fn escape(s: &str) -> String {
-    s.replace('\\', "\\\\").replace('"', "\\\"")
-  }
 
   fn find_next_char(s: &str, t: char, byte_offs: usize) -> Option<usize> {
     s.get(byte_offs..)?.find(t).map(|found_offs| byte_offs + found_offs)
@@ -60,24 +60,33 @@ fn expand_expr(s: &str, fields: &[String]) -> Result<String, ExprError> {
 }
 
 impl model::Element {
-  fn typst_source(&self, fields: &[String]) -> Result<String, ExprError> {
+  fn typst_source(&self, fields: &[String], is_preview: bool) -> Result<String, ExprError> {
     let mut args = Vec::new();
 
-    args.push(format!("{}pt, {}pt", self.x, self.y));
-
-    if self.anchor != model::Anchor::default() {
-      args.push(format!("anchor: {} + {}",
-        match self.anchor.y {
-          model::AnchorAxis::Min => "top",
-          model::AnchorAxis::Cen => "horizon",
-          model::AnchorAxis::Max => "bottom",
-        },
-        match self.anchor.x {
-          model::AnchorAxis::Min => "left",
-          model::AnchorAxis::Cen => "center",
-          model::AnchorAxis::Max => "right",
-        },
-      ));
+    if !is_preview {
+      args.push(format!("{}pt, {}pt", self.x, self.y));
+      if self.anchor != model::Anchor::default() {
+        args.push(format!("anchor: {} + {}",
+          match self.anchor.y {
+            model::AnchorAxis::Min => "top",
+            model::AnchorAxis::Cen => "horizon",
+            model::AnchorAxis::Max => "bottom",
+          },
+          match self.anchor.x {
+            model::AnchorAxis::Min => "left",
+            model::AnchorAxis::Cen => "center",
+            model::AnchorAxis::Max => "right",
+          },
+        ));
+      }
+      if self.scale != model::default_scale() {
+        args.push(format!("scale: ({}, {})", self.scale.0, self.scale.1));
+      }
+      if self.rotation != 0.0 {
+        args.push(format!("rotate: {}deg", self.rotation));
+      }
+    } else {
+      args.push(format!("0pt, 0pt, in_flow: true"));
     }
     if let Some(w) = self.width {
       args.push(format!("width: {}pt", w));
@@ -85,17 +94,15 @@ impl model::Element {
     if let Some(h) = self.height {
       args.push(format!("height: {}pt", h));
     }
-    if self.scale != model::default_scale() {
-      args.push(format!("scale: ({}, {})", self.scale.0, self.scale.1));
-    }
-    if self.rotation != 0.0 {
-      args.push(format!("rotate: {}deg", self.rotation));
-    }
 
     // Content
     let content = match &self.content {
       model::Content::Image { src } => {
-        format!("#image({})", expand_expr(src, fields)?)
+        if is_preview {
+          format!("aaa")
+        } else {
+          format!("#image({})", expand_expr(src, fields)?)
+        }
       }
       model::Content::Text { family, size, weight, italic, tracking, text } => {
         let mut args = Vec::new();
@@ -111,7 +118,9 @@ impl model::Element {
         if *tracking != 0.0 {
           args.push(format!("tracking: {}pt", tracking));
         }
-        format!("#text({}, {})", args.join(", "), expand_expr(text, fields)?)
+        format!("#text({}, {})", args.join(", "),
+          if is_preview { format!("\"{}\"", escape(text)) }
+          else { expand_expr(text, fields)? })
       }
     };
 
@@ -125,7 +134,7 @@ impl model::Layout {
 
     let elements_typst = self.elements.iter()
       .enumerate()
-      .map(|(i, el)| el.typst_source(fields).map_err(|e| (i, e)))
+      .map(|(i, el)| el.typst_source(fields, false).map_err(|e| (i, e)))
       .collect::<Result<Vec<_>, _>>()?.join("\n  ");
 
     Ok(include_str!("support.typ").to_string() + format!(r#"

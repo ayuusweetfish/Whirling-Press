@@ -12,6 +12,7 @@ pub(crate) fn start(root_path: Option<&str>) {
 }
 
 use crate::model;
+use crate::render;
 
 struct WhirlApp {
   root_path: Option<std::path::PathBuf>,
@@ -35,6 +36,21 @@ impl Default for CanvasState {
       origin: (0.0, 0.0),
     }
   }
+}
+
+fn element_to_image<P: AsRef<std::path::Path>>(root_path: P, el: &model::Element) -> egui::ColorImage {
+  // TODO: Proper error handling
+  let src = include_str!("support.typ").to_string() +
+r#"
+#set page(width: auto, height: auto, fill: none, margin: 32pt)
+"#
+  + &el.typst_source(&[
+    "n".to_string(), "img_a".to_string(), "img_b".to_string(), "sn".to_string(), "order_id".to_string(), "qty".to_string(), "name".to_string(), "addr".to_string()],
+    true).unwrap();
+  let buf = render::to_rgba(root_path, &src, 1.0).unwrap();
+  println!("{}", src);
+  println!("{} {}", buf.width, buf.height);
+  egui::ColorImage::from_rgba_unmultiplied([buf.width as usize, buf.height as usize], &buf.pixels)
 }
 
 impl WhirlApp {
@@ -104,7 +120,7 @@ impl WhirlApp {
         self.element_texs = layout.elements.iter().map(|el| {
           ctx.load_texture(
             "",
-            egui::ColorImage::example(),
+            element_to_image(root_path, &el),
             egui::TextureOptions::default(),
           )
         }).collect();
@@ -234,7 +250,7 @@ impl WhirlApp {
           painter.image(
             tex.id(),
             egui::Rect::from_min_size(
-              doc_to_canvas((el.x, el.y)).into(),
+              doc_to_canvas((el.x - 32.0, el.y - 32.0)).into(),
               (tex.size_vec2().x * self.canvas.zoom,
                tex.size_vec2().y * self.canvas.zoom).into()
             ),

@@ -2,6 +2,7 @@
   x, y, width: auto, height: auto, anchor: top + left,
   rotate: 0deg, scale-x: 100%, scale-y: 100%, skew-x: 0deg, skew-y: 0deg,
   debug: false,
+  in_flow: false,
   body,
 ) = context {
   let (width, height) = if width != auto and height != auto {
@@ -17,7 +18,7 @@
   let dx = x - if anchor.x == right { width } else if anchor.x == center { width / 2 } else { 0pt }
   let dy = y - if anchor.y == bottom { height } else if anchor.y == horizon { height / 2 } else { 0pt }
 
-  place(top + left, dx: dx, dy: dy)[
+  let content = [
     #std.rotate(rotate, origin: anchor)[
       #std.scale(x: scale-x, y: scale-y, origin: anchor)[
         #skew(ax: skew-x, ay: skew-y, origin: anchor)[
@@ -31,11 +32,13 @@
       ]
     ]
   ]
+
+  if in_flow { content }
+  else { place(top + left, dx: dx, dy: dy, content) }
+
   if debug {
     place(top + left, dx: x - 2pt, dy: y - 2pt)[
       #circle(radius: 2pt, fill: none, stroke: 1pt + black)
     ]
   }
 }
-
-#let str(value) = std.str(value)
