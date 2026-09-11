@@ -18,6 +18,7 @@ struct WhirlApp {
   attr_panel_expanded: bool,
   layout: Option<model::Layout>,
   font_families: Vec<String>,
+  just_loaded: bool,
   sel_element: Option<usize>,
   canvas: CanvasState,
 }
@@ -76,6 +77,7 @@ impl WhirlApp {
       attr_panel_expanded: true,
       layout: None,
       font_families: crate::render::font_families(None::<&str>),
+      just_loaded: false,
       sel_element: None,
       canvas: CanvasState::default(),
     };
@@ -94,6 +96,7 @@ impl WhirlApp {
         self.root_path = Some(root_path.to_path_buf());
         self.layout = Some(layout);
         self.font_families = crate::render::font_families(Some(root_path));
+        self.just_loaded = true;
         ctx.send_viewport_cmd(egui::ViewportCommand::Title(
           format!("{} — Whirling Press", root_path.display())));
       },
@@ -192,13 +195,38 @@ impl WhirlApp {
           );
         }
 
+        let (page_w, page_h) = self.layout.as_ref().unwrap().page;
+        if self.just_loaded {
+          self.just_loaded = false;
+          self.canvas.zoom =
+            ((c_width - 24.0).max(24.0) / page_w)
+            .min((c_height - 24.0).max(24.0) / page_h);
+        }
+
+        let doc_to_canvas = |(x, y): (f32, f32)| -> (f32, f32) {
+          (
+            c_width / 2.0 + (x - (self.canvas.origin.0 + page_w / 2.0)) * self.canvas.zoom,
+            c_height / 2.0 + (y - (self.canvas.origin.1 + page_h / 2.0)) * self.canvas.zoom,
+          )
+        };
+
         painter.add(egui::Shape::rect_filled(
           egui::Rect::from_min_size(
-            [c_width / 2.0 - self.canvas.origin.0 * self.canvas.zoom, c_height / 2.0 - self.canvas.origin.1 * self.canvas.zoom].into(),
-            [100.0 * self.canvas.zoom, 100.0 * self.canvas.zoom].into()),
+            doc_to_canvas((0., 0.)).into(),
+            [page_w * self.canvas.zoom, page_h * self.canvas.zoom].into()),
           egui::CornerRadius::same(5),
           egui::Color32::from_rgba_premultiplied(255, 248, 240, 255),
         ));
+
+        for el in &self.layout.as_ref().unwrap().elements {
+          painter.add(egui::Shape::rect_filled(
+            egui::Rect::from_min_size(
+              doc_to_canvas((el.x, el.y)).into(),
+              (5., 5.).into()),
+            egui::CornerRadius::same(1),
+            egui::Color32::from_rgba_premultiplied(24, 24, 24, 255),
+          ));
+        }
 
         // Elements exapndable menu
         egui::Area::new(ui.id().with("elements_area"))
