@@ -20,6 +20,7 @@ struct WhirlApp {
   font_families: Vec<String>,
   just_loaded: bool,
   sel_element: Option<usize>,
+  element_texs: Vec<egui::TextureHandle>,
   canvas: CanvasState,
 }
 
@@ -79,6 +80,7 @@ impl WhirlApp {
       font_families: crate::render::font_families(None::<&str>),
       just_loaded: false,
       sel_element: None,
+      element_texs: vec![],
       canvas: CanvasState::default(),
     };
 
@@ -94,11 +96,20 @@ impl WhirlApp {
     match crate::process_pack_metadata(root_path) {
       Ok((_, layout, _, fields)) => {
         self.root_path = Some(root_path.to_path_buf());
-        self.layout = Some(layout);
         self.font_families = crate::render::font_families(Some(root_path));
-        self.just_loaded = true;
         ctx.send_viewport_cmd(egui::ViewportCommand::Title(
           format!("{} — Whirling Press", root_path.display())));
+
+        self.just_loaded = true;
+        self.element_texs = layout.elements.iter().map(|el| {
+          ctx.load_texture(
+            "",
+            egui::ColorImage::example(),
+            egui::TextureOptions::default(),
+          )
+        }).collect();
+
+        self.layout = Some(layout);
       },
       Err(e) => {
         println!("{:?}", e);
@@ -219,6 +230,17 @@ impl WhirlApp {
         ));
 
         for (i, el) in self.layout.as_ref().unwrap().elements.iter().enumerate() {
+          let tex = &self.element_texs[i];
+          painter.image(
+            tex.id(),
+            egui::Rect::from_min_size(
+              doc_to_canvas((el.x, el.y)).into(),
+              (tex.size_vec2().x * self.canvas.zoom,
+               tex.size_vec2().y * self.canvas.zoom).into()
+            ),
+            egui::Rect::from_min_max((0., 0.).into(), (1., 1.).into()),
+            egui::Color32::WHITE,
+          );
           if self.sel_element == Some(i) {
             let r = (4.0 * self.canvas.zoom).clamp(2.0, 4.0);
             painter.add(egui::Shape::Circle(egui::epaint::CircleShape {

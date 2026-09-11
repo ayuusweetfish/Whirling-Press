@@ -15,6 +15,8 @@ use typst_pdf::PdfOptions;
 use typst::model::Document;
 use typst_layout::PagedDocument;
 
+use typst_render;
+
 pub struct SimpleWorld {
   root: PathBuf,
   source: Source,
@@ -130,4 +132,28 @@ pub(crate) fn to_pdf_seq<P: AsRef<std::path::Path>>(root: P, source: &str) -> Re
     Ok::<_, RenderError>(pdf_bytes)
   }).collect::<Result<_, _>>()?;
   Ok(pdf_seq_bytes)
+}
+
+pub(crate) struct RgbaBuffer {
+  pub width: u32,
+  pub height: u32,
+  pub pixels: Vec<u8>,
+}
+
+pub(crate) fn element_to_rgba<P: AsRef<std::path::Path>>(root: P, source: &str, pixel_per_pt: f32) -> Result<RgbaBuffer, RenderError> {
+  let source = "#set page(width: auto, height: auto, margin: 32pt, fill: none)\n".to_string() + source;
+  let world = SimpleWorld::new(root.as_ref(), &source);
+  let doc = typst::compile::<PagedDocument>(&world).output
+    .map_err(|e| RenderError::TypstCompilation(e.to_vec()))?;
+  let pixmap = typst_render::render(
+    &doc.pages()[0],
+    &typst_render::RenderOptions {
+      pixel_per_pt: (pixel_per_pt as f64).into(),
+      render_bleed: false,
+    });
+  Ok(RgbaBuffer {
+    width: pixmap.width(),
+    height: pixmap.height(),
+    pixels: pixmap.data().to_vec(),
+  })
 }
