@@ -38,14 +38,17 @@ impl Default for CanvasState {
   }
 }
 
+const RENDER_TEX_MARGIN: f32 = 32.0;
+const RENDER_TEX_SCALE: f32 = 2.0;
+
 fn element_to_image<P: AsRef<std::path::Path>>(root_path: P, el: &model::Element) -> egui::ColorImage {
   use crate::{ProcessError, escape};
   fn try_to_image<P: AsRef<std::path::Path>>(root_path: P, src: &str) -> Result<egui::ColorImage, ProcessError> {
     let src = include_str!("support.typ").to_string() +
-  r#"
-#set page(width: auto, height: auto, fill: none, margin: 32pt)
-  "# + src;
-    let buf = render::to_rgba(root_path, &src, 1.0)
+  &format!(r#"
+#set page(width: auto, height: auto, fill: none, margin: {}pt)
+  "#, RENDER_TEX_MARGIN) + src;
+    let buf = render::to_rgba(root_path, &src, RENDER_TEX_SCALE)
       .map_err(|e| ProcessError::Render(e))?;
     Ok(egui::ColorImage::from_rgba_premultiplied([buf.width as usize, buf.height as usize], &buf.pixels))
   }
@@ -284,9 +287,9 @@ impl WhirlApp {
         fn element_tex_pos(el: &model::Element, (w, h): (f32, f32), (tx, ty): (f32, f32)) -> (f32, f32) {
           transformed_anchored(
             (el.x, el.y),
-            (32.0 + (w - 64.0) * f32::from(el.anchor.x),
-             32.0 + (h - 64.0) * f32::from(el.anchor.y)),
-            el.scale,
+            (RENDER_TEX_MARGIN * RENDER_TEX_SCALE + (w - RENDER_TEX_MARGIN * RENDER_TEX_SCALE * 2.) * f32::from(el.anchor.x),
+             RENDER_TEX_MARGIN * RENDER_TEX_SCALE + (h - RENDER_TEX_MARGIN * RENDER_TEX_SCALE * 2.) * f32::from(el.anchor.y)),
+            (el.scale.0 / RENDER_TEX_SCALE, el.scale.1 / RENDER_TEX_SCALE),
             el.rotation,
             (tx * w, ty * h),
           )
