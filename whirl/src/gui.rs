@@ -257,6 +257,15 @@ impl WhirlApp {
             c_height / 2.0 + (y - (self.canvas.origin.1 + page_h / 2.0)) * self.canvas.zoom,
           )
         };
+        let canvas_to_doc = |(cx, cy): (f32, f32)| -> (f32, f32) {
+          (
+            (cx - c_width / 2.0) / self.canvas.zoom + self.canvas.origin.0 + page_w / 2.0,
+            (cy - c_height / 2.0) / self.canvas.zoom + self.canvas.origin.1 + page_h / 2.0,
+          )
+        };
+
+        // Hover position in canvas coordinates
+        let hover_pos: Option<(f32, f32)> = resp.hover_pos().map(|p| p.into());
 
         painter.add(egui::Shape::rect_filled(
           egui::Rect::from_min_size(
@@ -295,6 +304,17 @@ impl WhirlApp {
             (tx * w, ty * h),
           )
         }
+        fn element_tex_pos_content(el: &model::Element, (w, h): (f32, f32), (tx, ty): (f32, f32)) -> (f32, f32) {
+          transformed_anchored(
+            (el.x, el.y),
+            (RENDER_TEX_MARGIN * RENDER_TEX_SCALE + (w - RENDER_TEX_MARGIN * RENDER_TEX_SCALE * 2.) * f32::from(el.anchor.x),
+             RENDER_TEX_MARGIN * RENDER_TEX_SCALE + (h - RENDER_TEX_MARGIN * RENDER_TEX_SCALE * 2.) * f32::from(el.anchor.y)),
+            (el.scale.0 / RENDER_TEX_SCALE, el.scale.1 / RENDER_TEX_SCALE),
+            el.rotation,
+            (RENDER_TEX_MARGIN * RENDER_TEX_SCALE + tx * (w - RENDER_TEX_MARGIN * RENDER_TEX_SCALE * 2.),
+             RENDER_TEX_MARGIN * RENDER_TEX_SCALE + ty * (h - RENDER_TEX_MARGIN * RENDER_TEX_SCALE * 2.)),
+          )
+        }
 
         fn textured_quad(
           corners: [egui::Pos2; 4], // [00, 10, 11, 01]
@@ -318,6 +338,22 @@ impl WhirlApp {
           egui::Shape::mesh(mesh)
         }
 
+        pub fn point_in_simple_polygon(p: (f32, f32), a: &[(f32, f32)]) -> bool {
+          // Even-odd crossing number; optimization by W. Randolph Franklin
+          // https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
+          let (x0, y0) = p;
+          let mut c = false;
+          for i in 0..a.len() {
+            let (x1, y1) = a[i];
+            let (x2, y2) = a[(i + 1) % a.len()];
+            if ((y2 > y0) != (y1 > y0)) &&
+               x0 < (x1 - x2) * (y0 - y2) / (y1 - y2) + x2 {
+              c = !c;
+            }
+          }
+          c
+        }
+
         for (i, el) in self.layout.as_ref().unwrap().elements.iter().enumerate() {
           let tex = &self.element_texs[i];
           let corners = [
@@ -327,8 +363,35 @@ impl WhirlApp {
             doc_to_canvas(element_tex_pos(&el, tex.size_vec2().into(), (0., 1.))).into(),
           ];
           painter.add(textured_quad(corners, tex.id()));
+
+          let r = (4.0 * self.canvas.zoom).clamp(2.0, 4.0);
+          let corners_content = [
+            doc_to_canvas(element_tex_pos_content(&el, tex.size_vec2().into(), (0., 0.))),
+            doc_to_canvas(element_tex_pos_content(&el, tex.size_vec2().into(), (1., 0.))),
+            doc_to_canvas(element_tex_pos_content(&el, tex.size_vec2().into(), (1., 1.))),
+            doc_to_canvas(element_tex_pos_content(&el, tex.size_vec2().into(), (0., 1.))),
+          ];
+          let mut inside = false;
+          if let Some(p) = hover_pos && point_in_simple_polygon(p, &corners_content) {
+            inside = true;
+          }
           if self.sel_element == Some(i) {
-            let r = (4.0 * self.canvas.zoom).clamp(2.0, 4.0);
+            inside = true;
+          }
+          if inside {
+            painter.line(
+              vec![
+                corners_content[0].into(), corners_content[1].into(),
+                corners_content[2].into(), corners_content[3].into(),
+                corners_content[0].into()
+              ],
+              egui::Stroke::new(r * 0.5, egui::Color32::from_rgba_premultiplied(24, 24, 24, 255)),
+            );
+          }
+          if inside && resp.clicked() {
+            self.sel_element = Some(i);
+          }
+          if self.sel_element == Some(i) {
             painter.add(egui::Shape::Circle(egui::epaint::CircleShape {
               center: doc_to_canvas((el.x, el.y)).into(),
               radius: r,
