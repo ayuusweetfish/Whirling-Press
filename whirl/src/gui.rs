@@ -537,24 +537,40 @@ impl WhirlApp {
     ui.end_row();
     ui.label("Anchor");
     let anchors_and_names = [
-      (model::Anchor { x: model::AnchorAxis::Min, y: model::AnchorAxis::Min }, "Top Left"),
-      (model::Anchor { x: model::AnchorAxis::Cen, y: model::AnchorAxis::Min }, "Top Center"),
-      (model::Anchor { x: model::AnchorAxis::Max, y: model::AnchorAxis::Min }, "Top Right"),
-      (model::Anchor { x: model::AnchorAxis::Min, y: model::AnchorAxis::Cen }, "Middle Left"),
-      (model::Anchor { x: model::AnchorAxis::Cen, y: model::AnchorAxis::Cen }, "Middle Center"),
-      (model::Anchor { x: model::AnchorAxis::Max, y: model::AnchorAxis::Cen }, "Middle Right"),
-      (model::Anchor { x: model::AnchorAxis::Min, y: model::AnchorAxis::Max }, "Bottom Left"),
-      (model::Anchor { x: model::AnchorAxis::Cen, y: model::AnchorAxis::Max }, "Bottom Center"),
-      (model::Anchor { x: model::AnchorAxis::Max, y: model::AnchorAxis::Max }, "Bottom Right"),
+      (model::Anchor { x: model::AnchorAxis::Min, y: model::AnchorAxis::Min }, "Top Left", "TL"),
+      (model::Anchor { x: model::AnchorAxis::Cen, y: model::AnchorAxis::Min }, "Top Center", "TC"),
+      (model::Anchor { x: model::AnchorAxis::Max, y: model::AnchorAxis::Min }, "Top Right", "TR"),
+      (model::Anchor { x: model::AnchorAxis::Min, y: model::AnchorAxis::Cen }, "Middle Left", "ML"),
+      (model::Anchor { x: model::AnchorAxis::Cen, y: model::AnchorAxis::Cen }, "Middle Center", "MC"),
+      (model::Anchor { x: model::AnchorAxis::Max, y: model::AnchorAxis::Cen }, "Middle Right", "MR"),
+      (model::Anchor { x: model::AnchorAxis::Min, y: model::AnchorAxis::Max }, "Bottom Left", "BL"),
+      (model::Anchor { x: model::AnchorAxis::Cen, y: model::AnchorAxis::Max }, "Bottom Center", "BC"),
+      (model::Anchor { x: model::AnchorAxis::Max, y: model::AnchorAxis::Max }, "Bottom Right", "BR"),
     ];
+    ui.ctx().all_styles_mut(|style| {
+      style.spacing.combo_height = 300.;
+    });
     ComboBox::from_id_salt("element_anchor")
       .width(150.0)
       .selected_text(anchors_and_names.iter()
-        .find(|(a, _)| *a == el.anchor)
-        .map(|(_, name)| *name).unwrap())
+        .find(|(a, _, _)| *a == el.anchor)
+        .map(|(_, name, _)| *name).unwrap())
       .show_ui(ui, |ui| {
-        for (value, name) in anchors_and_names {
-          ui.selectable_value(&mut el.anchor, value, name);
+        for i in 0..3 {
+          ui.horizontal(|ui| {
+            for j in (i * 3)..(i * 3 + 3) {
+              let (value, name, abbr) = anchors_and_names[j];
+              // From `egui::Ui::selectable_value`
+              let (current_value, selected_value, text) = (&mut el.anchor, value, abbr);
+              let checked = *current_value == selected_value;
+              let mut response =
+                ui.add_sized((40., 40.), egui::Button::selectable(checked, text));
+              if response.clicked() && *current_value != selected_value {
+                *current_value = selected_value;
+                response.mark_changed();
+              }
+            }
+          });
         }
       });
     ui.end_row();
