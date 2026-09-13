@@ -225,9 +225,10 @@ impl WhirlApp {
 
         if ui.input(|i|
           i.multi_touch().is_some() ||
-          i.events.iter().any(|event| matches!(event,
-            egui::Event::MouseWheel { .. } | egui::Event::Zoom { .. })))
-        {
+          i.events.iter().any(|event| matches!(event, egui::Event::Zoom { .. })) ||
+          (resp.contains_pointer() &&
+           i.events.iter().any(|event| matches!(event, egui::Event::MouseWheel { .. })))
+        ) {
           ui.input(|i| {
             self.canvas.zoom *= i.zoom_delta();
             self.canvas.origin = (
