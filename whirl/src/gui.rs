@@ -39,18 +39,28 @@ impl Default for CanvasState {
 }
 
 fn element_to_image<P: AsRef<std::path::Path>>(root_path: P, el: &model::Element) -> egui::ColorImage {
-  // TODO: Proper error handling
-  let src = include_str!("support.typ").to_string() +
-r#"
+  use crate::{ProcessError, escape};
+  fn try_to_image<P: AsRef<std::path::Path>>(root_path: P, src: &str) -> Result<egui::ColorImage, ProcessError> {
+    let src = include_str!("support.typ").to_string() +
+  r#"
 #set page(width: auto, height: auto, fill: none, margin: 32pt)
-"#
-  + &el.typst_source(&[
-    "n".to_string(), "img_a".to_string(), "img_b".to_string(), "sn".to_string(), "order_id".to_string(), "qty".to_string(), "name".to_string(), "addr".to_string()],
-    true).unwrap();
-  let buf = render::to_rgba(root_path, &src, 1.0).unwrap();
-  println!("{}", src);
-  println!("{} {}", buf.width, buf.height);
-  egui::ColorImage::from_rgba_premultiplied([buf.width as usize, buf.height as usize], &buf.pixels)
+  "# + src;
+    let buf = render::to_rgba(root_path, &src, 1.0)
+      .map_err(|e| ProcessError::Render(e))?;
+    Ok(egui::ColorImage::from_rgba_premultiplied([buf.width as usize, buf.height as usize], &buf.pixels))
+  }
+  match try_to_image(
+    &root_path,
+    &el.typst_source(&[], true).unwrap(),
+  ) {
+    Ok(image) => image,
+    Err(e) => {
+      // XXX: Display better error messages
+      try_to_image(root_path,
+        &format!("#place-element(0pt, 0pt, in_flow: true)[#raw(\"{}\")]", escape(&format!("{:?}", e))),
+      ).unwrap()
+    },
+  }
 }
 
 impl WhirlApp {
@@ -342,6 +352,13 @@ impl WhirlApp {
                           elements.push(model::Element::from_content(model::Content::Image {
                             src: "".to_string(),
                           }));
+                          self.element_texs.push(
+                            ui.ctx().load_texture(
+                              "",
+                              element_to_image(self.root_path.as_ref().unwrap(), &elements.last().unwrap()),
+                              egui::TextureOptions::default(),
+                            )
+                          );
                         }
                         if ui.add(egui::Button::selectable(false, "💬 Text")).clicked() {
                           elements.push(model::Element::from_content(model::Content::Text {
@@ -352,6 +369,13 @@ impl WhirlApp {
                             tracking: 0.0,
                             text: "".to_string(),
                           }));
+                          self.element_texs.push(
+                            ui.ctx().load_texture(
+                              "",
+                              element_to_image(self.root_path.as_ref().unwrap(), &elements.last().unwrap()),
+                              egui::TextureOptions::default(),
+                            )
+                          );
                         }
                       });
                     // List
@@ -385,6 +409,7 @@ impl WhirlApp {
                     }
                     if let Some(i) = to_prioritize {
                       elements.swap(i, i + 1);
+                      self.element_texs.swap(i, i + 1);
                       match self.sel_element {
                         Some(j) if j == i => self.sel_element = Some(i + 1),
                         Some(j) if j == i + 1 => self.sel_element = Some(i),
@@ -393,6 +418,7 @@ impl WhirlApp {
                     }
                     if let Some(i) = to_remove {
                       elements.remove(i);
+                      drop(self.element_texs.remove(i));
                       match self.sel_element {
                         Some(j) if j == i => self.sel_element = None,
                         Some(j) if j > i => self.sel_element = Some(j - 1),
