@@ -264,29 +264,48 @@ impl WhirlApp {
           (x0 + rx, y0 + ry)
         }
 
-        fn element_tex_pos(el: &model::Element, (w, h): (f32, f32)) -> (f32, f32) {
+        fn element_tex_pos(el: &model::Element, (w, h): (f32, f32), (tx, ty): (f32, f32)) -> (f32, f32) {
           transformed_anchored(
             (el.x, el.y),
             (32.0 + (w - 64.0) * f32::from(el.anchor.x),
              32.0 + (h - 64.0) * f32::from(el.anchor.y)),
             el.scale,
             el.rotation,
-            (0.0, 0.0),
+            (tx * w, ty * h),
           )
+        }
+
+        fn textured_quad(
+          corners: [egui::Pos2; 4], // [00, 10, 11, 01]
+          texture_id: egui::TextureId,
+        ) -> egui::Shape {
+          let mut mesh = egui::Mesh::with_texture(texture_id);
+          let uvs = [
+            egui::Pos2::new(0.0, 0.0),
+            egui::Pos2::new(1.0, 0.0),
+            egui::Pos2::new(1.0, 1.0),
+            egui::Pos2::new(0.0, 1.0),
+          ];
+          mesh.vertices.extend(
+            corners.iter().zip(uvs.iter()).map(|(pos, uv)| egui::epaint::Vertex {
+              pos: *pos,
+              uv: *uv,
+              color: egui::Color32::WHITE,
+            }),
+          );
+          mesh.indices.extend_from_slice(&[0, 1, 2, 0, 2, 3]);
+          egui::Shape::mesh(mesh)
         }
 
         for (i, el) in self.layout.as_ref().unwrap().elements.iter().enumerate() {
           let tex = &self.element_texs[i];
-          painter.image(
-            tex.id(),
-            egui::Rect::from_min_size(
-              doc_to_canvas(element_tex_pos(&el, tex.size_vec2().into())).into(),
-              (tex.size_vec2().x * self.canvas.zoom,
-               tex.size_vec2().y * self.canvas.zoom).into()
-            ),
-            egui::Rect::from_min_max((0., 0.).into(), (1., 1.).into()),
-            egui::Color32::WHITE,
-          );
+          let corners = [
+            doc_to_canvas(element_tex_pos(&el, tex.size_vec2().into(), (0., 0.))).into(),
+            doc_to_canvas(element_tex_pos(&el, tex.size_vec2().into(), (1., 0.))).into(),
+            doc_to_canvas(element_tex_pos(&el, tex.size_vec2().into(), (1., 1.))).into(),
+            doc_to_canvas(element_tex_pos(&el, tex.size_vec2().into(), (0., 1.))).into(),
+          ];
+          painter.add(textured_quad(corners, tex.id()));
           if self.sel_element == Some(i) {
             let r = (4.0 * self.canvas.zoom).clamp(2.0, 4.0);
             painter.add(egui::Shape::Circle(egui::epaint::CircleShape {
