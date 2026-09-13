@@ -190,19 +190,23 @@ impl WhirlApp {
                 model::Content::Image { .. } => "Image",
                 model::Content::Text { .. } => "Text",
               });
-              Grid::new(("attr_grid", i))
-                .num_columns(2)
-                .spacing([20.0, 4.0])
-                .striped(true)
-                .show(ui, |ui| {
-                  if Self::show_attrs(ui, &self.font_families, el) {
-                    self.element_texs[i] =
-                      ui.ctx().load_texture(
-                        "",
-                        element_to_image(self.root_path.as_ref().unwrap(), el),
-                        egui::TextureOptions::default(),
-                      );
-                  }
+              ui.push_id(
+                i,
+                |ui| {
+                  Grid::new(("attr_grid", i))
+                    .num_columns(2)
+                    .spacing([20.0, 4.0])
+                    .striped(true)
+                    .show(ui, |ui| {
+                      if Self::show_attrs(ui, &self.font_families, el) {
+                        self.element_texs[i] =
+                          ui.ctx().load_texture(
+                            "",
+                            element_to_image(self.root_path.as_ref().unwrap(), el),
+                            egui::TextureOptions::default(),
+                          );
+                      }
+                    });
                 });
             } else {
               ui.label("");
