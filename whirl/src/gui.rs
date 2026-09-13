@@ -192,7 +192,14 @@ impl WhirlApp {
                 .spacing([20.0, 4.0])
                 .striped(true)
                 .show(ui, |ui| {
-                  Self::show_attrs(ui, &self.font_families, el);
+                  if Self::show_attrs(ui, &self.font_families, el) {
+                    self.element_texs[i] =
+                      ui.ctx().load_texture(
+                        "",
+                        element_to_image(self.root_path.as_ref().unwrap(), el),
+                        egui::TextureOptions::default(),
+                      );
+                  }
                 });
             } else {
               ui.label("");
@@ -447,7 +454,8 @@ impl WhirlApp {
       });
   }
 
-  fn show_attrs(ui: &mut egui::Ui, font_families: &[String], el: &mut model::Element) {
+  fn show_attrs(ui: &mut egui::Ui, font_families: &[String], el: &mut model::Element) -> bool {
+    let mut changed = false;
     use egui::{DragValue, Button, ComboBox};
     ui.label("Position");
     ui.horizontal(|ui| {
@@ -491,9 +499,9 @@ impl WhirlApp {
     });
     ui.end_row();
     ui.label("Size limit");
-    fn size_limit_editor(ui: &mut egui::Ui, value: &mut Option<f32>) {
+    fn size_limit_editor(ui: &mut egui::Ui, value: &mut Option<f32>) -> bool {
       let mut x = value.unwrap_or(0.0);
-      ui.add_sized([80.0, ui.style().spacing.interact_size.y],
+      let resp = ui.add_sized([80.0, ui.style().spacing.interact_size.y],
         DragValue::new(&mut x).range(0.0..=f32::INFINITY).speed(0.1)
           .custom_formatter(|n, _| {
             if n > 0.0 { format!("{n:.1}") } else { "—".to_string() }
@@ -507,27 +515,28 @@ impl WhirlApp {
             }
           }));
       *value = if x > 0.0 { Some(x) } else { None };
+      resp.changed()
     }
     ui.horizontal(|ui| {
-      size_limit_editor(ui, &mut el.width);
-      size_limit_editor(ui, &mut el.height);
+      changed |= size_limit_editor(ui, &mut el.width);
+      changed |= size_limit_editor(ui, &mut el.height);
     });
     ui.end_row();
     match &mut el.content {
       model::Content::Image { src } => {
         ui.label("Source");
-        ui.add(egui::TextEdit::singleline(src));
+        changed |= ui.add(egui::TextEdit::singleline(src)).changed();
         ui.end_row();
       },
       model::Content::Text { family, size, weight, italic, tracking, text } => {
         ui.label("Text");
-        ui.add(egui::TextEdit::multiline(text).desired_width(ui.available_width()));
+        changed |= ui.add(egui::TextEdit::multiline(text).desired_width(ui.available_width())).changed();
         ui.end_row();
         ui.label("Family");
-        Self::font_list_editor(ui, &font_families, family);
+        changed |= Self::font_list_editor(ui, &font_families, family);
         ui.end_row();
         ui.label("Size");
-        ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(size).range(0.0..=f32::INFINITY).speed(1.0));
+        changed |= ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(size).range(0.0..=f32::INFINITY).speed(1.0)).changed();
         ui.end_row();
         ui.label("Weight");
         let weights_and_names = [
@@ -548,21 +557,25 @@ impl WhirlApp {
             .map(|(_, name)| *name).unwrap())
           .show_ui(ui, |ui| {
             for (value, name) in weights_and_names {
-              ui.selectable_value(weight, value, name);
+              if ui.selectable_value(weight, value, name).clicked() {
+                changed = true;
+              }
             }
           });
         ui.end_row();
         ui.label("Italic");
-        ui.checkbox(italic, "");
+        changed |= ui.checkbox(italic, "").changed();
         ui.end_row();
         ui.label("Tracking");
-        ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(tracking).speed(0.1));
+        changed |= ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(tracking).speed(0.1)).changed();
         ui.end_row();
       },
     }
+    changed
   }
 
-  fn font_list_editor(ui: &mut egui::Ui, font_families: &[String], el: &mut Vec<String>) {
+  fn font_list_editor(ui: &mut egui::Ui, font_families: &[String], el: &mut Vec<String>) -> bool {
+    let mut changed = false;
     ui.vertical(|ui| {
       let mut to_prioritize = None;
       let mut to_remove = None;
@@ -590,6 +603,7 @@ impl WhirlApp {
                   for family in font_families {
                     if ui.add(egui::Button::selectable(*family == *s, family)).clicked() {
                       *s = family.clone();
+                      changed = true;
                     }
                   }
                 }).inner
@@ -611,16 +625,20 @@ impl WhirlApp {
       }
       if let Some(i) = to_prioritize {
         el.swap(i, i - 1);
+        changed = true;
       }
       if let Some(i) = to_remove {
         el.remove(i);
+        changed = true;
       }
       if ui.add_sized([ui.available_width(), 0.0],
         egui::Button::selectable(false, "+")).on_hover_text("Add").clicked()
       {
         el.push(font_families[0].clone());
+        changed = true;
       }
     });
+    changed
   }
 }
 
