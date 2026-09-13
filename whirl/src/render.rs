@@ -21,10 +21,32 @@ pub struct SimpleWorld {
   root: PathBuf,
   source: Source,
   library: LazyHash<Library>,
-  fonts: FontStore,
+  fonts: Arc<FontStore>,
   files: Arc<RwLock<HashMap<FileId, Bytes>>>,
     // trait `typst::World` requires `Sync`
 }
+
+// Global font cache
+
+use std::sync::{Mutex, OnceLock};
+static FONT_CACHE: OnceLock<Mutex<HashMap<PathBuf, Arc<FontStore>>>> = OnceLock::new();
+
+fn cached_font_store(root: &PathBuf) -> Arc<FontStore> {
+  let cache = FONT_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+  if let Some(fonts) = cache.lock().unwrap().get(root).cloned() {
+    return fonts;
+  }
+
+  let mut fonts = FontStore::new();
+  fonts.extend(typst_kit::fonts::scan(root));
+  fonts.extend(typst_kit::fonts::system());
+  cache.lock().unwrap()
+    .entry(root.to_path_buf()).or_insert(Arc::new(fonts)).clone()
+}
+
+// Public-facing font family listing subroutine
+// This is not depended upon by the rest of this module;
+// placed here so that it is easier to maintain parity with actual rendering
 
 pub(crate) fn font_families(root: Option<impl Into<PathBuf>>) -> Vec<String> {
   let mut user_fonts: Vec<String> = if let Some(root) = root {
@@ -54,16 +76,12 @@ impl SimpleWorld {
   pub fn new(root: impl Into<PathBuf>, source: &str) -> Self {
     let root = root.into();
 
-    let mut fonts = FontStore::new();
-    fonts.extend(typst_kit::fonts::scan(&root));
-    fonts.extend(typst_kit::fonts::system());
-
     Self {
       library: LazyHash::new(Library::default()),
-      root,
-      fonts,
+      fonts: cached_font_store(&root),
       source: Source::detached(source),
       files: Arc::new(RwLock::new(HashMap::new())),
+      root,
     }
   }
 }
