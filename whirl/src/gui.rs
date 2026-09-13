@@ -50,7 +50,7 @@ r#"
   let buf = render::to_rgba(root_path, &src, 1.0).unwrap();
   println!("{}", src);
   println!("{} {}", buf.width, buf.height);
-  egui::ColorImage::from_rgba_unmultiplied([buf.width as usize, buf.height as usize], &buf.pixels)
+  egui::ColorImage::from_rgba_premultiplied([buf.width as usize, buf.height as usize], &buf.pixels)
 }
 
 impl WhirlApp {

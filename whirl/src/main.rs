@@ -99,7 +99,11 @@ impl model::Element {
     let content = match &self.content {
       model::Content::Image { src } => {
         if is_preview {
-          format!("aaa")
+          if let Ok(s) = expand_expr(src, &[]) {
+            format!("#image({})", s)
+          } else {
+            format!("#raw(\"{}\")", escape(src))
+          }
         } else {
           format!("#image({})", expand_expr(src, fields)?)
         }
