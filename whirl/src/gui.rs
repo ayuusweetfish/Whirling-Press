@@ -414,13 +414,13 @@ impl WhirlApp {
     ui.label("Anchor");
     let anchors_and_names = [
       (model::Anchor { x: model::AnchorAxis::Min, y: model::AnchorAxis::Min }, "Top Left"),
-      (model::Anchor { x: model::AnchorAxis::Min, y: model::AnchorAxis::Cen }, "Top Center"),
-      (model::Anchor { x: model::AnchorAxis::Min, y: model::AnchorAxis::Max }, "Top Right"),
-      (model::Anchor { x: model::AnchorAxis::Cen, y: model::AnchorAxis::Min }, "Middle Left"),
+      (model::Anchor { x: model::AnchorAxis::Cen, y: model::AnchorAxis::Min }, "Top Center"),
+      (model::Anchor { x: model::AnchorAxis::Max, y: model::AnchorAxis::Min }, "Top Right"),
+      (model::Anchor { x: model::AnchorAxis::Min, y: model::AnchorAxis::Cen }, "Middle Left"),
       (model::Anchor { x: model::AnchorAxis::Cen, y: model::AnchorAxis::Cen }, "Middle Center"),
-      (model::Anchor { x: model::AnchorAxis::Cen, y: model::AnchorAxis::Max }, "Middle Right"),
-      (model::Anchor { x: model::AnchorAxis::Max, y: model::AnchorAxis::Min }, "Bottom Left"),
-      (model::Anchor { x: model::AnchorAxis::Max, y: model::AnchorAxis::Cen }, "Bottom Center"),
+      (model::Anchor { x: model::AnchorAxis::Max, y: model::AnchorAxis::Cen }, "Middle Right"),
+      (model::Anchor { x: model::AnchorAxis::Min, y: model::AnchorAxis::Max }, "Bottom Left"),
+      (model::Anchor { x: model::AnchorAxis::Cen, y: model::AnchorAxis::Max }, "Bottom Center"),
       (model::Anchor { x: model::AnchorAxis::Max, y: model::AnchorAxis::Max }, "Bottom Right"),
     ];
     ComboBox::from_id_salt("element_anchor")
