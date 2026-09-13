@@ -729,10 +729,20 @@ impl eframe::App for WhirlApp {
           }
           ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
             if let Some(path) = &self.root_path {
-              if ui.add_sized([ui.available_height(), ui.available_height()],
-                egui::Button::selectable(false, egui::RichText::new("📄").size(14.0))).clicked() {
-              }
-              ui.label(format!("759×2663, 25 elements — {}", path.to_string_lossy()));
+              let layout = self.layout.as_mut().unwrap();
+              let resp = ui.add_sized([ui.available_height(), ui.available_height()],
+                egui::Button::selectable(false, egui::RichText::new("📄").size(14.0)));
+              egui::Popup::menu(&resp).show(|ui| {
+                ui.horizontal(|ui| {
+                  ui.label("Page size");
+                  ui.add_sized([80.0, ui.style().spacing.interact_size.y], egui::DragValue::new(&mut layout.page.0).speed(1).range(1.0..=f32::INFINITY));
+                  ui.add_sized([80.0, ui.style().spacing.interact_size.y], egui::DragValue::new(&mut layout.page.1).speed(1).range(1.0..=f32::INFINITY));
+                });
+              });
+              ui.label(format!("{}×{}, {} elements — {}",
+                layout.page.0, layout.page.1,
+                layout.elements.len(),
+                path.to_string_lossy()));
             }
           });
         });
