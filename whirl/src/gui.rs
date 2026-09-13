@@ -245,12 +245,42 @@ impl WhirlApp {
           egui::Color32::from_rgba_premultiplied(255, 248, 240, 255),
         ));
 
+        // Transforms a point in a rectangular region (texture)
+        // with a pinned anchor into world coordinates
+        fn transformed_anchored(
+          (x0, y0): (f32, f32),   // Anchor is pinned here
+          (ax, ay): (f32, f32),   // Anchor inside the texture (in original units)
+          (sx, sy): (f32, f32),   // Scale
+          rota: f32,              // Rotation (radians)
+          (tx, ty): (f32, f32),   // Point in question inside texture (in original units)
+        ) -> (f32, f32) {
+          let dx = tx - ax;
+          let dy = ty - ay;
+          let sdx = dx * sx;
+          let sdy = dy * sy;
+          let (sin, cos) = rota.sin_cos();
+          let rx = sdx * cos - sdy * sin;
+          let ry = sdx * sin + sdy * cos;
+          (x0 + rx, y0 + ry)
+        }
+
+        fn element_tex_pos(el: &model::Element, (w, h): (f32, f32)) -> (f32, f32) {
+          transformed_anchored(
+            (el.x, el.y),
+            (32.0 + (w - 64.0) * f32::from(el.anchor.x),
+             32.0 + (h - 64.0) * f32::from(el.anchor.y)),
+            el.scale,
+            el.rotation,
+            (0.0, 0.0),
+          )
+        }
+
         for (i, el) in self.layout.as_ref().unwrap().elements.iter().enumerate() {
           let tex = &self.element_texs[i];
           painter.image(
             tex.id(),
             egui::Rect::from_min_size(
-              doc_to_canvas((el.x - 32.0, el.y - 32.0)).into(),
+              doc_to_canvas(element_tex_pos(&el, tex.size_vec2().into())).into(),
               (tex.size_vec2().x * self.canvas.zoom,
                tex.size_vec2().y * self.canvas.zoom).into()
             ),

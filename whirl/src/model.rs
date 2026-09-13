@@ -72,6 +72,15 @@ impl TryFrom<(f32, f32)> for Anchor {
     })
   }
 }
+impl From<AnchorAxis> for f32 {
+  fn from(value: AnchorAxis) -> Self {
+    match value {
+      AnchorAxis::Min => 0.0,
+      AnchorAxis::Cen => 0.5,
+      AnchorAxis::Max => 1.0,
+    }
+  }
+}
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum Content {
