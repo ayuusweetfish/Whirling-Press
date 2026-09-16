@@ -392,8 +392,12 @@ impl WhirlApp {
               egui::Stroke::new(r * 0.5, egui::Color32::from_rgba_premultiplied(24, 24, 24, 255)),
             );
           }
-          if inside && resp.clicked() {
-            self.sel_element = Some(i);
+          if resp.clicked() {
+            if let Some(p) = resp.interact_pointer_pos()
+              && point_in_simple_polygon(p.into(), &corners_content)
+            {
+              self.sel_element = Some(i);
+            }
           }
           if self.sel_element == Some(i) {
             painter.add(egui::Shape::Circle(egui::epaint::CircleShape {
