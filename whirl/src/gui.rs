@@ -18,6 +18,7 @@ struct WhirlApp {
   root_path: Option<std::path::PathBuf>,
   attr_panel_expanded: bool,
   error_message: Option<(bool, String)>,
+  yml_file_name: Option<std::path::PathBuf>,
   layout: Option<model::Layout>,
   font_families: Vec<String>,
   just_loaded: bool,
@@ -107,6 +108,7 @@ impl WhirlApp {
       root_path: None,
       attr_panel_expanded: true,
       error_message: None,
+      yml_file_name: None,
       layout: None,
       font_families: crate::render::font_families(None::<&str>),
       just_loaded: false,
@@ -125,8 +127,9 @@ impl WhirlApp {
   fn load_document<P: AsRef<std::path::Path>>(&mut self, root_path: P, ctx: &egui::Context) {
     let root_path = root_path.as_ref();
     match crate::process_pack_metadata(root_path) {
-      Ok((_, layout, _, _fields)) => {
+      Ok((yml_file_name, layout, _, _fields)) => {
         self.root_path = Some(root_path.to_path_buf());
+        self.yml_file_name = Some(yml_file_name);
         self.font_families = crate::render::font_families(Some(root_path));
         ctx.send_viewport_cmd(egui::ViewportCommand::Title(
           format!("{} — Whirling Press", root_path.display())));
@@ -757,6 +760,10 @@ impl eframe::App for WhirlApp {
                   ui.add_sized([80.0, ui.style().spacing.interact_size.y], egui::DragValue::new(&mut layout.page.0).speed(1).range(1.0..=f32::INFINITY));
                   ui.add_sized([80.0, ui.style().spacing.interact_size.y], egui::DragValue::new(&mut layout.page.1).speed(1).range(1.0..=f32::INFINITY));
                 });
+                if ui.add(egui::Button::selectable(false, "Save")).clicked() {
+                  let yml_file_name = self.yml_file_name.as_ref().unwrap();
+                  println!("{:?}", yml_file_name);
+                }
               });
               if let Some((_is_err, s)) = &self.error_message {
                 ui.label(format!("Error: {}", s));
