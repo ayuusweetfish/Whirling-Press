@@ -17,7 +17,7 @@ use crate::render;
 struct WhirlApp {
   root_path: Option<std::path::PathBuf>,
   attr_panel_expanded: bool,
-  error_message: Option<(bool, std::time::Instant, String)>,
+  status_msg: Option<(bool, std::time::Instant, String)>,
   yml_file_name: Option<std::path::PathBuf>,
   layout: Option<model::Layout>,
   font_families: Vec<String>,
@@ -107,7 +107,7 @@ impl WhirlApp {
     let mut self_ = Self {
       root_path: None,
       attr_panel_expanded: true,
-      error_message: None,
+      status_msg: None,
       yml_file_name: None,
       layout: None,
       font_families: crate::render::font_families(None::<&str>),
@@ -145,10 +145,10 @@ impl WhirlApp {
 
         self.layout = Some(layout);
 
-        self.error_message = None;
+        self.status_msg = None;
       },
       Err(e) => {
-        self.error_message = Some((true, std::time::Instant::now(), e.to_string()));
+        self.status_msg = Some((true, std::time::Instant::now(), e.to_string()));
       },
     }
   }
@@ -174,7 +174,7 @@ impl WhirlApp {
         ui.separator();
         ui.add_space(18.0);
         if ui.button("Open content folder").clicked() {
-          self.error_message = None;
+          self.status_msg = None;
           if let Some(path) = rfd::FileDialog::new().pick_folder() {
             self.load_document(&path, ui.ctx());
           }
@@ -769,8 +769,8 @@ impl eframe::App for WhirlApp {
                     yaml_12: true,
                   }).unwrap();
                   match std::fs::write(&yml_path, s) {
-                    Ok(_) => self.error_message = Some((false, std::time::Instant::now(), format!("Saved {}", yml_file_name.to_string_lossy()))),
-                    Err(e) => self.error_message = Some((true, std::time::Instant::now(), format!("{}", e))),
+                    Ok(_) => self.status_msg = Some((false, std::time::Instant::now(), format!("Saved {}", yml_file_name.to_string_lossy()))),
+                    Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e))),
                   }
                 }
                 if ui.add(egui::Button::new("Export…")).clicked() {
@@ -779,7 +779,7 @@ impl eframe::App for WhirlApp {
                   }
                 }
               });
-              if let Some((is_err, _, s)) = &self.error_message {
+              if let Some((is_err, _, s)) = &self.status_msg {
                 ui.label(if *is_err { format!("Error: {}", s) } else { s.to_string() });
               } else {
                 ui.label(format!("{}×{}, {} elements — {}",
@@ -787,7 +787,7 @@ impl eframe::App for WhirlApp {
                   layout.elements.len(),
                   path.to_string_lossy()));
               }
-            } else if let Some((is_err, _, s)) = &self.error_message {
+            } else if let Some((is_err, _, s)) = &self.status_msg {
               ui.label(if *is_err { format!("Error: {}", s) } else { s.to_string() });
             }
           });
@@ -798,10 +798,10 @@ impl eframe::App for WhirlApp {
     } else {
       self.ui_landing(ui);
     }
-    if let Some((_, t, _)) = self.error_message
+    if let Some((_, t, _)) = self.status_msg
       && t.elapsed() > std::time::Duration::from_secs(3)
     {
-      self.error_message = None;
+      self.status_msg = None;
     }
   }
 }
