@@ -350,8 +350,8 @@ fn start_gui(root_path: Option<&str>) {
   }
   #[cfg(not(feature = "gui"))]
   {
-    println!("This version built without GUI feature >_<");
-    println!("Please specify <pack_root> and -o <output>");
+    eprintln!("This version built without GUI feature >_<");
+    eprintln!("Please specify <pack_root> and -o <output>");
   }
 }
 

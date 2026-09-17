@@ -17,6 +17,7 @@ use crate::render;
 struct WhirlApp {
   root_path: Option<std::path::PathBuf>,
   attr_panel_expanded: bool,
+  error_message: Option<(bool, String)>,
   layout: Option<model::Layout>,
   font_families: Vec<String>,
   just_loaded: bool,
@@ -105,6 +106,7 @@ impl WhirlApp {
     let mut self_ = Self {
       root_path: None,
       attr_panel_expanded: true,
+      error_message: None,
       layout: None,
       font_families: crate::render::font_families(None::<&str>),
       just_loaded: false,
@@ -139,9 +141,11 @@ impl WhirlApp {
         }).collect();
 
         self.layout = Some(layout);
+
+        self.error_message = None;
       },
       Err(e) => {
-        eprintln!("Error: {}", e);
+        self.error_message = Some((true, e.to_string()));
       },
     }
   }
@@ -166,9 +170,11 @@ impl WhirlApp {
         ui.add_space(18.0);
         ui.separator();
         ui.add_space(18.0);
-        if ui.button("Open content folder").clicked()
-          && let Some(path) = rfd::FileDialog::new().pick_folder() {
-          self.load_document(&path, ui.ctx());
+        if ui.button("Open content folder").clicked() {
+          self.error_message = None;
+          if let Some(path) = rfd::FileDialog::new().pick_folder() {
+            self.load_document(&path, ui.ctx());
+          }
         }
         ui.add_space(6.0);
         ui.label("or drag-and-drop");
@@ -759,10 +765,16 @@ impl eframe::App for WhirlApp {
                   ui.add_sized([80.0, ui.style().spacing.interact_size.y], egui::DragValue::new(&mut layout.page.1).speed(1).range(1.0..=f32::INFINITY));
                 });
               });
-              ui.label(format!("{}×{}, {} elements — {}",
-                layout.page.0, layout.page.1,
-                layout.elements.len(),
-                path.to_string_lossy()));
+              if let Some((_is_err, s)) = &self.error_message {
+                ui.label(format!("Error: {}", s));
+              } else {
+                ui.label(format!("{}×{}, {} elements — {}",
+                  layout.page.0, layout.page.1,
+                  layout.elements.len(),
+                  path.to_string_lossy()));
+              }
+            } else if let Some((_is_err, s)) = &self.error_message {
+              ui.label(format!("Error: {}", s));
             }
           });
         });
