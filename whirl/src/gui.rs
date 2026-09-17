@@ -564,7 +564,7 @@ impl WhirlApp {
         .show(ui, |ui| {
           for i in 0..3 {
             for j in (i * 3)..(i * 3 + 3) {
-              let (value, _, abbr) = anchors_and_names[j];
+              let (value, name, abbr) = anchors_and_names[j];
               // From `egui::Ui::selectable_value`
               let (current_value, selected_value, text) = (&mut el.anchor, value, abbr);
               let checked = *current_value == selected_value;
