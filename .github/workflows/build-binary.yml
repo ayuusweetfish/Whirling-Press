@@ -1,0 +1,59 @@
+name: Build
+
+on:
+  workflow_dispatch:  # Manual triggers only
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        # Linux x86-64 musl
+        - target: x86_64-unknown-linux-musl
+          os: ubuntu-26.04
+          artifactname: linux-x86_64
+          binary: whirl
+        # Linux AArch64 musl
+        - target: aarch64-unknown-linux-musl
+          os: ubuntu-24.04-arm
+          artifactname: linux-aarch64
+          binary: whirl
+        # Windows x86-64
+        - target: x86_64-pc-windows-gnu
+          os: windows-2025
+          artifactname: windows-x86_64
+          binary: whirl.exe
+        # Windows AArch64
+        - target: aarch64-pc-windows-gnullvm
+          os: windows-11-arm
+          artifactname: windows-aarch64
+          binary: whirl.exe
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v7
+
+    - name: Install Rust toolchain
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+        target: ${{ matrix.target }}
+
+    - name: Install musl tools
+      if: contains(matrix.target, 'linux-musl')
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y musl-tools
+
+    - name: Build
+      working-directory: whirl
+      run: cargo build --release --target ${{ matrix.target }}
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ matrix.artifactname }}
+        path: whirl/target/${{ matrix.target }}/release/${{ matrix.binary }}
