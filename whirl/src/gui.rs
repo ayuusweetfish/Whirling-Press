@@ -760,21 +760,35 @@ impl eframe::App for WhirlApp {
                   ui.add_sized([80.0, ui.style().spacing.interact_size.y], egui::DragValue::new(&mut layout.page.0).speed(1).range(1.0..=f32::INFINITY));
                   ui.add_sized([80.0, ui.style().spacing.interact_size.y], egui::DragValue::new(&mut layout.page.1).speed(1).range(1.0..=f32::INFINITY));
                 });
-                if ui.add(egui::Button::selectable(false, "Save")).clicked() {
+                if ui.add(egui::Button::new("Save")).clicked() {
+                  // Save YAML
                   let yml_file_name = self.yml_file_name.as_ref().unwrap();
-                  println!("{:?}", yml_file_name);
+                  let yml_path = self.root_path.as_ref().unwrap().join(yml_file_name);
+                  let s = serde_saphyr::to_string_with_options(&layout, serde_saphyr::ser_options! {
+                    compact_list_indent: true,
+                    yaml_12: true,
+                  }).unwrap();
+                  match std::fs::write(&yml_path, s) {
+                    Ok(_) => self.error_message = Some((false, "Saved.".to_string())),
+                    Err(e) => self.error_message = Some((true, format!("{}", e))),
+                  }
+                }
+                if ui.add(egui::Button::new("Export…")).clicked() {
+                  if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                    println!("{:?}", path);
+                  }
                 }
               });
-              if let Some((_is_err, s)) = &self.error_message {
-                ui.label(format!("Error: {}", s));
+              if let Some((is_err, s)) = &self.error_message {
+                ui.label(if *is_err { format!("Error: {}", s) } else { s.to_string() });
               } else {
                 ui.label(format!("{}×{}, {} elements — {}",
                   layout.page.0, layout.page.1,
                   layout.elements.len(),
                   path.to_string_lossy()));
               }
-            } else if let Some((_is_err, s)) = &self.error_message {
-              ui.label(format!("Error: {}", s));
+            } else if let Some((is_err, s)) = &self.error_message {
+              ui.label(if *is_err { format!("Error: {}", s) } else { s.to_string() });
             }
           });
         });
