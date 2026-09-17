@@ -3,6 +3,10 @@ name: Build
 on:
   workflow_dispatch:  # Manual triggers only
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   build:
     strategy:
@@ -13,22 +17,14 @@ jobs:
         - target: x86_64-unknown-linux-musl
           os: ubuntu-26.04
           artifactname: linux-x86_64
-          binary: whirl
         # Linux AArch64 musl
         - target: aarch64-unknown-linux-musl
           os: ubuntu-24.04-arm
           artifactname: linux-aarch64
-          binary: whirl
         # Windows x86-64
         - target: x86_64-pc-windows-gnu
           os: windows-2025
           artifactname: windows-x86_64
-          binary: whirl.exe
-        # Windows AArch64
-        - target: aarch64-pc-windows-gnullvm
-          os: windows-11-arm
-          artifactname: windows-aarch64
-          binary: whirl.exe
 
     runs-on: ${{ matrix.os }}
 
@@ -36,13 +32,17 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v7
 
+    - name: Environment variables
+      run: |
+        echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
     - name: Install Rust toolchain
       uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
         toolchain: stable
         target: ${{ matrix.target }}
 
-    - name: Install musl tools
+    - name: Install musl tools (linux-musl only)
       if: contains(matrix.target, 'linux-musl')
       run: |
         sudo apt-get update
@@ -50,10 +50,10 @@ jobs:
 
     - name: Build
       working-directory: whirl
-      run: cargo build --release --target ${{ matrix.target }}
+      run: CARGO_PROFILE_RELEASE_STRIP=symbols CARGO_PROFILE_RELEASE_LTO=fat cargo build --release --target ${{ matrix.target }}
 
     - name: Upload artifact
       uses: actions/upload-artifact@v7
       with:
-        name: ${{ matrix.artifactname }}
-        path: whirl/target/${{ matrix.target }}/release/${{ matrix.binary }}
+        name: whirl-${{ env.SHORT_SHA }}-${{ matrix.artifactname }}
+        path: whirl/target/${{ matrix.target }}/release/${{ runner.os == 'Windows' && 'whirl.exe' || 'whirl' }}
