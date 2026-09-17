@@ -859,7 +859,14 @@ impl eframe::App for WhirlApp {
                 }
               });
               if let Some((is_err, _, s)) = &self.status_msg {
-                ui.label(if *is_err { format!("Error: {}", s) } else { s.to_string() });
+                if *is_err {
+                  ui.colored_label(
+                    ui.style().visuals.warn_fg_color,
+                    format!("Error: {}", s),
+                  );
+                } else {
+                  ui.label(s.to_string());
+                }
               } else {
                 ui.label(format!("{}×{}, {} elements — {}",
                   layout.page.0, layout.page.1,
@@ -867,7 +874,14 @@ impl eframe::App for WhirlApp {
                   path.to_string_lossy()));
               }
             } else if let Some((is_err, _, s)) = &self.status_msg {
-              ui.label(if *is_err { format!("Error: {}", s) } else { s.to_string() });
+              if *is_err {
+                ui.colored_label(
+                  ui.style().visuals.warn_fg_color,
+                  format!("Error: {}", s),
+                );
+              } else {
+                ui.label(s.to_string());
+              }
             }
           });
         });
