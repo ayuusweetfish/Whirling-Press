@@ -320,19 +320,19 @@ enum ArgsFormat {
   PngSeq,
 }
 
-fn process_and_write(pack_root: &str, output: &str, format: ArgsFormat, compress: bool) -> Result<(), ProcessError> {
+fn process_and_write<P: AsRef<Path>, Q: AsRef<Path>>(pack_root: P, output: Q, format: ArgsFormat, compress: bool) -> Result<(), ProcessError> {
   match format {
     ArgsFormat::Pdf => {
-      let bytes = process_pack(&pack_root, render::to_pdf)?;
-      let p = Path::new(&output);
+      let bytes = process_pack(pack_root.as_ref(), render::to_pdf)?;
+      let p = output.as_ref();
       let bytes = opt_pdf::optimize(&bytes, compress);
       std::fs::write(&p, bytes).map_err(|e| ProcessError::Io(p.to_path_buf(), e))?;
     },
     ArgsFormat::PdfSeq => {
-      let seq = process_pack(&pack_root, render::to_pdf_seq)?;
+      let seq = process_pack(pack_root.as_ref(), render::to_pdf_seq)?;
       let width = (seq.len().ilog10() + 1).max(3) as usize;
       for (i, bytes) in seq.into_iter().enumerate() {
-        let mut p = Path::new(&output).to_path_buf();
+        let mut p = output.as_ref().to_path_buf();
         p.push(format!("{:0width$}.pdf", i + 1));
         let bytes = opt_pdf::optimize(&bytes, compress);
         std::fs::write(&p, bytes).map_err(|e| ProcessError::Io(p, e))?;
