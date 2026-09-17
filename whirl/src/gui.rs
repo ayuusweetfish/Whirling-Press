@@ -773,9 +773,33 @@ impl eframe::App for WhirlApp {
                     Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e))),
                   }
                 }
-                if ui.add(egui::Button::new("Export…")).clicked() {
+                if ui.add(egui::Button::new("Export PDF…")).clicked() {
+                  if let Some(path) = rfd::FileDialog::new()
+                    .add_filter("PDF", &["pdf"])
+                    .save_file()
+                  {
+                    match crate::process_and_write(
+                      self.root_path.as_ref().unwrap(),
+                      &path,
+                      crate::ArgsFormat::Pdf,
+                      true,
+                    ) {
+                      Ok(_) => self.status_msg = Some((false, std::time::Instant::now(), format!("Exported {}", path.to_string_lossy()))),
+                      Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e))),
+                    }
+                  }
+                }
+                if ui.add(egui::Button::new("Export PDF sequence…")).clicked() {
                   if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                    println!("{:?}", path);
+                    match crate::process_and_write(
+                      self.root_path.as_ref().unwrap(),
+                      &path,
+                      crate::ArgsFormat::PdfSeq,
+                      true,
+                    ) {
+                      Ok(_) => self.status_msg = Some((false, std::time::Instant::now(), format!("Exported {}", path.to_string_lossy()))),
+                      Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e))),
+                    }
                   }
                 }
               });
