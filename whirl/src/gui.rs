@@ -809,7 +809,11 @@ impl eframe::App for WhirlApp {
               let layout = self.layout.as_mut().unwrap();
               let resp = ui.add_sized([ui.available_height(), ui.available_height()],
                 egui::Button::selectable(false, egui::RichText::new("📄").size(14.0)));
-              egui::Popup::menu(&resp).show(|ui| {
+              let popup_id = resp.id.with("popup");
+              egui::Popup::menu(&resp)
+              .id(popup_id)
+              .close_behavior(egui::containers::PopupCloseBehavior::CloseOnClickOutside)
+              .show(|ui| {
                 ui.horizontal(|ui| {
                   ui.label("Page size");
                   ui.add_sized([80.0, ui.style().spacing.interact_size.y], egui::DragValue::new(&mut layout.page.0).speed(1).range(1.0..=f32::INFINITY));
@@ -827,6 +831,7 @@ impl eframe::App for WhirlApp {
                     Ok(_) => self.status_msg = Some((false, std::time::Instant::now(), format!("Saved {}", yml_file_name.to_string_lossy()))),
                     Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e))),
                   }
+                  egui::Popup::close_id(ui.ctx(), popup_id);
                 }
                 if ui.add(egui::Button::new("Export PDF…")).clicked() {
                   if let Some(path) = rfd::FileDialog::new()
@@ -843,6 +848,7 @@ impl eframe::App for WhirlApp {
                       Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e))),
                     }
                   }
+                  egui::Popup::close_id(ui.ctx(), popup_id);
                 }
                 if ui.add(egui::Button::new("Export PDF sequence…")).clicked() {
                   if let Some(path) = rfd::FileDialog::new().pick_folder() {
@@ -856,6 +862,7 @@ impl eframe::App for WhirlApp {
                       Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e))),
                     }
                   }
+                  egui::Popup::close_id(ui.ctx(), popup_id);
                 }
               });
               if let Some((is_err, _, s)) = &self.status_msg {
