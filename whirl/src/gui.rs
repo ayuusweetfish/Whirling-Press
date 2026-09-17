@@ -17,7 +17,7 @@ use crate::render;
 struct WhirlApp {
   root_path: Option<std::path::PathBuf>,
   attr_panel_expanded: bool,
-  error_message: Option<(bool, String)>,
+  error_message: Option<(bool, std::time::Instant, String)>,
   yml_file_name: Option<std::path::PathBuf>,
   layout: Option<model::Layout>,
   font_families: Vec<String>,
@@ -148,7 +148,7 @@ impl WhirlApp {
         self.error_message = None;
       },
       Err(e) => {
-        self.error_message = Some((true, e.to_string()));
+        self.error_message = Some((true, std::time::Instant::now(), e.to_string()));
       },
     }
   }
@@ -769,8 +769,8 @@ impl eframe::App for WhirlApp {
                     yaml_12: true,
                   }).unwrap();
                   match std::fs::write(&yml_path, s) {
-                    Ok(_) => self.error_message = Some((false, "Saved.".to_string())),
-                    Err(e) => self.error_message = Some((true, format!("{}", e))),
+                    Ok(_) => self.error_message = Some((false, std::time::Instant::now(), format!("Saved {}", yml_file_name.to_string_lossy()))),
+                    Err(e) => self.error_message = Some((true, std::time::Instant::now(), format!("{}", e))),
                   }
                 }
                 if ui.add(egui::Button::new("Export…")).clicked() {
@@ -779,7 +779,7 @@ impl eframe::App for WhirlApp {
                   }
                 }
               });
-              if let Some((is_err, s)) = &self.error_message {
+              if let Some((is_err, _, s)) = &self.error_message {
                 ui.label(if *is_err { format!("Error: {}", s) } else { s.to_string() });
               } else {
                 ui.label(format!("{}×{}, {} elements — {}",
@@ -787,7 +787,7 @@ impl eframe::App for WhirlApp {
                   layout.elements.len(),
                   path.to_string_lossy()));
               }
-            } else if let Some((is_err, s)) = &self.error_message {
+            } else if let Some((is_err, _, s)) = &self.error_message {
               ui.label(if *is_err { format!("Error: {}", s) } else { s.to_string() });
             }
           });
@@ -797,6 +797,11 @@ impl eframe::App for WhirlApp {
       self.ui_edit(ui);
     } else {
       self.ui_landing(ui);
+    }
+    if let Some((_, t, _)) = self.error_message
+      && t.elapsed() > std::time::Duration::from_secs(3)
+    {
+      self.error_message = None;
     }
   }
 }
