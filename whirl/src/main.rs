@@ -250,6 +250,47 @@ fn process_pack<P: AsRef<Path>, R, F: FnOnce(P, &str) -> Result<R, render::Rende
   Ok(output)
 }
 
+impl std::fmt::Display for FindSingleError {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      FindSingleError::Io(e) => write!(f, "I/O error: {}", e),
+      FindSingleError::NoneFound => write!(f, "no file found"),
+      FindSingleError::MultipleFound => write!(f, "multiple files found"),
+    }
+  }
+}
+
+impl std::fmt::Display for ProcessError {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      ProcessError::FindYaml(e) => {
+        write!(f, "Could not find YAML file: {}", e)
+      }
+      ProcessError::ParseYaml(e) => {
+        write!(f, "Could not parse YAML: {}", e)
+      }
+      ProcessError::FindCsv(e) => {
+        write!(f, "Could not find CSV file: {}", e)
+      }
+      ProcessError::CsvNameUtf8 => {
+        write!(f, "CSV file name is not valid UTF-8")
+      }
+      ProcessError::Io(path, e) => {
+        write!(f, "I/O error on `{}`: {}", path.display(), e)
+      }
+      ProcessError::Expr(index, e) => match e {
+        ExprError::NonexistentField(pos, name) => write!(f,
+          "Expression {} at byte {} references nonexistent field `{}`",
+          index, pos, name,
+        ),
+      },
+      ProcessError::Render(render::RenderError::TypstCompilation(diags)) => {
+        write!(f, "Typst compilation failed with {} message(s)", diags.len())
+      }
+    }
+  }
+}
+
 use argh::{FromArgs, FromArgValue};
 
 #[derive(Debug, FromArgs)]
@@ -320,7 +361,7 @@ fn main() {
   if let Some(pack_root) = args.pack_root {
     if let Some(output) = args.output {
       match process_and_write(&pack_root, &output, args.format, args.compress) {
-        Err(e) => println!("{:?}", e),
+        Err(e) => eprintln!("Error: {}", e),
         Ok(_) => (),
       }
     } else {

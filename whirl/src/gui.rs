@@ -7,7 +7,7 @@ pub(crate) fn start(root_path: Option<&str>) {
     Box::new(|cc| Ok(Box::new(WhirlApp::new(cc, root_path)))),
   );
   if let Err(e) = result {
-    println!("{:?}", e);
+    eprintln!("Error: {}", e);
   }
 }
 
@@ -60,7 +60,7 @@ fn element_to_image<P: AsRef<std::path::Path>>(root_path: P, el: &model::Element
     Err(e) => {
       // XXX: Display better error messages
       try_to_image(root_path,
-        &format!("#place-element(0pt, 0pt, in_flow: true)[#raw(\"{}\")]", escape(&format!("{:?}", e))),
+        &format!("#place-element(0pt, 0pt, in_flow: true)[#raw(\"{}\")]", escape(&format!("{}", e))),
       ).unwrap()
     },
   }
@@ -141,7 +141,7 @@ impl WhirlApp {
         self.layout = Some(layout);
       },
       Err(e) => {
-        println!("{:?}", e);
+        eprintln!("Error: {}", e);
       },
     }
   }
