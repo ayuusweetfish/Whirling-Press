@@ -39,7 +39,7 @@ impl Element {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default, PartialEq, Copy)]
-#[serde(try_from = "(f32, f32)")]
+#[serde(try_from = "(f32, f32)", into = "(f32, f32)")]
 pub struct Anchor {
   pub x: AnchorAxis,
   pub y: AnchorAxis,
@@ -81,6 +81,11 @@ impl From<AnchorAxis> for f32 {
     }
   }
 }
+impl From<Anchor> for (f32, f32) {
+  fn from(anchor: Anchor) -> Self {
+    (anchor.x.into(), anchor.y.into())
+  }
+}
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum Content {
@@ -102,7 +107,7 @@ pub enum Content {
   },
 }
 #[derive(Debug, Clone, Deserialize, Serialize, Default, PartialEq, Copy)]
-#[serde(try_from = "f32")]
+#[serde(try_from = "f32", into = "i32")]
 pub enum Weight {
   Thin,
   ExtraLight,
