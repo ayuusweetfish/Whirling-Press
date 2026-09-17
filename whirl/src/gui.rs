@@ -362,6 +362,49 @@ impl WhirlApp {
         }
 
         let mut sel_element_by_canvas = false;
+        // For alternating layers selection on the canvas
+        // If previous selection does not contain current pointer, select topmost colliding
+        // Otherwise select the next colliding element, bottom-up, cycling
+        let mut first_sel: Option<usize> = None;
+        let mut last_sel: Option<usize> = None;
+        let mut first_above_sel: Option<usize> = None;
+        let mut prev_sel_repeated = false;
+
+        for (i, el) in self.layout.as_ref().unwrap().elements.iter().enumerate() {
+          // XXX: DRY
+          let tex = &self.element_texs[i];
+          let corners_content = [
+            doc_to_canvas(element_tex_pos_content(&el, tex.size_vec2().into(), (0., 0.))),
+            doc_to_canvas(element_tex_pos_content(&el, tex.size_vec2().into(), (1., 0.))),
+            doc_to_canvas(element_tex_pos_content(&el, tex.size_vec2().into(), (1., 1.))),
+            doc_to_canvas(element_tex_pos_content(&el, tex.size_vec2().into(), (0., 1.))),
+          ];
+          if resp.clicked() {
+            if let Some(p) = resp.interact_pointer_pos()
+              && point_in_simple_polygon(p.into(), &corners_content)
+            {
+              if first_sel.is_none() {
+                first_sel = Some(i);
+              }
+              last_sel = Some(i);
+              if let Some(j) = self.sel_element {
+                if i == j {
+                  prev_sel_repeated = true;
+                } else if i > j && first_above_sel.is_none() {
+                  first_above_sel = Some(i);
+                }
+              }
+            }
+          }
+        }
+
+        if first_sel.is_some() {
+          self.sel_element = Some(
+            if prev_sel_repeated { first_above_sel.unwrap_or(first_sel.unwrap()) }
+            else { last_sel.unwrap() }
+          );
+          sel_element_by_canvas = true;
+        }
 
         for (i, el) in self.layout.as_ref().unwrap().elements.iter().enumerate() {
           let tex = &self.element_texs[i];
@@ -396,14 +439,6 @@ impl WhirlApp {
               ],
               egui::Stroke::new(r * 0.5, egui::Color32::from_rgba_premultiplied(24, 24, 24, 255)),
             );
-          }
-          if resp.clicked() {
-            if let Some(p) = resp.interact_pointer_pos()
-              && point_in_simple_polygon(p.into(), &corners_content)
-            {
-              self.sel_element = Some(i);
-              sel_element_by_canvas = true;
-            }
           }
           if self.sel_element == Some(i) {
             painter.add(egui::Shape::Circle(egui::epaint::CircleShape {
