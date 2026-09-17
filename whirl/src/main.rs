@@ -235,7 +235,7 @@ fn process_pack_metadata<P: AsRef<Path>>(path: P) -> Result<
 }
 
 fn process_pack<P: AsRef<Path>, R, F: FnOnce(P, &str) -> Result<R, render::RenderError>>(path: P, render: F) -> Result<R, ProcessError> {
-  let (yaml_file_name, layout, csv_file_name, list_fields) = process_pack_metadata(&path)?;
+  let (_yaml_file_name, layout, csv_file_name, list_fields) = process_pack_metadata(&path)?;
 
   fn escape_path<P: AsRef<Path>>(path: P) -> Result<String, ProcessError> {
     Ok(path.as_ref().to_str().ok_or(ProcessError::CsvNameUtf8)?.to_string()

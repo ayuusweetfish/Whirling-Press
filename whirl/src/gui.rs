@@ -125,7 +125,7 @@ impl WhirlApp {
   fn load_document<P: AsRef<std::path::Path>>(&mut self, root_path: P, ctx: &egui::Context) {
     let root_path = root_path.as_ref();
     match crate::process_pack_metadata(root_path) {
-      Ok((_, layout, _, fields)) => {
+      Ok((_, layout, _, _fields)) => {
         self.root_path = Some(root_path.to_path_buf());
         self.font_families = crate::render::font_families(Some(root_path));
         ctx.send_viewport_cmd(egui::ViewportCommand::Title(
@@ -265,12 +265,6 @@ impl WhirlApp {
           (
             c_width / 2.0 + (x - (self.canvas.origin.0 + page_w / 2.0)) * self.canvas.zoom,
             c_height / 2.0 + (y - (self.canvas.origin.1 + page_h / 2.0)) * self.canvas.zoom,
-          )
-        };
-        let canvas_to_doc = |(cx, cy): (f32, f32)| -> (f32, f32) {
-          (
-            (cx - c_width / 2.0) / self.canvas.zoom + self.canvas.origin.0 + page_w / 2.0,
-            (cy - c_height / 2.0) / self.canvas.zoom + self.canvas.origin.1 + page_h / 2.0,
           )
         };
 
@@ -524,7 +518,6 @@ impl WhirlApp {
           .fixed_pos(egui::pos2(c_width, c_height / 2.0))
           .pivot(egui::Align2::RIGHT_CENTER)
           .show(ui.ctx(), |ui| {
-            let h = ui.style().spacing.interact_size.y;
             if ui.add(egui::Button::new(if self.attr_panel_expanded { "▸" } else { "◂" }))
               .on_hover_text(if self.attr_panel_expanded { "Hide attributes" } else { "Show attributes" })
               .clicked()
@@ -537,7 +530,7 @@ impl WhirlApp {
 
   fn show_attrs(ui: &mut egui::Ui, font_families: &[String], el: &mut model::Element) -> bool {
     let mut changed = false;
-    use egui::{DragValue, Button, ComboBox};
+    use egui::{DragValue, ComboBox};
     ui.label("Position");
     ui.horizontal(|ui| {
       ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.x).speed(0.1));
@@ -569,7 +562,7 @@ impl WhirlApp {
         for i in 0..3 {
           ui.horizontal(|ui| {
             for j in (i * 3)..(i * 3 + 3) {
-              let (value, name, abbr) = anchors_and_names[j];
+              let (value, _, abbr) = anchors_and_names[j];
               // From `egui::Ui::selectable_value`
               let (current_value, selected_value, text) = (&mut el.anchor, value, abbr);
               let checked = *current_value == selected_value;
@@ -740,7 +733,7 @@ impl WhirlApp {
 }
 
 impl eframe::App for WhirlApp {
-  fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+  fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
     egui::Panel::bottom("status_bar")
       .frame(egui::Frame::side_top_panel(ui.style()))
       .show(ui, |ui| {
