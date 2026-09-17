@@ -361,6 +361,8 @@ impl WhirlApp {
           c
         }
 
+        let mut sel_element_by_canvas = false;
+
         for (i, el) in self.layout.as_ref().unwrap().elements.iter().enumerate() {
           let tex = &self.element_texs[i];
           let corners = [
@@ -400,6 +402,7 @@ impl WhirlApp {
               && point_in_simple_polygon(p.into(), &corners_content)
             {
               self.sel_element = Some(i);
+              sel_element_by_canvas = true;
             }
           }
           if self.sel_element == Some(i) {
@@ -422,7 +425,8 @@ impl WhirlApp {
                 let h = ui.style().spacing.interact_size.y;
                 ui.allocate_ui(egui::vec2(160.0 + (h + ui.style().spacing.item_spacing.x) * 2.0, 240.0), |ui| {
                   egui::ScrollArea::vertical().show(ui, |ui| {
-                    let elements = &mut self.layout.as_mut().unwrap().elements;
+                    let layout = &mut self.layout.as_mut().unwrap();
+                    let elements = &mut layout.elements;
                     // Button for adding new
                     let add_resp = ui.add_sized(
                       [ui.available_width(), ui.style().spacing.interact_size.y],
@@ -469,7 +473,7 @@ impl WhirlApp {
                     for (i, el) in elements.iter().enumerate().rev() {
                       let sel = self.sel_element.map_or(false, |j| j == i);
                       ui.horizontal(|ui| {
-                        if ui.add_sized(
+                        let resp = ui.add_sized(
                           egui::vec2(160.0, ui.style().spacing.interact_size.y),
                           egui::Button::selectable(sel, "").left_text(
                             match &el.content {
@@ -477,8 +481,24 @@ impl WhirlApp {
                               model::Content::Text { text, .. } => format!("💬 {}", text),
                             },
                           ).truncate(),
-                        ).clicked() {
+                        );
+                        if sel && sel_element_by_canvas {
+                          resp.scroll_to_me_animation(None,
+                            egui::style::ScrollAnimation::new(1500., egui::Rangef::new(0.1, 0.15)));
+                        }
+                        if resp.clicked() {
                           self.sel_element = Some(i);
+                          // Pan canvas to element
+                          if el.x - layout.page.0 * 0.5 < self.canvas.origin.0 - c_width * 0.5 / self.canvas.zoom
+                            || el.x - layout.page.0 * 0.5 > self.canvas.origin.0 + c_width * 0.5 / self.canvas.zoom
+                            || el.y - layout.page.1 * 0.5 < self.canvas.origin.1 - c_height * 0.5 / self.canvas.zoom
+                            || el.y - layout.page.1 * 0.5 > self.canvas.origin.1 + c_height * 0.5 / self.canvas.zoom
+                          {
+                            self.canvas.origin = (
+                              el.x - layout.page.0 * 0.5,
+                              el.y - layout.page.1 * 0.5,
+                            );
+                          }
                         }
                         if i + 1 == elements.len() {
                           ui.add_space(h + ui.style().spacing.item_spacing.x);
