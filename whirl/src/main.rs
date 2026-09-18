@@ -248,13 +248,15 @@ fn process_pack_metadata<P: AsRef<Path>>(path: P, allow_empty_yaml: bool) -> Res
 }
 
 fn process_pack<P: AsRef<Path>, R, F: FnOnce(P, &str) -> Result<R, render::RenderError>>(path: P, layout: Option<&model::Layout>, render: F) -> Result<R, ProcessError> {
+  let owned_layout;
   let (layout, csv_file_name, list_fields) =
     if let Some(layout) = layout {
       let (_, _, csv_file_name, list_fields) = process_pack_metadata(&path, false)?;
-      (layout.clone(), csv_file_name, list_fields)
+      (layout, csv_file_name, list_fields)
     } else {
       let (_, layout, csv_file_name, list_fields) = process_pack_metadata(&path, false)?;
-      (layout, csv_file_name, list_fields)
+      owned_layout = layout;
+      (&owned_layout, csv_file_name, list_fields)
     };
 
   fn escape_path<P: AsRef<Path>>(path: P) -> Result<String, ProcessError> {
