@@ -22,6 +22,7 @@ struct WhirlApp {
   layout: Option<model::Layout>,
   font_families: Vec<String>,
   just_loaded: bool,
+  edited: bool,
   sel_element: Option<usize>,
   element_texs: Vec<egui::TextureHandle>,
   canvas: CanvasState,
@@ -112,6 +113,7 @@ impl WhirlApp {
       layout: None,
       font_families: crate::render::font_families(None::<&str>),
       just_loaded: false,
+      edited: false,
       sel_element: None,
       element_texs: vec![],
       canvas: CanvasState::default(),
@@ -135,6 +137,7 @@ impl WhirlApp {
           format!("{} — Whirling Press", root_path.display())));
 
         self.just_loaded = true;
+        self.edited = false;
         self.element_texs = layout.elements.iter().map(|el| {
           ctx.load_texture(
             "",
@@ -207,7 +210,9 @@ impl WhirlApp {
                     .spacing([20.0, 4.0])
                     .striped(true)
                     .show(ui, |ui| {
-                      if Self::show_attrs(ui, &self.font_families, el) {
+                      let (changed_any, changed_tex) = Self::show_attrs(ui, &self.font_families, el);
+                      self.edited |= changed_any;
+                      if changed_tex {
                         self.element_texs[i] =
                           ui.ctx().load_texture(
                             "",
@@ -483,6 +488,7 @@ impl WhirlApp {
                               egui::TextureOptions::default(),
                             )
                           );
+                          self.edited = true;
                         }
                         if ui.add(egui::Button::selectable(false, "💬 Text")).clicked() {
                           elements.push(model::Element::from_content(model::Content::Text {
@@ -500,6 +506,7 @@ impl WhirlApp {
                               egui::TextureOptions::default(),
                             )
                           );
+                          self.edited = true;
                         }
                       });
                     // List
@@ -555,6 +562,7 @@ impl WhirlApp {
                         Some(j) if j == i + 1 => self.sel_element = Some(i),
                         _ => (),
                       }
+                      self.edited = true;
                     }
                     if let Some(i) = to_remove {
                       elements.remove(i);
@@ -564,6 +572,7 @@ impl WhirlApp {
                         Some(j) if j > i => self.sel_element = Some(j - 1),
                         _ => (),
                       }
+                      self.edited = true;
                     }
                   });
                 });
@@ -586,13 +595,14 @@ impl WhirlApp {
       });
   }
 
-  fn show_attrs(ui: &mut egui::Ui, font_families: &[String], el: &mut model::Element) -> bool {
-    let mut changed = false;
+  fn show_attrs(ui: &mut egui::Ui, font_families: &[String], el: &mut model::Element) -> (bool, bool) {
+    let mut changed_tex = false;
+    let mut changed_any = false;
     use egui::{DragValue, ComboBox};
     ui.label("Position");
     ui.horizontal(|ui| {
-      ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.x).speed(0.1));
-      ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.y).speed(0.1));
+      changed_any |= ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.x).speed(0.1)).changed();
+      changed_any |= ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.y).speed(0.1)).changed();
       ui.add_space(ui.available_width()); // XXX: Hack to extend the grid to fill remaining width?
     });
     ui.end_row();
@@ -629,6 +639,7 @@ impl WhirlApp {
               if response.clicked() && *current_value != selected_value {
                 *current_value = selected_value;
                 response.mark_changed();
+                changed_any = true;
               }
             }
             ui.end_row();
@@ -637,13 +648,13 @@ impl WhirlApp {
     ui.end_row();
     ui.label("Scale");
     ui.horizontal(|ui| {
-      ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.scale.0).speed(0.01));
-      ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.scale.1).speed(0.01));
+      changed_any |= ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.scale.0).speed(0.01)).changed();
+      changed_any |= ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.scale.1).speed(0.01)).changed();
     });
     ui.end_row();
     ui.label("Rotation");
     ui.horizontal(|ui| {
-      ui.add_sized([80.0, ui.available_height()], DragValue::new(&mut el.rotation).speed(0.1));
+      changed_any |= ui.add_sized([80.0, ui.available_height()], DragValue::new(&mut el.rotation).speed(0.1)).changed();
     });
     ui.end_row();
     ui.label("Size limit");
@@ -666,25 +677,25 @@ impl WhirlApp {
       resp.changed()
     }
     ui.horizontal(|ui| {
-      changed |= size_limit_editor(ui, &mut el.width);
-      changed |= size_limit_editor(ui, &mut el.height);
+      changed_tex |= size_limit_editor(ui, &mut el.width);
+      changed_tex |= size_limit_editor(ui, &mut el.height);
     });
     ui.end_row();
     match &mut el.content {
       model::Content::Image { src } => {
         ui.label("Source");
-        changed |= ui.add(egui::TextEdit::singleline(src)).changed();
+        changed_tex |= ui.add(egui::TextEdit::singleline(src)).changed();
         ui.end_row();
       },
       model::Content::Text { family, size, weight, italic, tracking, text } => {
         ui.label("Text");
-        changed |= ui.add(egui::TextEdit::multiline(text).desired_width(ui.available_width())).changed();
+        changed_tex |= ui.add(egui::TextEdit::multiline(text).desired_width(ui.available_width())).changed();
         ui.end_row();
         ui.label("Family");
-        changed |= Self::font_list_editor(ui, &font_families, family);
+        changed_tex |= Self::font_list_editor(ui, &font_families, family);
         ui.end_row();
         ui.label("Size");
-        changed |= ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(size).range(0.0..=f32::INFINITY).speed(1.0)).changed();
+        changed_tex |= ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(size).range(0.0..=f32::INFINITY).speed(1.0)).changed();
         ui.end_row();
         ui.label("Weight");
         let weights_and_names = [
@@ -706,20 +717,20 @@ impl WhirlApp {
           .show_ui(ui, |ui| {
             for (value, name) in weights_and_names {
               if ui.selectable_value(weight, value, name).clicked() {
-                changed = true;
+                changed_tex = true;
               }
             }
           });
         ui.end_row();
         ui.label("Italic");
-        changed |= ui.checkbox(italic, "").changed();
+        changed_tex |= ui.checkbox(italic, "").changed();
         ui.end_row();
         ui.label("Tracking");
-        changed |= ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(tracking).speed(0.1)).changed();
+        changed_tex |= ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(tracking).speed(0.1)).changed();
         ui.end_row();
       },
     }
-    changed
+    (changed_any || changed_tex, changed_tex)
   }
 
   fn font_list_editor(ui: &mut egui::Ui, font_families: &[String], el: &mut Vec<String>) -> bool {
@@ -832,6 +843,7 @@ impl eframe::App for WhirlApp {
                     Ok(_) => self.status_msg = Some((false, std::time::Instant::now(), format!("Saved {}", yml_file_name.to_string_lossy()))),
                     Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e))),
                   }
+                  self.edited = false;
                   egui::Popup::close_id(ui.ctx(), popup_id);
                 }
                 if ui.add(egui::Button::new("Export PDF…")).clicked() {
@@ -882,7 +894,8 @@ impl eframe::App for WhirlApp {
                   ui.label(s.to_string());
                 }
               } else {
-                ui.label(format!("{}×{}, {} elements — {}",
+                ui.label(format!("{}{}×{}, {} elements — {}",
+                  if self.edited { "* " } else { "" },
                   layout.page.0, layout.page.1,
                   layout.elements.len(),
                   path.to_string_lossy()));
