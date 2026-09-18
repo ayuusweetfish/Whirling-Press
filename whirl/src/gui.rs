@@ -176,7 +176,9 @@ impl WhirlApp {
         ui.add_space(18.0);
         ui.separator();
         ui.add_space(18.0);
-        if ui.button("Open content folder").clicked() {
+        if ui.button("Open content folder").clicked() ||
+          ui.input_mut(|i| i.consume_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::O)))
+        {
           self.status_msg = None;
           if let Some(path) = rfd::FileDialog::new().pick_folder() {
             self.load_document(&path, ui.ctx());
@@ -806,7 +808,8 @@ impl eframe::App for WhirlApp {
     egui::Panel::bottom("status_bar")
       .frame(egui::Frame::side_top_panel(ui.style()))
       .show(ui, |ui| {
-        let mut to_close = false;
+        let close_shortcut = egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::W);
+        let mut to_close = ui.input_mut(|i| i.consume_shortcut(&close_shortcut));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
           // `egui::widgets::global_theme_preference_switch` uses a frameless button
           // which has less-than-ideal hover feedback
@@ -819,6 +822,10 @@ impl eframe::App for WhirlApp {
           ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
             if let Some(path) = &self.root_path {
               let layout = self.layout.as_mut().unwrap();
+              // Global shortcuts
+              let save_shortcut = egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::S);
+              let mut to_save = ui.input_mut(|i| i.consume_shortcut(&save_shortcut));
+              // Widgets
               let resp = ui.add_sized([ui.available_height(), ui.available_height()],
                 egui::Button::selectable(false, egui::RichText::new("📄").size(14.0)));
               let popup_id = resp.id.with("popup");
@@ -831,19 +838,9 @@ impl eframe::App for WhirlApp {
                   ui.add_sized([80.0, ui.style().spacing.interact_size.y], egui::DragValue::new(&mut layout.page.0).speed(1).range(1.0..=f32::INFINITY));
                   ui.add_sized([80.0, ui.style().spacing.interact_size.y], egui::DragValue::new(&mut layout.page.1).speed(1).range(1.0..=f32::INFINITY));
                 });
-                if ui.add(egui::Button::new("Save")).clicked() {
+                if ui.add(egui::Button::new("Save").shortcut_text(ui.ctx().format_shortcut(&save_shortcut))).clicked() {
                   // Save YAML
-                  let yml_file_name = self.yml_file_name.as_ref().unwrap();
-                  let yml_path = self.root_path.as_ref().unwrap().join(yml_file_name);
-                  let s = serde_saphyr::to_string_with_options(&layout, serde_saphyr::ser_options! {
-                    compact_list_indent: true,
-                    yaml_12: true,
-                  }).unwrap();
-                  match std::fs::write(&yml_path, s) {
-                    Ok(_) => self.status_msg = Some((false, std::time::Instant::now(), format!("Saved {}", yml_file_name.to_string_lossy()))),
-                    Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e))),
-                  }
-                  self.edited = false;
+                  to_save = true;
                   egui::Popup::close_id(ui.ctx(), popup_id);
                 }
                 if ui.add(egui::Button::new("Export PDF…")).clicked() {
@@ -879,11 +876,26 @@ impl eframe::App for WhirlApp {
                   }
                   egui::Popup::close_id(ui.ctx(), popup_id);
                 }
-                if ui.add(egui::Button::new("Close")).clicked() {
+                if ui.add(egui::Button::new("Close").shortcut_text(ui.ctx().format_shortcut(&close_shortcut))).clicked() {
                   to_close = true;
                   egui::Popup::close_id(ui.ctx(), popup_id);
                 }
               });
+              // Shortcut operations
+              if to_save {
+                let yml_file_name = self.yml_file_name.as_ref().unwrap();
+                let yml_path = self.root_path.as_ref().unwrap().join(yml_file_name);
+                let s = serde_saphyr::to_string_with_options(&layout, serde_saphyr::ser_options! {
+                  compact_list_indent: true,
+                  yaml_12: true,
+                }).unwrap();
+                match std::fs::write(&yml_path, s) {
+                  Ok(_) => self.status_msg = Some((false, std::time::Instant::now(), format!("Saved {}", yml_file_name.to_string_lossy()))),
+                  Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e))),
+                }
+                self.edited = false;
+              };
+              // Status message
               if let Some((is_err, _, s)) = &self.status_msg {
                 if *is_err {
                   ui.colored_label(
