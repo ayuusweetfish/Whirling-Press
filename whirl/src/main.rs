@@ -191,16 +191,29 @@ fn find_single_ext<P: AsRef<Path>>(dir: P, ext: &[&str]) -> Result<PathBuf, Find
   }
 }
 
-fn get_csv_fields<P: AsRef<Path>>(path: P) -> std::io::Result<Vec<String>> {
-  let file = std::fs::File::open(path)?;
+fn get_csv_fields<P: AsRef<Path>>(path: P) -> Result<Vec<String>, ProcessError> {
+  let file = std::fs::File::open(path.as_ref())
+    .map_err(|e| ProcessError::Io(path.as_ref().to_path_buf(), e))?;
   let mut reader = BufReader::new(file);
   let mut first_line = Vec::new();
-  reader.read_until(0xa, &mut first_line)?;
+  reader.read_until(0xa, &mut first_line)
+    .map_err(|e| ProcessError::Io(path.as_ref().to_path_buf(), e))?;
   if first_line.starts_with(b"\xef\xbb\xbf") {
     first_line.drain(..3);
   }
-  let first_line = String::from_utf8_lossy(&first_line);
-  let fields = first_line.trim_end().split(',').map(|s| s.to_string()).collect();
+  let first_line = str::from_utf8(&first_line)
+    .map_err(|_e| ProcessError::CsvFieldsUtf8)?;
+  let fields: Vec<String> =
+    first_line.trim_end().split(',').map(|s| s.trim().to_string()).collect();
+  let mut seen = std::collections::HashSet::new();
+  for field in &fields {
+    if field.is_empty() {
+      continue;
+    }
+    if !seen.insert(field.as_str()) {
+      return Err(ProcessError::CsvFieldsDuplicate(field.clone()));
+    }
+  }
   Ok(fields)
 }
 
@@ -210,6 +223,8 @@ enum ProcessError {
   ParseYaml(serde_saphyr::Error),
   FindCsv(FindSingleError),
   CsvNameUtf8,
+  CsvFieldsUtf8,
+  CsvFieldsDuplicate(String),
   Io(std::path::PathBuf, std::io::Error),
   Expr(usize, ExprError),
   Render(render::RenderError),
@@ -245,8 +260,7 @@ fn process_pack_metadata<P: AsRef<Path>>(path: P, allow_empty_yaml: bool) -> Res
   let csv_file_name = find_single_ext(&path, &["csv"])
     .map_err(|e| ProcessError::FindCsv(e))?;
   let csv_path = path.as_ref().join(&csv_file_name);
-  let list_fields = get_csv_fields(&csv_path)
-    .map_err(|e| ProcessError::Io(csv_path.to_path_buf(), e))?;
+  let list_fields = get_csv_fields(&csv_path)?;
 
   Ok((yaml_file_name, layout, csv_file_name, list_fields))
 }
@@ -300,6 +314,12 @@ impl std::fmt::Display for ProcessError {
       }
       ProcessError::CsvNameUtf8 => {
         write!(f, "CSV file name is not valid UTF-8")
+      }
+      ProcessError::CsvFieldsUtf8 => {
+        write!(f, "CSV fields are not valid UTF-8")
+      }
+      ProcessError::CsvFieldsDuplicate(s) => {
+        write!(f, "CSV field `{}` duplicate", s)
       }
       ProcessError::Io(path, e) => {
         write!(f, "I/O error on `{}`: {}", path.display(), e)
