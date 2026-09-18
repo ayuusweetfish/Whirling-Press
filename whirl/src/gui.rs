@@ -841,6 +841,7 @@ impl eframe::App for WhirlApp {
                   {
                     match crate::process_and_write(
                       self.root_path.as_ref().unwrap(),
+                      Some(layout),
                       &path,
                       crate::ArgsFormat::Pdf,
                       true,
@@ -855,6 +856,7 @@ impl eframe::App for WhirlApp {
                   if let Some(path) = rfd::FileDialog::new().pick_folder() {
                     match crate::process_and_write(
                       self.root_path.as_ref().unwrap(),
+                      Some(layout),
                       &path,
                       crate::ArgsFormat::PdfSeq,
                       true,

@@ -247,8 +247,15 @@ fn process_pack_metadata<P: AsRef<Path>>(path: P, allow_empty_yaml: bool) -> Res
   Ok((yaml_file_name, layout, csv_file_name, list_fields))
 }
 
-fn process_pack<P: AsRef<Path>, R, F: FnOnce(P, &str) -> Result<R, render::RenderError>>(path: P, render: F) -> Result<R, ProcessError> {
-  let (_yaml_file_name, layout, csv_file_name, list_fields) = process_pack_metadata(&path, false)?;
+fn process_pack<P: AsRef<Path>, R, F: FnOnce(P, &str) -> Result<R, render::RenderError>>(path: P, layout: Option<&model::Layout>, render: F) -> Result<R, ProcessError> {
+  let (layout, csv_file_name, list_fields) =
+    if let Some(layout) = layout {
+      let (_, _, csv_file_name, list_fields) = process_pack_metadata(&path, false)?;
+      (layout.clone(), csv_file_name, list_fields)
+    } else {
+      let (_, layout, csv_file_name, list_fields) = process_pack_metadata(&path, false)?;
+      (layout, csv_file_name, list_fields)
+    };
 
   fn escape_path<P: AsRef<Path>>(path: P) -> Result<String, ProcessError> {
     Ok(path.as_ref().to_str().ok_or(ProcessError::CsvNameUtf8)?.to_string()
@@ -333,16 +340,16 @@ enum ArgsFormat {
   PngSeq,
 }
 
-fn process_and_write<P: AsRef<Path>, Q: AsRef<Path>>(pack_root: P, output: Q, format: ArgsFormat, compress: bool) -> Result<(), ProcessError> {
+fn process_and_write<P: AsRef<Path>, Q: AsRef<Path>>(pack_root: P, layout: Option<&model::Layout>, output: Q, format: ArgsFormat, compress: bool) -> Result<(), ProcessError> {
   match format {
     ArgsFormat::Pdf => {
-      let bytes = process_pack(pack_root.as_ref(), render::to_pdf)?;
+      let bytes = process_pack(pack_root.as_ref(), layout, render::to_pdf)?;
       let p = output.as_ref();
       let bytes = opt_pdf::optimize(&bytes, compress);
       std::fs::write(&p, bytes).map_err(|e| ProcessError::Io(p.to_path_buf(), e))?;
     },
     ArgsFormat::PdfSeq => {
-      let seq = process_pack(pack_root.as_ref(), render::to_pdf_seq)?;
+      let seq = process_pack(pack_root.as_ref(), layout, render::to_pdf_seq)?;
       let width = (seq.len().ilog10() + 1).max(3) as usize;
       for (i, bytes) in seq.into_iter().enumerate() {
         let mut p = output.as_ref().to_path_buf();
@@ -373,7 +380,7 @@ fn main() {
 
   if let Some(pack_root) = args.pack_root {
     if let Some(output) = args.output {
-      match process_and_write(&pack_root, &output, args.format, args.compress) {
+      match process_and_write(&pack_root, None, &output, args.format, args.compress) {
         Err(e) => eprintln!("Error: {}", e),
         Ok(_) => (),
       }
