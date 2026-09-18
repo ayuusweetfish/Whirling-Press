@@ -27,7 +27,7 @@ jobs:
           artifactname: linux-musl-aarch64
         # Windows x86-64
         - target: x86_64-pc-windows-gnu
-          os: windows-2025
+          os: ubuntu-26.04
           artifactname: windows-x86_64
 
     runs-on: ${{ matrix.os }}
@@ -56,6 +56,13 @@ jobs:
         echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=musl-gcc" >> $GITHUB_ENV
         echo "RUSTFLAGS=-C target-feature=-crt-static -C link-arg=-lm $RUSTFLAGS" >> $GITHUB_ENV
 
+    - name: Install MinGW-w64 (windows-gnu only)
+      if: contains(matrix.target, 'windows-gnu')
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y mingw-w64
+        echo "RUSTFLAGS=-C target-feature=+crt-static" >> $GITHUB_ENV
+
     - name: Build
       working-directory: whirl
       run: CARGO_PROFILE_RELEASE_STRIP=symbols CARGO_PROFILE_RELEASE_LTO=fat cargo build --release --target ${{ matrix.target }}
@@ -64,4 +71,4 @@ jobs:
       uses: actions/upload-artifact@v7
       with:
         name: whirl-${{ env.SHORT_SHA }}-${{ matrix.artifactname }}
-        path: whirl/target/${{ matrix.target }}/release/${{ runner.os == 'Windows' && 'whirl.exe' || 'whirl' }}
+        path: whirl/target/${{ matrix.target }}/release/${{ contains(matrix.target, 'windows') && 'whirl.exe' || 'whirl' }}
