@@ -51,10 +51,11 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y musl-tools
+        echo "RUSTFLAGS=-C link-arg=-lm" >> $GITHUB_ENV
 
     - name: Build
       working-directory: whirl
-      run: CARGO_PROFILE_RELEASE_STRIP=symbols CARGO_PROFILE_RELEASE_LTO=fat RUSTFLAGS="-C target-feature=-crt-static" cargo build --release --target ${{ matrix.target }}
+      run: CARGO_PROFILE_RELEASE_STRIP=symbols CARGO_PROFILE_RELEASE_LTO=fat RUSTFLAGS="-C target-feature=-crt-static $RUSTFLAGS" cargo build --release --target ${{ matrix.target }}
 
     - name: Upload artifact
       uses: actions/upload-artifact@v7
