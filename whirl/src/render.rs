@@ -112,7 +112,10 @@ impl typst::World for SimpleWorld {
       return Ok(bytes.clone());
     }
     let path = id.vpath().realize(&self.root).or(Err(FileError::AccessDenied))?;
-    let bytes_u8 = std::fs::read(&path).map_err(|e| FileError::from_io(e, &path))?;
+    let mut bytes_u8 = std::fs::read(&path).map_err(|e| FileError::from_io(e, &path))?;
+    if id.vpath().extension() == Some("csv") && bytes_u8.starts_with(b"\xef\xbb\xbf") {
+      bytes_u8.drain(..3);
+    }
     Ok(self.files.write().unwrap().entry(id).or_insert(Bytes::new(bytes_u8)).clone())
   }
 

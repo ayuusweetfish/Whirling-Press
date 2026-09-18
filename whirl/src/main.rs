@@ -194,8 +194,12 @@ fn find_single_ext<P: AsRef<Path>>(dir: P, ext: &[&str]) -> Result<PathBuf, Find
 fn get_csv_fields<P: AsRef<Path>>(path: P) -> std::io::Result<Vec<String>> {
   let file = std::fs::File::open(path)?;
   let mut reader = BufReader::new(file);
-  let mut first_line = String::new();
-  reader.read_line(&mut first_line)?;
+  let mut first_line = Vec::new();
+  reader.read_until(0xa, &mut first_line)?;
+  if first_line.starts_with(b"\xef\xbb\xbf") {
+    first_line.drain(..3);
+  }
+  let first_line = String::from_utf8_lossy(&first_line);
   let fields = first_line.trim_end().split(',').map(|s| s.to_string()).collect();
   Ok(fields)
 }
