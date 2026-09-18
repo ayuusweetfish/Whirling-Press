@@ -302,12 +302,13 @@ impl std::fmt::Display for ProcessError {
       }
       ProcessError::Expr(index, e) => match e {
         ExprError::NonexistentField(pos, name) => write!(f,
-          "Expression {} at byte {} references nonexistent field `{}`",
+          "Element {}, expression at byte {} references nonexistent field `{}`",
           index, pos, name,
         ),
       },
       ProcessError::Render(render::RenderError::TypstCompilation(diags)) => {
-        write!(f, "Typst compilation failed with {} message(s)", diags.len())
+        write!(f, "Compilation: {}{}", diags[0].message,
+          if diags.len() > 1 { format!(" ({})", diags.len()) } else { "".to_string() })
       }
     }
   }

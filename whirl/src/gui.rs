@@ -24,6 +24,7 @@ struct WhirlApp {
   just_loaded: bool,
   edited: bool,
   sel_element: Option<usize>,
+  sel_element_scroll: bool,
   element_texs: Vec<egui::TextureHandle>,
   canvas: CanvasState,
 }
@@ -115,6 +116,7 @@ impl WhirlApp {
       just_loaded: false,
       edited: false,
       sel_element: None,
+      sel_element_scroll: false,
       element_texs: vec![],
       canvas: CanvasState::default(),
     };
@@ -368,7 +370,6 @@ impl WhirlApp {
           c
         }
 
-        let mut sel_element_by_canvas = false;
         // For alternating layers selection on the canvas
         // If previous selection does not contain current pointer, select topmost colliding
         // Otherwise select the next colliding element, bottom-up, cycling
@@ -410,7 +411,7 @@ impl WhirlApp {
             if prev_sel_repeated { first_above_sel.unwrap_or(first_sel.unwrap()) }
             else { last_sel.unwrap() }
           );
-          sel_element_by_canvas = true;
+          self.sel_element_scroll = true;
         }
 
         for (i, el) in self.layout.as_ref().unwrap().elements.iter().enumerate() {
@@ -526,7 +527,8 @@ impl WhirlApp {
                             },
                           ).truncate(),
                         );
-                        if sel && sel_element_by_canvas {
+                        if sel && self.sel_element_scroll {
+                          self.sel_element_scroll = false;
                           resp.scroll_to_me_animation(None,
                             egui::style::ScrollAnimation::new(1500., egui::Rangef::new(0.1, 0.15)));
                         }
@@ -856,6 +858,11 @@ impl eframe::App for WhirlApp {
                       true,
                     ) {
                       Ok(_) => self.status_msg = Some((false, std::time::Instant::now(), format!("Exported {}", path.to_string_lossy()))),
+                      Err(crate::ProcessError::Expr(index, crate::ExprError::NonexistentField(_pos, name))) => {
+                        self.sel_element = Some(index);
+                        self.sel_element_scroll = true;
+                        self.status_msg = Some((true, std::time::Instant::now(), format!("Nonexistent field {}", name)));
+                      },
                       Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e))),
                     }
                   }
@@ -871,6 +878,11 @@ impl eframe::App for WhirlApp {
                       true,
                     ) {
                       Ok(_) => self.status_msg = Some((false, std::time::Instant::now(), format!("Exported {}", path.to_string_lossy()))),
+                      Err(crate::ProcessError::Expr(index, crate::ExprError::NonexistentField(_pos, name))) => {
+                        self.sel_element = Some(index);
+                        self.sel_element_scroll = true;
+                        self.status_msg = Some((true, std::time::Instant::now(), format!("Nonexistent field {}", name)));
+                      },
                       Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e))),
                     }
                   }
