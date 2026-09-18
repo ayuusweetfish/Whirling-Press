@@ -795,6 +795,7 @@ impl eframe::App for WhirlApp {
     egui::Panel::bottom("status_bar")
       .frame(egui::Frame::side_top_panel(ui.style()))
       .show(ui, |ui| {
+        let mut to_close = false;
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
           // `egui::widgets::global_theme_preference_switch` uses a frameless button
           // which has less-than-ideal hover feedback
@@ -864,6 +865,10 @@ impl eframe::App for WhirlApp {
                   }
                   egui::Popup::close_id(ui.ctx(), popup_id);
                 }
+                if ui.add(egui::Button::new("Close")).clicked() {
+                  to_close = true;
+                  egui::Popup::close_id(ui.ctx(), popup_id);
+                }
               });
               if let Some((is_err, _, s)) = &self.status_msg {
                 if *is_err {
@@ -892,6 +897,14 @@ impl eframe::App for WhirlApp {
             }
           });
         });
+        if to_close {
+          self.root_path = None;
+          self.status_msg = None;
+          self.yml_file_name = None;
+          self.layout = None;
+          self.font_families.clear();
+          self.element_texs.clear();
+        }
       });
     if let Some(_) = &self.root_path {
       self.ui_edit(ui);
