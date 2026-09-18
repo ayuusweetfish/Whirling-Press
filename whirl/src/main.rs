@@ -198,13 +198,20 @@ fn get_csv_fields<P: AsRef<Path>>(path: P) -> Result<Vec<String>, ProcessError> 
   let mut first_line = Vec::new();
   reader.read_until(0xa, &mut first_line)
     .map_err(|e| ProcessError::Io(path.as_ref().to_path_buf(), e))?;
+  // TODO: Switch to `slice::strip_{prefix,suffix}` when they land in stable
+  if first_line.ends_with(b"\n") {
+    first_line.truncate(first_line.len() - 1);
+  }
+  if first_line.ends_with(b"\r") {
+    first_line.truncate(first_line.len() - 1);
+  }
   if first_line.starts_with(b"\xef\xbb\xbf") {
     first_line.drain(..3);
   }
   let first_line = str::from_utf8(&first_line)
     .map_err(|_e| ProcessError::CsvFieldsUtf8)?;
   let fields: Vec<String> =
-    first_line.trim_end().split(',').map(|s| s.trim().to_string()).collect();
+    first_line.split(',').map(|s| s.to_string()).collect();
   let mut seen = std::collections::HashSet::new();
   for field in &fields {
     if field.is_empty() {
