@@ -211,19 +211,32 @@ enum ProcessError {
   Render(render::RenderError),
 }
 
-fn process_pack_metadata<P: AsRef<Path>>(path: P) -> Result<
+fn process_pack_metadata<P: AsRef<Path>>(path: P, allow_empty_yaml: bool) -> Result<
   (PathBuf, model::Layout, PathBuf, Vec<String>),
   ProcessError>
 {
-  let yaml_file_name = find_single_ext(&path, &["yml", "yaml"])
-    .map_err(|e| ProcessError::FindYaml(e))?;
-  let yaml_path = path.as_ref().join(&yaml_file_name);
-  let yaml = std::fs::read_to_string(&yaml_path)
-    .map_err(|e| ProcessError::Io(yaml_path.to_path_buf(), e))?;
+  let (yaml_file_name, layout) = {
+    let yaml_file_name = find_single_ext(&path, &["yml", "yaml"])
+      .map_err(|e| ProcessError::FindYaml(e));
+    if allow_empty_yaml &&
+      let Err(ProcessError::FindYaml(FindSingleError::NoneFound)) = yaml_file_name
+    {
+      (PathBuf::from("layout.yml"), model::Layout {
+        page: (1200., 1800.),
+        elements: vec![],
+      })
+    } else {
+      let yaml_file_name = yaml_file_name?;
+      let yaml_path = path.as_ref().join(&yaml_file_name);
+      let yaml = std::fs::read_to_string(&yaml_path)
+        .map_err(|e| ProcessError::Io(yaml_path.to_path_buf(), e))?;
 
-  let parse_result: Result<model::Layout, _> = serde_saphyr::from_str(&yaml);
-  let layout = parse_result
-    .map_err(|e| ProcessError::ParseYaml(e))?;
+      let parse_result: Result<model::Layout, _> = serde_saphyr::from_str(&yaml);
+      let layout = parse_result
+        .map_err(|e| ProcessError::ParseYaml(e))?;
+      (yaml_file_name, layout)
+    }
+  };
 
   let csv_file_name = find_single_ext(&path, &["csv"])
     .map_err(|e| ProcessError::FindCsv(e))?;
@@ -235,7 +248,7 @@ fn process_pack_metadata<P: AsRef<Path>>(path: P) -> Result<
 }
 
 fn process_pack<P: AsRef<Path>, R, F: FnOnce(P, &str) -> Result<R, render::RenderError>>(path: P, render: F) -> Result<R, ProcessError> {
-  let (_yaml_file_name, layout, csv_file_name, list_fields) = process_pack_metadata(&path)?;
+  let (_yaml_file_name, layout, csv_file_name, list_fields) = process_pack_metadata(&path, false)?;
 
   fn escape_path<P: AsRef<Path>>(path: P) -> Result<String, ProcessError> {
     Ok(path.as_ref().to_str().ok_or(ProcessError::CsvNameUtf8)?.to_string()

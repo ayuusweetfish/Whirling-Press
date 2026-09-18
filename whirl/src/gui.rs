@@ -126,7 +126,7 @@ impl WhirlApp {
 
   fn load_document<P: AsRef<std::path::Path>>(&mut self, root_path: P, ctx: &egui::Context) {
     let root_path = root_path.as_ref();
-    match crate::process_pack_metadata(root_path) {
+    match crate::process_pack_metadata(root_path, true) {
       Ok((yml_file_name, layout, _, _fields)) => {
         self.root_path = Some(root_path.to_path_buf());
         self.yml_file_name = Some(yml_file_name);
