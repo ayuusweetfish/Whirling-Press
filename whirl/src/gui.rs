@@ -30,6 +30,7 @@ struct WhirlApp {
   element_texs: Vec<egui::TextureHandle>,
   canvas: CanvasState,
   close_confirming: bool,
+  quit_after_close: bool,
 }
 
 struct CanvasState {
@@ -123,6 +124,7 @@ impl WhirlApp {
       element_texs: vec![],
       canvas: CanvasState::default(),
       close_confirming: false,
+      quit_after_close: false,
     };
 
     if let Some(root_path) = root_path {
@@ -989,6 +991,13 @@ impl eframe::App for WhirlApp {
             really_close = true;
           }
         }
+        // `quit_after_close` is also used as a flag to denote confirmed quit
+        // so that the close is not intercepted by `CancelClose`
+        if self.edited && ui.input(|i| i.viewport().close_requested()) && !self.quit_after_close {
+          self.close_confirming = true;
+          self.quit_after_close = true;
+          ui.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+        }
         if self.close_confirming {
           egui::Modal::new(egui::Id::new("close_confirmation_modal")).show(ui.ctx(), |ui| {
             ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
@@ -1002,17 +1011,23 @@ impl eframe::App for WhirlApp {
               ui.add_space(6.0);
               if ui.button(f!("modal-close-confirmation-cancel")).clicked() {
                 self.close_confirming = false;
+                self.quit_after_close = false;
               }
             });
           });
         }
         if really_close {
-          self.root_path = None;
-          self.status_msg = None;
-          self.yml_file_name = None;
-          self.layout = None;
-          self.font_families.clear();
-          self.element_texs.clear();
+          if self.quit_after_close {
+            ui.send_viewport_cmd(egui::ViewportCommand::Close);
+          } else {
+            self.root_path = None;
+            self.status_msg = None;
+            self.yml_file_name = None;
+            self.layout = None;
+            self.edited = false;
+            self.font_families.clear();
+            self.element_texs.clear();
+          }
         }
       });
     if let Some(_) = &self.root_path {
