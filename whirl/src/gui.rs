@@ -858,17 +858,17 @@ impl eframe::App for WhirlApp {
                   ui.add_sized([80.0, ui.style().spacing.interact_size.y], egui::DragValue::new(&mut layout.page.0).speed(1).range(1.0..=f32::INFINITY));
                   ui.add_sized([80.0, ui.style().spacing.interact_size.y], egui::DragValue::new(&mut layout.page.1).speed(1).range(1.0..=f32::INFINITY));
                 });
-                if ui.add(egui::Button::new(f!("menu-save")).shortcut_text(ui.ctx().format_shortcut(&save_shortcut))).clicked() {
+                if ui.add(egui::Button::new(format!("💾 {}", f!("menu-save"))).shortcut_text(ui.ctx().format_shortcut(&save_shortcut))).clicked() {
                   // Save YAML
                   to_save = true;
                   egui::Popup::close_id(ui.ctx(), popup_id);
                 }
-                if ui.add(egui::Button::new(f!("menu-export-pdf")).shortcut_text(ui.ctx().format_shortcut(&export_p_shortcut))).clicked() {
+                if ui.add(egui::Button::new(format!("🖨 {}", f!("menu-export-pdf"))).shortcut_text(ui.ctx().format_shortcut(&export_p_shortcut))).clicked() {
                   // Export PDF
                   to_export_p = true;
                   egui::Popup::close_id(ui.ctx(), popup_id);
                 }
-                if ui.add(egui::Button::new(f!("menu-export-pdf-seq"))).clicked() {
+                if ui.add(egui::Button::new(format!("🖨 {}", f!("menu-export-pdf-seq")))).clicked() {
                   if let Some(path) = rfd::FileDialog::new().pick_folder() {
                     match crate::process_and_write(
                       self.root_path.as_ref().unwrap(),
@@ -888,7 +888,7 @@ impl eframe::App for WhirlApp {
                   }
                   egui::Popup::close_id(ui.ctx(), popup_id);
                 }
-                if ui.add(egui::Button::new(f!("menu-close")).shortcut_text(ui.ctx().format_shortcut(&close_shortcut))).clicked() {
+                if ui.add(egui::Button::new(format!("⬅️ {}", f!("menu-close"))).shortcut_text(ui.ctx().format_shortcut(&close_shortcut))).clicked() {
                   to_close = true;
                   egui::Popup::close_id(ui.ctx(), popup_id);
                 }
