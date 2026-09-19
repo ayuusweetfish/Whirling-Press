@@ -844,7 +844,8 @@ impl eframe::App for WhirlApp {
               let mut to_save = ui.input_mut(|i| i.consume_shortcut(&save_shortcut));
               // Widgets
               let resp = ui.add_sized([ui.available_height(), ui.available_height()],
-                egui::Button::selectable(false, egui::RichText::new("📄").size(14.0)));
+                egui::Button::selectable(false, egui::RichText::new("📄").size(14.0)))
+                .on_hover_text(f!("status-button-menu"));
               let popup_id = resp.id.with("popup");
               egui::Popup::menu(&resp)
               .id(popup_id)

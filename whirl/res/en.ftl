@@ -9,10 +9,8 @@ process-csv-name-utf8 = CSV file name is not valid UTF-8
 process-csv-fields-utf8 = CSV fields are not valid UTF-8
 process-csv-fields-duplicate = CSV field `{$field}` duplicate
 process-io = I/O error on `{$path}`: {$error}
-
 process-expr-nonexistent-field =
   Element {$index}, expression at byte {$pos} references nonexistent field `{$name}`
-
 process-render-typst-compilation =
   { $count ->
     [one] Compilation: {$message}
@@ -39,6 +37,7 @@ status-nonexistent-field = Nonexistent field {"{"}{$name}{"}"}
 
 status-button-theme = Switch colour theme
 status-button-language = Language / 语言
+status-button-menu = Menu
 
 elements = Elements
 hide-attrs = Hide attributes
