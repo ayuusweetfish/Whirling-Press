@@ -321,7 +321,7 @@ impl WhirlApp {
             (RENDER_TEX_MARGIN * RENDER_TEX_SCALE + (w - RENDER_TEX_MARGIN * RENDER_TEX_SCALE * 2.) * f32::from(el.anchor.x),
              RENDER_TEX_MARGIN * RENDER_TEX_SCALE + (h - RENDER_TEX_MARGIN * RENDER_TEX_SCALE * 2.) * f32::from(el.anchor.y)),
             (el.scale.0 / RENDER_TEX_SCALE, el.scale.1 / RENDER_TEX_SCALE),
-            el.rotation,
+            el.rotation.to_radians(),
             (tx * w, ty * h),
           )
         }
@@ -331,7 +331,7 @@ impl WhirlApp {
             (RENDER_TEX_MARGIN * RENDER_TEX_SCALE + (w - RENDER_TEX_MARGIN * RENDER_TEX_SCALE * 2.) * f32::from(el.anchor.x),
              RENDER_TEX_MARGIN * RENDER_TEX_SCALE + (h - RENDER_TEX_MARGIN * RENDER_TEX_SCALE * 2.) * f32::from(el.anchor.y)),
             (el.scale.0 / RENDER_TEX_SCALE, el.scale.1 / RENDER_TEX_SCALE),
-            el.rotation,
+            el.rotation.to_radians(),
             (RENDER_TEX_MARGIN * RENDER_TEX_SCALE + tx * (w - RENDER_TEX_MARGIN * RENDER_TEX_SCALE * 2.),
              RENDER_TEX_MARGIN * RENDER_TEX_SCALE + ty * (h - RENDER_TEX_MARGIN * RENDER_TEX_SCALE * 2.)),
           )
