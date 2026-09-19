@@ -842,6 +842,8 @@ impl eframe::App for WhirlApp {
               // Global shortcuts
               let save_shortcut = egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::S);
               let mut to_save = ui.input_mut(|i| i.consume_shortcut(&save_shortcut));
+              let export_p_shortcut = egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::P);
+              let mut to_export_p = ui.input_mut(|i| i.consume_shortcut(&export_p_shortcut));
               // Widgets
               let resp = ui.add_sized([ui.available_height(), ui.available_height()],
                 egui::Button::selectable(false, egui::RichText::new("📄").size(14.0)))
@@ -861,27 +863,9 @@ impl eframe::App for WhirlApp {
                   to_save = true;
                   egui::Popup::close_id(ui.ctx(), popup_id);
                 }
-                if ui.add(egui::Button::new(f!("menu-export-pdf"))).clicked() {
-                  if let Some(path) = rfd::FileDialog::new()
-                    .add_filter("PDF", &["pdf"])
-                    .save_file()
-                  {
-                    match crate::process_and_write(
-                      self.root_path.as_ref().unwrap(),
-                      Some(layout),
-                      &path,
-                      crate::ArgsFormat::Pdf,
-                      true,
-                    ) {
-                      Ok(_) => self.status_msg = Some((false, std::time::Instant::now(), f!("status-exported", path => path.to_string_lossy()))),
-                      Err(crate::ProcessError::Expr(index, crate::ExprError::NonexistentField(_pos, name))) => {
-                        self.sel_element = Some(index);
-                        self.sel_element_scroll = true;
-                        self.status_msg = Some((true, std::time::Instant::now(), f!("status-nonexistent-field", name => name)));
-                      },
-                      Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e.message()))),
-                    }
-                  }
+                if ui.add(egui::Button::new(f!("menu-export-pdf")).shortcut_text(ui.ctx().format_shortcut(&export_p_shortcut))).clicked() {
+                  // Export PDF
+                  to_export_p = true;
                   egui::Popup::close_id(ui.ctx(), popup_id);
                 }
                 if ui.add(egui::Button::new(f!("menu-export-pdf-seq"))).clicked() {
@@ -922,6 +906,28 @@ impl eframe::App for WhirlApp {
                   Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e))),
                 }
                 self.edited = false;
+              };
+              if to_export_p {
+                if let Some(path) = rfd::FileDialog::new()
+                  .add_filter("PDF", &["pdf"])
+                  .save_file()
+                {
+                  match crate::process_and_write(
+                    self.root_path.as_ref().unwrap(),
+                    Some(layout),
+                    &path,
+                    crate::ArgsFormat::Pdf,
+                    true,
+                  ) {
+                    Ok(_) => self.status_msg = Some((false, std::time::Instant::now(), f!("status-exported", path => path.to_string_lossy()))),
+                    Err(crate::ProcessError::Expr(index, crate::ExprError::NonexistentField(_pos, name))) => {
+                      self.sel_element = Some(index);
+                      self.sel_element_scroll = true;
+                      self.status_msg = Some((true, std::time::Instant::now(), f!("status-nonexistent-field", name => name)));
+                    },
+                    Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e.message()))),
+                  }
+                }
               };
               // Status message
               if let Some((is_err, _, s)) = &self.status_msg {
