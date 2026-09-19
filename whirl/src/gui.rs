@@ -1004,12 +1004,16 @@ impl eframe::App for WhirlApp {
               ui.label(f!("modal-close-confirmation-message"));
               ui.add_space(12.0);
               ui.spacing_mut().button_padding = (12., 6.).into();
-              if ui.button(f!("modal-close-confirmation-close")).clicked() {
+              if ui.button(f!("modal-close-confirmation-close")).clicked() ||
+                ui.input_mut(|i| i.consume_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::NONE, egui::Key::Enter)))
+              {
                 self.close_confirming = false;
                 really_close = true;
               }
               ui.add_space(6.0);
-              if ui.button(f!("modal-close-confirmation-cancel")).clicked() {
+              if ui.button(f!("modal-close-confirmation-cancel")).clicked() ||
+                ui.input_mut(|i| i.consume_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::NONE, egui::Key::Escape)))
+              {
                 self.close_confirming = false;
                 self.quit_after_close = false;
               }
