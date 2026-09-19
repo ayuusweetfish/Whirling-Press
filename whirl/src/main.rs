@@ -68,20 +68,6 @@ impl model::Element {
 
     if !is_preview {
       args.push(format!("{}pt, {}pt", self.x, self.y));
-      if self.anchor != model::Anchor::default() {
-        args.push(format!("anchor: {} + {}",
-          match self.anchor.y {
-            model::AnchorAxis::Min => "top",
-            model::AnchorAxis::Cen => "horizon",
-            model::AnchorAxis::Max => "bottom",
-          },
-          match self.anchor.x {
-            model::AnchorAxis::Min => "left",
-            model::AnchorAxis::Cen => "center",
-            model::AnchorAxis::Max => "right",
-          },
-        ));
-      }
       if self.scale.0 != 1.0 {
         args.push(format!("scale-x: {}%", self.scale.0 * 100.));
       }
@@ -99,6 +85,20 @@ impl model::Element {
       }
     } else {
       args.push(format!("0pt, 0pt, in_flow: true"));
+    }
+    if self.anchor != model::Anchor::default() {
+      args.push(format!("anchor: {} + {}",
+        match self.anchor.y {
+          model::AnchorAxis::Min => "top",
+          model::AnchorAxis::Cen => "horizon",
+          model::AnchorAxis::Max => "bottom",
+        },
+        match self.anchor.x {
+          model::AnchorAxis::Min => "left",
+          model::AnchorAxis::Cen => "center",
+          model::AnchorAxis::Max => "right",
+        },
+      ));
     }
     if let Some(w) = self.width {
       args.push(format!("width: {}pt", w));

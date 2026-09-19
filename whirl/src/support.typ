@@ -20,8 +20,8 @@
 
   let content = [
     #std.rotate(rotate, origin: anchor)[
-      #std.scale(x: scale-x, y: scale-y, origin: anchor)[
-        #skew(ax: skew-x, ay: skew-y, origin: anchor)[
+      #skew(ax: skew-x, ay: skew-y, origin: anchor)[
+        #std.scale(x: scale-x, y: scale-y, origin: anchor)[
           #box(width: width, height: height)[
             #align(anchor, body)
             #if debug {
