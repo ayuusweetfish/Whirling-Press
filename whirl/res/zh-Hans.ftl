@@ -47,6 +47,7 @@ attr-position = 位置
 attr-anchor = 锚点
 attr-scale = 缩放
 attr-rotation = 旋转
+attr-skew = 倾斜
 attr-size-limit = 尺寸限制
 attr-image-source = 图源
 attr-text-text = 文本

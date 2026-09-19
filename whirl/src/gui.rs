@@ -303,15 +303,19 @@ impl WhirlApp {
           (ax, ay): (f32, f32),   // Anchor inside the texture (in original units)
           (sx, sy): (f32, f32),   // Scale
           rota: f32,              // Rotation (radians)
+          (kx, ky): (f32, f32),   // Skew (radians)
           (tx, ty): (f32, f32),   // Point in question inside texture (in original units)
         ) -> (f32, f32) {
           let dx = tx - ax;
           let dy = ty - ay;
-          let sdx = dx * sx;
-          let sdy = dy * sy;
+          let dx = dx * sx;
+          let dy = dy * sy;
+          let (dx, dy) =
+            (dx + dy * kx.tan(),
+             dx * ky.tan() + dy);
           let (sin, cos) = rota.sin_cos();
-          let rx = sdx * cos - sdy * sin;
-          let ry = sdx * sin + sdy * cos;
+          let rx = dx * cos - dy * sin;
+          let ry = dx * sin + dy * cos;
           (x0 + rx, y0 + ry)
         }
 
@@ -322,6 +326,7 @@ impl WhirlApp {
              RENDER_TEX_MARGIN * RENDER_TEX_SCALE + (h - RENDER_TEX_MARGIN * RENDER_TEX_SCALE * 2.) * f32::from(el.anchor.y)),
             (el.scale.0 / RENDER_TEX_SCALE, el.scale.1 / RENDER_TEX_SCALE),
             el.rotation.to_radians(),
+            (el.skew.0.to_radians(), el.skew.1.to_radians()),
             (tx * w, ty * h),
           )
         }
@@ -332,6 +337,7 @@ impl WhirlApp {
              RENDER_TEX_MARGIN * RENDER_TEX_SCALE + (h - RENDER_TEX_MARGIN * RENDER_TEX_SCALE * 2.) * f32::from(el.anchor.y)),
             (el.scale.0 / RENDER_TEX_SCALE, el.scale.1 / RENDER_TEX_SCALE),
             el.rotation.to_radians(),
+            (el.skew.0.to_radians(), el.skew.1.to_radians()),
             (RENDER_TEX_MARGIN * RENDER_TEX_SCALE + tx * (w - RENDER_TEX_MARGIN * RENDER_TEX_SCALE * 2.),
              RENDER_TEX_MARGIN * RENDER_TEX_SCALE + ty * (h - RENDER_TEX_MARGIN * RENDER_TEX_SCALE * 2.)),
           )
@@ -664,6 +670,12 @@ impl WhirlApp {
     ui.label(f!("attr-rotation"));
     ui.horizontal(|ui| {
       changed_any |= ui.add_sized([80.0, ui.available_height()], DragValue::new(&mut el.rotation).speed(0.1)).changed();
+    });
+    ui.end_row();
+    ui.label(f!("attr-skew"));
+    ui.horizontal(|ui| {
+      changed_any |= ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.skew.0).speed(0.1).range(-89.9..=89.9)).changed();
+      changed_any |= ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.skew.1).speed(0.1).range(-89.9..=89.9)).changed();
     });
     ui.end_row();
     ui.label(f!("attr-size-limit"));
