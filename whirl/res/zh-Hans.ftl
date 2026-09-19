@@ -28,14 +28,18 @@ menu-export-pdf = 导出 PDF…
 menu-export-pdf-seq = 导出 PDF 序列…
 menu-close = 关闭
 
-status-exported = Exported {$path}
 status-num-elements = {$n} 个元素
 status-error = 错误：{$error}
+status-saved = 已保存 {$path}
+status-exported = 已导出 {$path}
+status-nonexistent-field = 列名 {"{"}{$name}{"}"} 不存在
 
 status-button-theme = 切换颜色主题
 status-button-language = 语言 / Language
 
 elements = 元素列表
+hide-attrs = 隐藏属性面板
+show-attrs = 显示属性面板
 
 attr-heading-image = 图像
 attr-heading-text = 文本

@@ -28,17 +28,21 @@ menu-export-pdf = Export PDF…
 menu-export-pdf-seq = Export PDF sequence…
 menu-close = Close
 
-status-exported = Exported {$path}
 status-num-elements = {$n ->
   [one] 1 element
  *[other] {$n} elements
 }
 status-error = Error: {$error}
+status-saved = Saved {$path}
+status-exported = Exported {$path}
+status-nonexistent-field = Nonexistent field {"{"}{$name}{"}"}
 
 status-button-theme = Switch colour theme
 status-button-language = Language / 语言
 
 elements = Elements
+hide-attrs = Hide attributes
+show-attrs = Show attributes
 
 attr-heading-image = Image
 attr-heading-text = Text

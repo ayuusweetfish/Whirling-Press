@@ -592,7 +592,7 @@ impl WhirlApp {
           .pivot(egui::Align2::RIGHT_CENTER)
           .show(ui.ctx(), |ui| {
             if ui.add(egui::Button::new(if self.attr_panel_expanded { "▸" } else { "◂" }))
-              .on_hover_text(if self.attr_panel_expanded { "Hide attributes" } else { "Show attributes" })
+              .on_hover_text(if self.attr_panel_expanded { f!("hide-attrs") } else { f!("hide-attrs") })
               .clicked()
             {
               self.attr_panel_expanded = !self.attr_panel_expanded;
@@ -876,7 +876,7 @@ impl eframe::App for WhirlApp {
                       Err(crate::ProcessError::Expr(index, crate::ExprError::NonexistentField(_pos, name))) => {
                         self.sel_element = Some(index);
                         self.sel_element_scroll = true;
-                        self.status_msg = Some((true, std::time::Instant::now(), format!("Nonexistent field {}", name)));
+                        self.status_msg = Some((true, std::time::Instant::now(), f!("status-nonexistent-field", name => name)));
                       },
                       Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e.message()))),
                     }
@@ -896,7 +896,7 @@ impl eframe::App for WhirlApp {
                       Err(crate::ProcessError::Expr(index, crate::ExprError::NonexistentField(_pos, name))) => {
                         self.sel_element = Some(index);
                         self.sel_element_scroll = true;
-                        self.status_msg = Some((true, std::time::Instant::now(), format!("Nonexistent field {}", name)));
+                        self.status_msg = Some((true, std::time::Instant::now(), f!("status-nonexistent-field", name => name)));
                       },
                       Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e.message()))),
                     }
@@ -917,7 +917,7 @@ impl eframe::App for WhirlApp {
                   yaml_12: true,
                 }).unwrap();
                 match std::fs::write(&yml_path, s) {
-                  Ok(_) => self.status_msg = Some((false, std::time::Instant::now(), format!("Saved {}", yml_file_name.to_string_lossy()))),
+                  Ok(_) => self.status_msg = Some((false, std::time::Instant::now(), f!("status-saved", path => yml_file_name.to_string_lossy()))),
                   Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e))),
                 }
                 self.edited = false;
