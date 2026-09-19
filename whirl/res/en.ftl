@@ -35,6 +35,9 @@ status-num-elements = {$n ->
 }
 status-error = Error: {$error}
 
+status-button-theme = Switch colour theme
+status-button-language = Language / 语言
+
 elements = Elements
 
 attr-heading-image = Image

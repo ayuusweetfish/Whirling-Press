@@ -32,6 +32,9 @@ status-exported = Exported {$path}
 status-num-elements = {$n} 个元素
 status-error = 错误：{$error}
 
+status-button-theme = 切换颜色主题
+status-button-language = 语言 / Language
+
 elements = 元素列表
 
 attr-heading-image = 图像

@@ -13,6 +13,7 @@ pub(crate) fn start(root_path: Option<&str>) {
 
 use crate::model;
 use crate::render;
+use crate::localize;
 use crate::f;   // Fluent localization; src/localize.rs
 
 struct WhirlApp {
@@ -819,8 +820,21 @@ impl eframe::App for WhirlApp {
           let is_dark = ui.ctx().theme() == egui::Theme::Dark;
           if ui.add_sized([ui.available_height(), ui.available_height()],
             egui::Button::selectable(false,
-              egui::RichText::new(if is_dark { "🌙" } else { "☀️" }).size(14.0))).clicked() {
+              egui::RichText::new(if is_dark { "🌙" } else { "☀️" }).size(14.0)))
+            .on_hover_text(f!("status-button-theme")).clicked()
+          {
             ui.ctx().set_theme(if is_dark { egui::Theme::Light } else { egui::Theme::Dark });
+          }
+          if ui.add_sized([ui.available_height(), ui.available_height()],
+            egui::Button::selectable(false,
+              egui::RichText::new("🌐").size(14.0)))
+            .on_hover_text(f!("status-button-language")).clicked()
+          {
+            localize::set_language(match localize::current_language().to_string() {
+              v if v == "en" => "zh-Hans",
+              v if v == "zh-Hans" => "en",
+              _ => "en",
+            });
           }
           ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
             if let Some(path) = &self.root_path {
