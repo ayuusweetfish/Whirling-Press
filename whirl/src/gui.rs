@@ -182,6 +182,7 @@ impl WhirlApp {
         ui.add_space(18.0);
         ui.separator();
         ui.add_space(18.0);
+        ui.spacing_mut().button_padding = (12., 6.).into();
         if ui.button(f!("open-content-folder")).clicked() ||
           ui.input_mut(|i| i.consume_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::O)))
         {
@@ -973,6 +974,7 @@ impl eframe::App for WhirlApp {
             ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
               ui.label(f!("modal-close-confirmation-message"));
               ui.add_space(12.0);
+              ui.spacing_mut().button_padding = (12., 6.).into();
               if ui.button(f!("modal-close-confirmation-close")).clicked() {
                 self.close_confirming = false;
                 really_close = true;
