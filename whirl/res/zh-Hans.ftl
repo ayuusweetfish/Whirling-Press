@@ -18,3 +18,48 @@ process-render-typst-compilation =
     [1] 编译：{$message}
    *[other] 编译：{$message}（共 {$count}）
   }
+
+open-content-folder = 打开文件夹
+or-drag-and-drop = 或拖放到此处
+
+menu-page-size = 页面尺寸
+menu-save = 保存
+menu-export-pdf = 导出 PDF…
+menu-export-pdf-seq = 导出 PDF 序列…
+menu-close = 关闭
+
+status-exported = Exported {$path}
+status-num-elements = {$n} 个元素
+status-error = 错误：{$error}
+
+elements = 元素列表
+
+attr-heading-image = 图像
+attr-heading-text = 文本
+
+attr-position = 位置
+attr-anchor = 锚点
+attr-scale = 缩放
+attr-rotation = 旋转
+attr-size-limit = 尺寸限制
+attr-image-source = 图源
+attr-text-text = 文本
+attr-text-family = 字体
+attr-text-size = 字号
+attr-text-weight = 字重
+attr-text-italic = 斜体
+attr-text-tracking = 字间距
+
+anchor-tl = 左上
+anchor-tc = 正上
+anchor-tr = 右上
+anchor-ml = 正左
+anchor-mc = 正中
+anchor-mr = 正右
+anchor-bl = 左下
+anchor-bc = 正下
+anchor-br = 右下
+
+list-move-up = 上移
+list-remove = 移除
+list-add = 新增

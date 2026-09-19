@@ -419,6 +419,7 @@ fn process_and_write<P: AsRef<Path>, Q: AsRef<Path>>(pack_root: P, layout: Optio
 fn start_gui(root_path: Option<&str>) {
   #[cfg(feature = "gui")]
   {
+    localize::set_language(&sys_locale::get_locale().unwrap_or_else(|| "en".to_string()));
     gui::start(root_path);
   }
   #[cfg(not(feature = "gui"))]
@@ -429,8 +430,6 @@ fn start_gui(root_path: Option<&str>) {
 }
 
 fn main() {
-  localize::set_language(&sys_locale::get_locale().unwrap_or_else(|| "en".to_string()));
-
   let args: Args = argh::from_env();
 
   if let Some(pack_root) = args.pack_root {

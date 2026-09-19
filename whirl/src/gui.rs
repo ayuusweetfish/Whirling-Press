@@ -13,6 +13,7 @@ pub(crate) fn start(root_path: Option<&str>) {
 
 use crate::model;
 use crate::render;
+use crate::f;   // Fluent localization; src/localize.rs
 
 struct WhirlApp {
   root_path: Option<std::path::PathBuf>,
@@ -178,7 +179,7 @@ impl WhirlApp {
         ui.add_space(18.0);
         ui.separator();
         ui.add_space(18.0);
-        if ui.button("Open content folder").clicked() ||
+        if ui.button(f!("open-content-folder")).clicked() ||
           ui.input_mut(|i| i.consume_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::O)))
         {
           self.status_msg = None;
@@ -187,7 +188,7 @@ impl WhirlApp {
           }
         }
         ui.add_space(6.0);
-        ui.label("or drag-and-drop");
+        ui.label(f!("or-drag-and-drop"));
       });
     });
   }
@@ -203,8 +204,8 @@ impl WhirlApp {
             if let Some(i) = self.sel_element {
               let el = &mut self.layout.as_mut().unwrap().elements[i];
               ui.heading(match &el.content {
-                model::Content::Image { .. } => "Image",
-                model::Content::Text { .. } => "Text",
+                model::Content::Image { .. } => f!("attr-heading-image"),
+                model::Content::Text { .. } => f!("attr-heading-text"),
               });
               ui.push_id(
                 i,
@@ -464,7 +465,7 @@ impl WhirlApp {
           .pivot(egui::Align2::LEFT_TOP)
           .show(ui.ctx(), |ui| {
             egui::Frame::menu(ui.style()).inner_margin(2.0).show(ui, |ui| {
-              egui::CollapsingHeader::new("Elements").default_open(true).show(ui, |ui| {
+              egui::CollapsingHeader::new(f!("elements")).default_open(true).show(ui, |ui| {
                 let h = ui.style().spacing.interact_size.y;
                 ui.allocate_ui(egui::vec2(160.0 + (h + ui.style().spacing.item_spacing.x) * 2.0, 240.0), |ui| {
                   egui::ScrollArea::vertical().show(ui, |ui| {
@@ -474,13 +475,13 @@ impl WhirlApp {
                     let add_resp = ui.add_sized(
                       [ui.available_width(), ui.style().spacing.interact_size.y],
                       egui::Button::selectable(false, "+")
-                    ).on_hover_text("Add");
+                    ).on_hover_text(f!("list-add"));
                     egui::Popup::menu(&add_resp).id(ui.id().with("add_element_popup"))
                       .show(|ui| {
                         ui.set_min_width(add_resp.rect.width() -
                           ui.style().spacing.menu_margin.left as f32 -
                           ui.style().spacing.menu_margin.right as f32);
-                        if ui.add(egui::Button::selectable(false, "🖼️ Image")).clicked() {
+                        if ui.add(egui::Button::selectable(false, format!("🖼️ {}", f!("attr-heading-image")))).clicked() {
                           elements.push(model::Element::from_content(model::Content::Image {
                             src: "".to_string(),
                           }));
@@ -493,7 +494,7 @@ impl WhirlApp {
                           );
                           self.edited = true;
                         }
-                        if ui.add(egui::Button::selectable(false, "💬 Text")).clicked() {
+                        if ui.add(egui::Button::selectable(false, format!("💬 {}", f!("attr-heading-text")))).clicked() {
                           elements.push(model::Element::from_content(model::Content::Text {
                             family: vec![self.font_families[0].clone()],
                             size: 16.0,
@@ -549,11 +550,11 @@ impl WhirlApp {
                         if i + 1 == elements.len() {
                           ui.add_space(h + ui.style().spacing.item_spacing.x);
                         } else {
-                          if ui.add_sized([h, h], egui::Button::new("↑")).on_hover_text("Move up").clicked() {
+                          if ui.add_sized([h, h], egui::Button::new("↑")).on_hover_text(f!("list-move-up")).clicked() {
                             to_prioritize = Some(i);
                           }
                         }
-                        if ui.add_sized([h, h], egui::Button::new("×")).on_hover_text("Remove").clicked() {
+                        if ui.add_sized([h, h], egui::Button::new("×")).on_hover_text(f!("list-remove")).clicked() {
                           to_remove = Some(i);
                         }
                       });
@@ -603,31 +604,31 @@ impl WhirlApp {
     let mut changed_tex = false;
     let mut changed_any = false;
     use egui::{DragValue, ComboBox};
-    ui.label("Position");
+    ui.label(f!("attr-position"));
     ui.horizontal(|ui| {
       changed_any |= ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.x).speed(0.1)).changed();
       changed_any |= ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.y).speed(0.1)).changed();
       ui.add_space(ui.available_width()); // XXX: Hack to extend the grid to fill remaining width?
     });
     ui.end_row();
-    ui.label("Anchor");
+    ui.label(f!("attr-anchor"));
     let anchors_and_names = [
-      (model::Anchor { x: model::AnchorAxis::Min, y: model::AnchorAxis::Min }, "Top Left", "↖"),
-      (model::Anchor { x: model::AnchorAxis::Cen, y: model::AnchorAxis::Min }, "Top Center", "↑"),
-      (model::Anchor { x: model::AnchorAxis::Max, y: model::AnchorAxis::Min }, "Top Right", "↗"),
-      (model::Anchor { x: model::AnchorAxis::Min, y: model::AnchorAxis::Cen }, "Middle Left", "←"),
-      (model::Anchor { x: model::AnchorAxis::Cen, y: model::AnchorAxis::Cen }, "Middle Center", "＋"),
-      (model::Anchor { x: model::AnchorAxis::Max, y: model::AnchorAxis::Cen }, "Middle Right", "→"),
-      (model::Anchor { x: model::AnchorAxis::Min, y: model::AnchorAxis::Max }, "Bottom Left", "↙"),
-      (model::Anchor { x: model::AnchorAxis::Cen, y: model::AnchorAxis::Max }, "Bottom Center", "↓"),
-      (model::Anchor { x: model::AnchorAxis::Max, y: model::AnchorAxis::Max }, "Bottom Right", "↘"),
+      (model::Anchor { x: model::AnchorAxis::Min, y: model::AnchorAxis::Min }, "anchor-tl", "↖"),
+      (model::Anchor { x: model::AnchorAxis::Cen, y: model::AnchorAxis::Min }, "anchor-tc", "↑"),
+      (model::Anchor { x: model::AnchorAxis::Max, y: model::AnchorAxis::Min }, "anchor-tr", "↗"),
+      (model::Anchor { x: model::AnchorAxis::Min, y: model::AnchorAxis::Cen }, "anchor-ml", "←"),
+      (model::Anchor { x: model::AnchorAxis::Cen, y: model::AnchorAxis::Cen }, "anchor-mc", "＋"),
+      (model::Anchor { x: model::AnchorAxis::Max, y: model::AnchorAxis::Cen }, "anchor-mr", "→"),
+      (model::Anchor { x: model::AnchorAxis::Min, y: model::AnchorAxis::Max }, "anchor-bl", "↙"),
+      (model::Anchor { x: model::AnchorAxis::Cen, y: model::AnchorAxis::Max }, "anchor-bc", "↓"),
+      (model::Anchor { x: model::AnchorAxis::Max, y: model::AnchorAxis::Max }, "anchor-br", "↘"),
     ];
     ComboBox::from_id_salt("element_anchor")
       .width(150.0)
       .height(f32::INFINITY)
       .selected_text(anchors_and_names.iter()
         .find(|(a, _, _)| *a == el.anchor)
-        .map(|(_, name, _)| *name).unwrap())
+        .map(|(_, name, _)| f!(name)).unwrap())
       .show_ui(ui, |ui| egui::Grid::new("element_anchor_popup")
         .min_row_height(40.)
         .show(ui, |ui| {
@@ -638,7 +639,7 @@ impl WhirlApp {
               let (current_value, selected_value, text) = (&mut el.anchor, value, abbr);
               let checked = *current_value == selected_value;
               let mut response = ui.centered_and_justified(
-                |ui| ui.add(egui::Button::selectable(checked, text)).on_hover_text(name)
+                |ui| ui.add(egui::Button::selectable(checked, text)).on_hover_text(f!(name))
               ).inner;
               if response.clicked() && *current_value != selected_value {
                 *current_value = selected_value;
@@ -650,18 +651,18 @@ impl WhirlApp {
           }
         }));
     ui.end_row();
-    ui.label("Scale");
+    ui.label(f!("attr-scale"));
     ui.horizontal(|ui| {
       changed_any |= ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.scale.0).speed(0.01)).changed();
       changed_any |= ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.scale.1).speed(0.01)).changed();
     });
     ui.end_row();
-    ui.label("Rotation");
+    ui.label(f!("attr-rotation"));
     ui.horizontal(|ui| {
       changed_any |= ui.add_sized([80.0, ui.available_height()], DragValue::new(&mut el.rotation).speed(0.1)).changed();
     });
     ui.end_row();
-    ui.label("Size limit");
+    ui.label(f!("attr-size-limit"));
     fn size_limit_editor(ui: &mut egui::Ui, value: &mut Option<f32>) -> bool {
       let mut x = value.unwrap_or(0.0);
       let resp = ui.add_sized([80.0, ui.style().spacing.interact_size.y],
@@ -687,21 +688,21 @@ impl WhirlApp {
     ui.end_row();
     match &mut el.content {
       model::Content::Image { src } => {
-        ui.label("Source");
+        ui.label(f!("attr-image-source"));
         changed_tex |= ui.add(egui::TextEdit::singleline(src)).changed();
         ui.end_row();
       },
       model::Content::Text { family, size, weight, italic, tracking, text } => {
-        ui.label("Text");
+        ui.label(f!("attr-text-text"));
         changed_tex |= ui.add(egui::TextEdit::multiline(text).desired_width(ui.available_width())).changed();
         ui.end_row();
-        ui.label("Family");
+        ui.label(f!("attr-text-family"));
         changed_tex |= Self::font_list_editor(ui, &font_families, family);
         ui.end_row();
-        ui.label("Size");
+        ui.label(f!("attr-text-size"));
         changed_tex |= ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(size).range(0.0..=f32::INFINITY).speed(1.0)).changed();
         ui.end_row();
-        ui.label("Weight");
+        ui.label(f!("attr-text-weight"));
         let weights_and_names = [
           (model::Weight::Thin, "Thin (100)"),
           (model::Weight::ExtraLight, "Extra Light (200)"),
@@ -726,10 +727,10 @@ impl WhirlApp {
             }
           });
         ui.end_row();
-        ui.label("Italic");
+        ui.label(f!("attr-text-italic"));
         changed_tex |= ui.checkbox(italic, "").changed();
         ui.end_row();
-        ui.label("Tracking");
+        ui.label(f!("attr-text-tracking"));
         changed_tex |= ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(tracking).speed(0.1)).changed();
         ui.end_row();
       },
@@ -775,11 +776,11 @@ impl WhirlApp {
             if i == 0 {
               ui.add_space(h + ui.style().spacing.item_spacing.x);
             } else {
-              if ui.add_sized([h, h], egui::Button::new("↑")).on_hover_text("Move up").clicked() {
+              if ui.add_sized([h, h], egui::Button::new("↑")).on_hover_text(f!("list-move-up")).clicked() {
                 to_prioritize = Some(i);
               }
             }
-            if ui.add_sized([h, h], egui::Button::new("×")).on_hover_text("Remove").clicked() {
+            if ui.add_sized([h, h], egui::Button::new("×")).on_hover_text(f!("list-remove")).clicked() {
               to_remove = Some(i);
             }
           }
@@ -795,7 +796,7 @@ impl WhirlApp {
         changed = true;
       }
       if ui.add_sized([ui.available_width(), 0.0],
-        egui::Button::selectable(false, "+")).on_hover_text("Add").clicked()
+        egui::Button::selectable(false, "+")).on_hover_text(f!("list-add")).clicked()
       {
         el.push(font_families[0].clone());
         changed = true;
@@ -836,16 +837,16 @@ impl eframe::App for WhirlApp {
               .close_behavior(egui::containers::PopupCloseBehavior::CloseOnClickOutside)
               .show(|ui| {
                 ui.horizontal(|ui| {
-                  ui.label("Page size");
+                  ui.label(f!("menu-page-size"));
                   ui.add_sized([80.0, ui.style().spacing.interact_size.y], egui::DragValue::new(&mut layout.page.0).speed(1).range(1.0..=f32::INFINITY));
                   ui.add_sized([80.0, ui.style().spacing.interact_size.y], egui::DragValue::new(&mut layout.page.1).speed(1).range(1.0..=f32::INFINITY));
                 });
-                if ui.add(egui::Button::new("Save").shortcut_text(ui.ctx().format_shortcut(&save_shortcut))).clicked() {
+                if ui.add(egui::Button::new(f!("menu-save")).shortcut_text(ui.ctx().format_shortcut(&save_shortcut))).clicked() {
                   // Save YAML
                   to_save = true;
                   egui::Popup::close_id(ui.ctx(), popup_id);
                 }
-                if ui.add(egui::Button::new("Export PDF…")).clicked() {
+                if ui.add(egui::Button::new(f!("menu-export-pdf"))).clicked() {
                   if let Some(path) = rfd::FileDialog::new()
                     .add_filter("PDF", &["pdf"])
                     .save_file()
@@ -857,7 +858,7 @@ impl eframe::App for WhirlApp {
                       crate::ArgsFormat::Pdf,
                       true,
                     ) {
-                      Ok(_) => self.status_msg = Some((false, std::time::Instant::now(), format!("Exported {}", path.to_string_lossy()))),
+                      Ok(_) => self.status_msg = Some((false, std::time::Instant::now(), f!("status-exported", path => path.to_string_lossy()))),
                       Err(crate::ProcessError::Expr(index, crate::ExprError::NonexistentField(_pos, name))) => {
                         self.sel_element = Some(index);
                         self.sel_element_scroll = true;
@@ -868,7 +869,7 @@ impl eframe::App for WhirlApp {
                   }
                   egui::Popup::close_id(ui.ctx(), popup_id);
                 }
-                if ui.add(egui::Button::new("Export PDF sequence…")).clicked() {
+                if ui.add(egui::Button::new(f!("menu-export-pdf-seq"))).clicked() {
                   if let Some(path) = rfd::FileDialog::new().pick_folder() {
                     match crate::process_and_write(
                       self.root_path.as_ref().unwrap(),
@@ -877,7 +878,7 @@ impl eframe::App for WhirlApp {
                       crate::ArgsFormat::PdfSeq,
                       true,
                     ) {
-                      Ok(_) => self.status_msg = Some((false, std::time::Instant::now(), format!("Exported {}", path.to_string_lossy()))),
+                      Ok(_) => self.status_msg = Some((false, std::time::Instant::now(), f!("status-exported", path => path.to_string_lossy()))),
                       Err(crate::ProcessError::Expr(index, crate::ExprError::NonexistentField(_pos, name))) => {
                         self.sel_element = Some(index);
                         self.sel_element_scroll = true;
@@ -888,7 +889,7 @@ impl eframe::App for WhirlApp {
                   }
                   egui::Popup::close_id(ui.ctx(), popup_id);
                 }
-                if ui.add(egui::Button::new("Close").shortcut_text(ui.ctx().format_shortcut(&close_shortcut))).clicked() {
+                if ui.add(egui::Button::new(f!("menu-close")).shortcut_text(ui.ctx().format_shortcut(&close_shortcut))).clicked() {
                   to_close = true;
                   egui::Popup::close_id(ui.ctx(), popup_id);
                 }
@@ -912,23 +913,23 @@ impl eframe::App for WhirlApp {
                 if *is_err {
                   ui.colored_label(
                     ui.style().visuals.warn_fg_color,
-                    format!("Error: {}", s),
+                    f!("status-error", error => s),
                   );
                 } else {
                   ui.label(s.to_string());
                 }
               } else {
-                ui.label(format!("{}{}×{}, {} elements — {}",
+                ui.label(format!("{}{}×{}, {}— {}",
                   if self.edited { "* " } else { "" },
                   layout.page.0, layout.page.1,
-                  layout.elements.len(),
+                  f!("status-num-elements", n => layout.elements.len()),
                   path.to_string_lossy()));
               }
             } else if let Some((is_err, _, s)) = &self.status_msg {
               if *is_err {
                 ui.colored_label(
                   ui.style().visuals.warn_fg_color,
-                  format!("Error: {}", s),
+                  f!("status-error", error => s),
                 );
               } else {
                 ui.label(s.to_string());

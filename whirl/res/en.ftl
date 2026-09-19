@@ -18,3 +18,51 @@ process-render-typst-compilation =
     [one] Compilation: {$message}
    *[other] Compilation: {$message} (total {$count})
   }
+
+open-content-folder = Open content folder
+or-drag-and-drop = or drag-and-drop
+
+menu-page-size = Page size
+menu-save = Save
+menu-export-pdf = Export PDF…
+menu-export-pdf-seq = Export PDF sequence…
+menu-close = Close
+
+status-exported = Exported {$path}
+status-num-elements = {$n ->
+  [one] 1 element
+ *[other] {$n} elements
+}
+status-error = Error: {$error}
+
+elements = Elements
+
+attr-heading-image = Image
+attr-heading-text = Text
+
+attr-position = Position
+attr-anchor = Anchor
+attr-scale = Scale
+attr-rotation = Rotation
+attr-size-limit = Size limit
+attr-image-source = Source
+attr-text-text = Text
+attr-text-family = Family
+attr-text-size = Size
+attr-text-weight = Weight
+attr-text-italic = Italic
+attr-text-tracking = Tracking
+
+anchor-tl = Top Left
+anchor-tc = Top Center
+anchor-tr = Top Right
+anchor-ml = Middle Left
+anchor-mc = Middle Center
+anchor-mr = Middle Right
+anchor-bl = Bottom Left
+anchor-bc = Bottom Center
+anchor-br = Bottom Right
+
+list-move-up = Move up
+list-remove = Remove
+list-add = Add
