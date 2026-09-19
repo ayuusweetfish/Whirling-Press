@@ -34,7 +34,7 @@ fn expand_expr(s: &str, fields: &[String]) -> Result<String, ExprError> {
     // {}-enclosed substitution
     let open_post = open + '{'.len_utf8();
     if let Some(close) = find_next_char(s, '}', open_post) {
-      let field = s[open_post..close].trim();
+      let field = &s[open_post..close];
       if fields.iter().position(|s| s == field).is_none() {
         return Err(ExprError::NonexistentField(open_post, field.to_string()));
       }
