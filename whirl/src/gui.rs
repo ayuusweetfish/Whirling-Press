@@ -288,12 +288,20 @@ impl WhirlApp {
         // Hover position in canvas coordinates
         let hover_pos: Option<(f32, f32)> = resp.hover_pos().map(|p| p.into());
 
+        painter.add(egui::Shape::rect_stroke(
+          egui::Rect::from_min_size(
+            doc_to_canvas((0., 0.)).into(),
+            [page_w * self.canvas.zoom, page_h * self.canvas.zoom].into()),
+          egui::CornerRadius::same(5),
+          egui::Stroke::new(1., egui::Color32::from_rgba_premultiplied(64, 64, 64, 128)),
+          egui::StrokeKind::Outside,
+        ));
         painter.add(egui::Shape::rect_filled(
           egui::Rect::from_min_size(
             doc_to_canvas((0., 0.)).into(),
             [page_w * self.canvas.zoom, page_h * self.canvas.zoom].into()),
           egui::CornerRadius::same(5),
-          egui::Color32::from_rgba_premultiplied(255, 248, 240, 255),
+          egui::Color32::from_rgba_premultiplied(255, 255, 255, 255),
         ));
 
         // Transforms a point in a rectangular region (texture)
