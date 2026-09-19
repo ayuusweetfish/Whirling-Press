@@ -64,7 +64,7 @@ fn element_to_image<P: AsRef<std::path::Path>>(root_path: P, el: &model::Element
     Err(e) => {
       // XXX: Display better error messages
       try_to_image(root_path,
-        &format!("#place-element(0pt, 0pt, in_flow: true)[#raw(\"{}\")]", escape(&format!("{}", e))),
+        &format!("#place-element(0pt, 0pt, in_flow: true)[#raw(\"{}\")]", escape(&format!("{}", e.message()))),
       ).unwrap()
     },
   }
@@ -153,7 +153,7 @@ impl WhirlApp {
         self.status_msg = None;
       },
       Err(e) => {
-        self.status_msg = Some((true, std::time::Instant::now(), e.to_string()));
+        self.status_msg = Some((true, std::time::Instant::now(), e.message()));
       },
     }
   }
@@ -863,7 +863,7 @@ impl eframe::App for WhirlApp {
                         self.sel_element_scroll = true;
                         self.status_msg = Some((true, std::time::Instant::now(), format!("Nonexistent field {}", name)));
                       },
-                      Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e))),
+                      Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e.message()))),
                     }
                   }
                   egui::Popup::close_id(ui.ctx(), popup_id);
@@ -883,7 +883,7 @@ impl eframe::App for WhirlApp {
                         self.sel_element_scroll = true;
                         self.status_msg = Some((true, std::time::Instant::now(), format!("Nonexistent field {}", name)));
                       },
-                      Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e))),
+                      Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e.message()))),
                     }
                   }
                   egui::Popup::close_id(ui.ctx(), popup_id);

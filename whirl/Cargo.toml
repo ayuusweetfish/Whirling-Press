@@ -17,6 +17,10 @@ lopdf = "0.44"
 
 argh = "0.1"
 
+fluent = "0.17"
+unic-langid = "0.9.6"
+sys-locale = "0.3.2"
+
 egui = { version = "0.36", default-features = false, features = [], optional = true }
 eframe = { version = "0.36", default-features = false, features = ["accesskit", "wayland", "web_screen_reader", "wgpu", "x11"], optional = true }
 rfd = { version = "0.17", optional = true }

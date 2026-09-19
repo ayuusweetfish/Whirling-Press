@@ -3,6 +3,7 @@
 mod model;
 mod render;
 mod opt_pdf;
+mod localize;
 #[cfg(feature = "gui")]
 mod gui;
 
@@ -299,53 +300,69 @@ fn process_pack<P: AsRef<Path>, R, F: FnOnce(P, &str) -> Result<R, render::Rende
   Ok(output)
 }
 
-impl std::fmt::Display for FindSingleError {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+// Display
+
+impl FindSingleError {
+  fn message(&self) -> String {
     match self {
-      FindSingleError::Io(e) => write!(f, "I/O error: {}", e),
-      FindSingleError::NoneFound => write!(f, "no file found"),
-      FindSingleError::MultipleFound => write!(f, "multiple files found"),
+      FindSingleError::Io(e) => {
+        localize::format("find-single-io-error", &fluent::fluent_args!("error" => e.to_string()))
+      }
+      FindSingleError::NoneFound => {
+        localize::format("find-single-none-found", &fluent::fluent_args!())
+      }
+      FindSingleError::MultipleFound => {
+        localize::format("find-single-multiple-found", &fluent::fluent_args!())
+      }
     }
   }
 }
 
-impl std::fmt::Display for ProcessError {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl ProcessError {
+  fn message(&self) -> String {
     match self {
       ProcessError::FindYaml(e) => {
-        write!(f, "Could not find YAML file: {}", e)
+        localize::format("process-find-yaml", &fluent::fluent_args!("error" => e.message()))
       }
       ProcessError::ParseYaml(e) => {
-        write!(f, "Could not parse YAML: {}", e)
+        localize::format("process-parse-yaml", &fluent::fluent_args!("error" => e.to_string()))
       }
       ProcessError::FindCsv(e) => {
-        write!(f, "Could not find CSV file: {}", e)
+        localize::format("process-find-csv", &fluent::fluent_args!("error" => e.message()))
       }
       ProcessError::CsvNameUtf8 => {
-        write!(f, "CSV file name is not valid UTF-8")
+        localize::format("process-csv-name-utf8", &fluent::fluent_args!())
       }
       ProcessError::CsvFieldsUtf8 => {
-        write!(f, "CSV fields are not valid UTF-8")
+        localize::format("process-csv-fields-utf8", &fluent::fluent_args!())
       }
       ProcessError::CsvFieldsDuplicate(s) => {
-        write!(f, "CSV field `{}` duplicate", s)
+        localize::format("process-csv-fields-duplicate", &fluent::fluent_args!("field" => s.clone()))
       }
       ProcessError::Io(path, e) => {
-        write!(f, "I/O error on `{}`: {}", path.display(), e)
+        localize::format("process-io", &fluent::fluent_args!(
+          "path" => path.display().to_string(),
+          "error" => e.to_string(),
+        ))
       }
-      ProcessError::Expr(index, e) => match e {
-        ExprError::NonexistentField(pos, name) => write!(f,
-          "Element {}, expression at byte {} references nonexistent field `{}`",
-          index, pos, name,
-        ),
-      },
+      ProcessError::Expr(index, ExprError::NonexistentField(pos, name)) => {
+        localize::format("process-expr-nonexistent-field", &fluent::fluent_args!(
+          "index" => *index as i64,
+          "pos" => *pos as i64,
+          "name" => name.clone(),
+        ))
+      }
       ProcessError::Render(render::RenderError::TypstCompilation(diags)) => {
-        write!(f, "Compilation: {}{}", diags[0].message,
-          if diags.len() > 1 { format!(" ({})", diags.len()) } else { "".to_string() })
+        localize::format("process-render-typst-compilation", &fluent::fluent_args!(
+          "message" => diags[0].message.to_string(),
+          "count" => diags.len() as i64,
+        ))
       }
     }
   }
 }
+
+// CLI
 
 use argh::{FromArgs, FromArgValue};
 
@@ -412,12 +429,16 @@ fn start_gui(root_path: Option<&str>) {
 }
 
 fn main() {
+  let locale = sys_locale::get_locale().unwrap_or_else(|| "en".to_string());
+  println!("{}", locale);
+  localize::set_language("zh-Hans");
+
   let args: Args = argh::from_env();
 
   if let Some(pack_root) = args.pack_root {
     if let Some(output) = args.output {
       match process_and_write(&pack_root, None, &output, args.format, args.compress) {
-        Err(e) => eprintln!("Error: {}", e),
+        Err(e) => eprintln!("Error: {}", e.message()),
         Ok(_) => (),
       }
     } else {
