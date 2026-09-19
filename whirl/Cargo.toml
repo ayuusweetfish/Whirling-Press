@@ -18,7 +18,7 @@ lopdf = "0.44"
 argh = "0.1"
 
 fluent = "0.17"
-unic-langid = "0.9.6"
+fluent-langneg = "0.14"
 sys-locale = "0.3.2"
 
 egui = { version = "0.36", default-features = false, features = [], optional = true }

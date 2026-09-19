@@ -429,9 +429,7 @@ fn start_gui(root_path: Option<&str>) {
 }
 
 fn main() {
-  let locale = sys_locale::get_locale().unwrap_or_else(|| "en".to_string());
-  println!("{}", locale);
-  localize::set_language("zh-Hans");
+  localize::set_language(&sys_locale::get_locale().unwrap_or_else(|| "en".to_string()));
 
   let args: Args = argh::from_env();
 

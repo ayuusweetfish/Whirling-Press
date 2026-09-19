@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::{LazyLock, RwLock};
 
 use fluent::{FluentBundle, FluentResource, FluentArgs, FluentError};
-use unic_langid::{langid, LanguageIdentifier};
+use fluent_langneg::LanguageIdentifier;
 
 type Bundle = FluentBundle<FluentResource>;
 
@@ -15,34 +15,38 @@ thread_local! {
 }
 
 static CURRENT_LANG: LazyLock<RwLock<LanguageIdentifier>> =
-  LazyLock::new(|| RwLock::new(langid!("en")));
+  LazyLock::new(|| RwLock::new("en".parse().unwrap()));
 
 impl Localization {
   fn load() -> Self {
     let mut bundles = HashMap::new();
 
-    let mut add_bundle = |lang: LanguageIdentifier, src: &str| {
+    let mut add_bundle = |lang: &str, src: &str| {
+      let lang: LanguageIdentifier = lang.parse().unwrap();
       let res = FluentResource::try_new(src.to_string()).expect("bad FTL syntax");
-      let mut bundle = FluentBundle::new(vec![lang.clone()]);
+      let mut bundle = FluentBundle::new(vec![lang.to_string().parse().unwrap()]);
       bundle.add_resource(res).expect("failed to add resource");
       bundles.insert(lang, bundle);
     };
 
-    add_bundle(langid!("en"), include_str!("../res/en.ftl"));
-    add_bundle(langid!("zh-Hans"), include_str!("../res/zh-Hans.ftl"));
+    add_bundle("en", include_str!("../res/en.ftl"));
+    add_bundle("zh-Hans", include_str!("../res/zh-Hans.ftl"));
 
     Localization { bundles }
   }
 }
 
-pub fn set_language(lang: &str) -> bool {
-  let Ok(lang) = lang.parse::<LanguageIdentifier>() else { return false };
-  if L.with(|l| l.bundles.contains_key(&lang)) {
-    *CURRENT_LANG.write().unwrap() = lang;
-    true
-  } else {
-    false
-  }
+pub fn set_language(lang: &str) {
+  let Ok(lang) = lang.parse::<LanguageIdentifier>() else { return };
+  let available = L.with(|l| l.bundles.keys().cloned().collect::<Vec<_>>());
+  let default = "en".parse().unwrap();
+  let supported = fluent_langneg::negotiate_languages(
+    &[lang],
+    &available,
+    Some(&default),
+    fluent_langneg::NegotiationStrategy::Filtering,
+  );
+  *CURRENT_LANG.write().unwrap() = supported[0].clone();
 }
 
 pub fn current_language() -> LanguageIdentifier {
