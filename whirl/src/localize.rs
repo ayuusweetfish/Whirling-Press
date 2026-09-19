@@ -64,3 +64,13 @@ pub fn format(id: &str, args: &FluentArgs) -> String {
     formatted.to_string()
   })
 }
+
+#[macro_export]
+macro_rules! f {
+  ($id:expr) => {
+    $crate::localize::format($id, &fluent::fluent_args!())
+  };
+  ($id:expr, $($key:ident => $value:expr),+ $(,)?) => {
+    $crate::localize::format($id, &fluent::fluent_args!($(stringify!($key) => $value),+))
+  };
+}

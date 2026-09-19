@@ -306,13 +306,13 @@ impl FindSingleError {
   fn message(&self) -> String {
     match self {
       FindSingleError::Io(e) => {
-        localize::format("find-single-io-error", &fluent::fluent_args!("error" => e.to_string()))
+        f!("find-single-io-error", error => e.to_string())
       }
       FindSingleError::NoneFound => {
-        localize::format("find-single-none-found", &fluent::fluent_args!())
+        f!("find-single-none-found")
       }
       FindSingleError::MultipleFound => {
-        localize::format("find-single-multiple-found", &fluent::fluent_args!())
+        f!("find-single-multiple-found")
       }
     }
   }
@@ -322,41 +322,41 @@ impl ProcessError {
   fn message(&self) -> String {
     match self {
       ProcessError::FindYaml(e) => {
-        localize::format("process-find-yaml", &fluent::fluent_args!("error" => e.message()))
+        f!("process-find-yaml", error => e.message())
       }
       ProcessError::ParseYaml(e) => {
-        localize::format("process-parse-yaml", &fluent::fluent_args!("error" => e.to_string()))
+        f!("process-parse-yaml", error => e.to_string())
       }
       ProcessError::FindCsv(e) => {
-        localize::format("process-find-csv", &fluent::fluent_args!("error" => e.message()))
+        f!("process-find-csv", error => e.message())
       }
       ProcessError::CsvNameUtf8 => {
-        localize::format("process-csv-name-utf8", &fluent::fluent_args!())
+        f!("process-csv-name-utf8")
       }
       ProcessError::CsvFieldsUtf8 => {
-        localize::format("process-csv-fields-utf8", &fluent::fluent_args!())
+        f!("process-csv-fields-utf8")
       }
       ProcessError::CsvFieldsDuplicate(s) => {
-        localize::format("process-csv-fields-duplicate", &fluent::fluent_args!("field" => s.clone()))
+        f!("process-csv-fields-duplicate", field => s.clone())
       }
       ProcessError::Io(path, e) => {
-        localize::format("process-io", &fluent::fluent_args!(
-          "path" => path.display().to_string(),
-          "error" => e.to_string(),
-        ))
+        f!("process-io",
+          path => path.display().to_string(),
+          error => e.to_string(),
+        )
       }
       ProcessError::Expr(index, ExprError::NonexistentField(pos, name)) => {
-        localize::format("process-expr-nonexistent-field", &fluent::fluent_args!(
-          "index" => *index as i64,
-          "pos" => *pos as i64,
-          "name" => name.clone(),
-        ))
+        f!("process-expr-nonexistent-field",
+          index => *index as i64,
+          pos => *pos as i64,
+          name => name.clone(),
+        )
       }
       ProcessError::Render(render::RenderError::TypstCompilation(diags)) => {
-        localize::format("process-render-typst-compilation", &fluent::fluent_args!(
-          "message" => diags[0].message.to_string(),
-          "count" => diags.len() as i64,
-        ))
+        f!("process-render-typst-compilation",
+          message => diags[0].message.to_string(),
+          count => diags.len() as i64,
+        )
       }
     }
   }
