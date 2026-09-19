@@ -17,6 +17,8 @@ pub struct Element {
   #[serde(default, skip_serializing_if = "is_default")]
   pub rotation: f32,
   #[serde(default, skip_serializing_if = "is_default")]
+  pub skew: (f32, f32),
+  #[serde(default, skip_serializing_if = "is_default")]
   pub width: Option<f32>,
   #[serde(default, skip_serializing_if = "is_default")]
   pub height: Option<f32>,
@@ -31,6 +33,7 @@ impl Element {
       anchor: Default::default(),
       scale: default_scale(),
       rotation: Default::default(),
+      skew: Default::default(),
       width: Default::default(),
       height: Default::default(),
       content,

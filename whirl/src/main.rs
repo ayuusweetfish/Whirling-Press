@@ -82,8 +82,17 @@ impl model::Element {
           },
         ));
       }
-      if self.scale != model::default_scale() {
-        args.push(format!("scale: ({}, {})", self.scale.0, self.scale.1));
+      if self.scale.0 != 1.0 {
+        args.push(format!("scale-x: {}%", self.scale.0 * 100.));
+      }
+      if self.scale.1 != 1.0 {
+        args.push(format!("scale-y: {}%", self.scale.1 * 100.));
+      }
+      if self.skew.0 != 0.0 {
+        args.push(format!("skew-x: {}deg", self.skew.0));
+      }
+      if self.skew.1 != 0.0 {
+        args.push(format!("skew-y: {}deg", self.skew.1));
       }
       if self.rotation != 0.0 {
         args.push(format!("rotate: {}deg", self.rotation));
