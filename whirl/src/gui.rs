@@ -29,6 +29,7 @@ struct WhirlApp {
   sel_element_scroll: bool,
   element_texs: Vec<egui::TextureHandle>,
   canvas: CanvasState,
+  close_confirming: bool,
 }
 
 struct CanvasState {
@@ -121,6 +122,7 @@ impl WhirlApp {
       sel_element_scroll: false,
       element_texs: vec![],
       canvas: CanvasState::default(),
+      close_confirming: false,
     };
 
     if let Some(root_path) = root_path {
@@ -958,7 +960,31 @@ impl eframe::App for WhirlApp {
             }
           });
         });
+        let mut really_close = false;
         if to_close {
+          if self.edited {
+            self.close_confirming = true;
+          } else {
+            really_close = true;
+          }
+        }
+        if self.close_confirming {
+          egui::Modal::new(egui::Id::new("close_confirmation_modal")).show(ui.ctx(), |ui| {
+            ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
+              ui.label(f!("modal-close-confirmation-message"));
+              ui.add_space(12.0);
+              if ui.button(f!("modal-close-confirmation-close")).clicked() {
+                self.close_confirming = false;
+                really_close = true;
+              }
+              ui.add_space(6.0);
+              if ui.button(f!("modal-close-confirmation-cancel")).clicked() {
+                self.close_confirming = false;
+              }
+            });
+          });
+        }
+        if really_close {
           self.root_path = None;
           self.status_msg = None;
           self.yml_file_name = None;

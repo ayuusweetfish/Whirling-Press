@@ -69,3 +69,7 @@ anchor-br = 右下
 list-move-up = 上移
 list-remove = 移除
 list-add = 新增
+
+modal-close-confirmation-message = 编辑的排版尚未保存。确认关闭吗？
+modal-close-confirmation-close = 不保存，关闭
+modal-close-confirmation-cancel = 取消

@@ -72,3 +72,7 @@ anchor-br = Bottom Right
 list-move-up = Move up
 list-remove = Remove
 list-add = Add
+
+modal-close-confirmation-message = Edited layout is not saved. Really close?
+modal-close-confirmation-close = Close without saving
+modal-close-confirmation-cancel = Cancel
