@@ -25,22 +25,6 @@ pub struct Element {
   pub content: Content,
 }
 
-impl Element {
-  pub fn from_content(content: Content) -> Self {
-    Self {
-      x: 0.0,
-      y: 0.0,
-      anchor: Default::default(),
-      scale: default_scale(),
-      rotation: Default::default(),
-      skew: Default::default(),
-      width: Default::default(),
-      height: Default::default(),
-      content,
-    }
-  }
-}
-
 #[derive(Debug, Clone, Deserialize, Serialize, Default, PartialEq, Copy)]
 #[serde(try_from = "(f32, f32)", into = "(f32, f32)")]
 pub struct Anchor {

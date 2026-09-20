@@ -512,8 +512,21 @@ impl WhirlApp {
                         ui.set_min_width(add_resp.rect.width() -
                           ui.style().spacing.menu_margin.left as f32 -
                           ui.style().spacing.menu_margin.right as f32);
+                        fn new_element(page: (f32, f32), origin: (f32, f32), content: model::Content) -> model::Element {
+                          model::Element {
+                            x: origin.0 + page.0 * 0.5,
+                            y: origin.1 + page.1 * 0.5,
+                            anchor: Default::default(),
+                            scale: model::default_scale(),
+                            rotation: Default::default(),
+                            skew: Default::default(),
+                            width: Default::default(),
+                            height: Default::default(),
+                            content,
+                          }
+                        }
                         if ui.add(egui::Button::selectable(false, format!("🖼️ {}", f!("attr-heading-image")))).clicked() {
-                          elements.push(model::Element::from_content(model::Content::Image {
+                          elements.push(new_element(layout.page, self.canvas.origin, model::Content::Image {
                             src: "".to_string(),
                           }));
                           self.element_texs.push(
@@ -524,9 +537,10 @@ impl WhirlApp {
                             )
                           );
                           self.edited = true;
+                          self.sel_element = Some(elements.len() - 1);
                         }
                         if ui.add(egui::Button::selectable(false, format!("💬 {}", f!("attr-heading-text")))).clicked() {
-                          elements.push(model::Element::from_content(model::Content::Text {
+                          elements.push(new_element(layout.page, self.canvas.origin, model::Content::Text {
                             family: vec![self.font_families[0].clone()],
                             size: 16.0,
                             weight: model::Weight::Regular,
@@ -542,6 +556,7 @@ impl WhirlApp {
                             )
                           );
                           self.edited = true;
+                          self.sel_element = Some(elements.len() - 1);
                         }
                       });
                     // List
