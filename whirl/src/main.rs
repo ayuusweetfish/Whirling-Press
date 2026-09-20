@@ -147,22 +147,35 @@ impl model::Element {
 }
 
 impl model::Layout {
-  fn typst_source(&self, csv_path: &str, fields: &[String]) -> Result<String, (usize, ExprError)> {
+  fn typst_source(&self, csv_path: &str, fields: &[String]) -> Result<(String, Vec<usize>), (usize, ExprError)> {
     let (page_width, page_height) = self.page;
 
     let elements_typst = self.elements.iter()
       .enumerate()
       .map(|(i, el)| el.typst_source(fields, false).map_err(|e| (i, e)))
-      .collect::<Result<Vec<_>, _>>()?.join("\n  ");
+      .collect::<Result<Vec<_>, _>>()?;
 
-    Ok(include_str!("support.typ").to_string() + format!(r#"
+    let prefix = include_str!("support.typ").to_string() + &format!(r#"
 #set page(width: {page_width}pt, height: {page_height}pt, margin: 0pt)
 
-#for (index, row) in csv("{}", row-type: dictionary).enumerate() [
-  {elements_typst}
+#for (index, row) in csv("{csv_path}", row-type: dictionary).enumerate() [
+  "#);
+    let suffix = r#"
   #pagebreak(weak: true)
 ]
-"#, csv_path).as_str())
+"#;
+    let sep = "\n  ";
+
+    let (_, offsets) = elements_typst.iter().fold(
+      (prefix.len(), Vec::with_capacity(elements_typst.len())),
+      |(cur_offs, mut offsets), s| {
+        offsets.push(cur_offs);
+        (cur_offs + s.len() + sep.len(), offsets)
+      },
+    );
+    let full_source = prefix + &elements_typst.join(sep) + suffix;
+
+    Ok((full_source, offsets))
   }
 }
 
@@ -303,13 +316,17 @@ fn process_pack<P: AsRef<Path>, R, F: FnOnce(P, &str) -> Result<R, render::Rende
       .replace('\\', "\\\\").replace('"', "\\\""))
   }
 
-  let typst_source = layout.typst_source(&escape_path(csv_file_name)?, &list_fields)
+  let (typst_source, offsets) = layout.typst_source(&escape_path(csv_file_name)?, &list_fields)
     .map_err(|(i, e)| ProcessError::Expr(i, e))?;
 
   let output = render(path, &typst_source)
     .map_err(|e| {
       let crate::render::RenderError::TypstCompilation(diags) = e;
-      ProcessError::Render(0, diags[0].1.clone())
+      let el_index = match offsets.binary_search(&diags[0].0.start) {
+        Ok(i) => i,
+        Err(i) => if i == 0 { 0 } else { i - 1 },
+      };
+      ProcessError::Render(el_index, diags[0].1.clone())
     })?;
   Ok(output)
 }
