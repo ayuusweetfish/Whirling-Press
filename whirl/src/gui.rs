@@ -882,6 +882,31 @@ impl WhirlApp {
     });
     changed
   }
+
+  fn export<P: AsRef<std::path::Path>>(&mut self, path: P, format: crate::ArgsFormat) {
+    let path = path.as_ref();
+    match crate::process_and_write(
+      self.root_path.as_ref().unwrap(),
+      Some(self.layout.as_ref().unwrap()),
+      path,
+      format,
+      true,
+    ) {
+      Ok(_) => self.status_msg = Some((false, std::time::Instant::now(), f!("status-exported", path => path.to_string_lossy()))),
+      Err(crate::ProcessError::Expr(index, crate::ExprError::NonexistentField(start, end, name))) => {
+        self.sel_element = Some(index);
+        self.sel_element_scroll = true;
+        self.status_msg = Some((true, std::time::Instant::now(), f!("status-nonexistent-field", name => name.replace(&['\r', '\n'], " "))));
+        self.text_sel_range = Some((start, end));
+      },
+      Err(crate::ProcessError::Render(index, msg)) => {
+        self.sel_element = Some(index);
+        self.sel_element_scroll = true;
+        self.status_msg = Some((true, std::time::Instant::now(), f!("status-compilation-error", message => msg)));
+      },
+      Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e.message()))),
+    }
+  }
 }
 
 impl eframe::App for WhirlApp {
@@ -915,7 +940,7 @@ impl eframe::App for WhirlApp {
           }
           ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
             if let Some(path) = &self.root_path {
-              let layout = self.layout.as_mut().unwrap();
+              let path_str = path.to_string_lossy().into_owned();
               // Global shortcuts
               let save_shortcut = egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::S);
               let mut to_save = ui.input_mut(|i| i.consume_shortcut(&save_shortcut));
@@ -932,8 +957,8 @@ impl eframe::App for WhirlApp {
               .show(|ui| {
                 ui.horizontal(|ui| {
                   ui.label(f!("menu-page-size"));
-                  ui.add_sized([80.0, ui.style().spacing.interact_size.y], egui::DragValue::new(&mut layout.page.0).speed(1).range(1.0..=f32::INFINITY));
-                  ui.add_sized([80.0, ui.style().spacing.interact_size.y], egui::DragValue::new(&mut layout.page.1).speed(1).range(1.0..=f32::INFINITY));
+                  ui.add_sized([80.0, ui.style().spacing.interact_size.y], egui::DragValue::new(&mut self.layout.as_mut().unwrap().page.0).speed(1).range(1.0..=f32::INFINITY));
+                  ui.add_sized([80.0, ui.style().spacing.interact_size.y], egui::DragValue::new(&mut self.layout.as_mut().unwrap().page.1).speed(1).range(1.0..=f32::INFINITY));
                 });
                 if ui.add(egui::Button::new(format!("💾 {}", f!("menu-save"))).shortcut_text(ui.ctx().format_shortcut(&save_shortcut))).clicked() {
                   // Save YAML
@@ -947,27 +972,7 @@ impl eframe::App for WhirlApp {
                 }
                 if ui.add(egui::Button::new(format!("🖨 {}", f!("menu-export-pdf-seq")))).clicked() {
                   if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                    match crate::process_and_write(
-                      self.root_path.as_ref().unwrap(),
-                      Some(layout),
-                      &path,
-                      crate::ArgsFormat::PdfSeq,
-                      true,
-                    ) {
-                      Ok(_) => self.status_msg = Some((false, std::time::Instant::now(), f!("status-exported", path => path.to_string_lossy()))),
-                      Err(crate::ProcessError::Expr(index, crate::ExprError::NonexistentField(start, end, name))) => {
-                        self.sel_element = Some(index);
-                        self.sel_element_scroll = true;
-                        self.status_msg = Some((true, std::time::Instant::now(), f!("status-nonexistent-field", name => name.replace(&['\r', '\n'], " "))));
-                        self.text_sel_range = Some((start, end));
-                      },
-                      Err(crate::ProcessError::Render(index, msg)) => {
-                        self.sel_element = Some(index);
-                        self.sel_element_scroll = true;
-                        self.status_msg = Some((true, std::time::Instant::now(), f!("status-compilation-error", message => msg)));
-                      },
-                      Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e.message()))),
-                    }
+                    self.export(&path, crate::ArgsFormat::PdfSeq);
                   }
                   egui::Popup::close_id(ui.ctx(), popup_id);
                 }
@@ -980,7 +985,7 @@ impl eframe::App for WhirlApp {
               if to_save {
                 let yml_file_name = self.yml_file_name.as_ref().unwrap();
                 let yml_path = self.root_path.as_ref().unwrap().join(yml_file_name);
-                let s = serde_saphyr::to_string_with_options(&layout, serde_saphyr::ser_options! {
+                let s = serde_saphyr::to_string_with_options(self.layout.as_ref().unwrap(), serde_saphyr::ser_options! {
                   compact_list_indent: true,
                   yaml_12: true,
                 }).unwrap();
@@ -989,35 +994,15 @@ impl eframe::App for WhirlApp {
                   Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e))),
                 }
                 self.edited = false;
-              };
+              }
               if to_export_p {
                 if let Some(path) = rfd::FileDialog::new()
                   .add_filter("PDF", &["pdf"])
                   .save_file()
                 {
-                  match crate::process_and_write(
-                    self.root_path.as_ref().unwrap(),
-                    Some(layout),
-                    &path,
-                    crate::ArgsFormat::Pdf,
-                    true,
-                  ) {
-                    Ok(_) => self.status_msg = Some((false, std::time::Instant::now(), f!("status-exported", path => path.to_string_lossy()))),
-                    Err(crate::ProcessError::Expr(index, crate::ExprError::NonexistentField(start, end, name))) => {
-                      self.sel_element = Some(index);
-                      self.sel_element_scroll = true;
-                      self.status_msg = Some((true, std::time::Instant::now(), f!("status-nonexistent-field", name => name.replace(&['\r', '\n'], " "))));
-                      self.text_sel_range = Some((start, end));
-                    },
-                    Err(crate::ProcessError::Render(index, msg)) => {
-                      self.sel_element = Some(index);
-                      self.sel_element_scroll = true;
-                      self.status_msg = Some((true, std::time::Instant::now(), f!("status-compilation-error", message => msg)));
-                    },
-                    Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e.message()))),
-                  }
+                  self.export(&path, crate::ArgsFormat::Pdf);
                 }
-              };
+              }
               // Status message
               if let Some((is_err, _, s)) = &self.status_msg {
                 if *is_err {
@@ -1029,11 +1014,12 @@ impl eframe::App for WhirlApp {
                   ui.label(s.to_string());
                 }
               } else {
+                let layout = self.layout.as_ref().unwrap();
                 ui.label(format!("{}{}×{}, {}— {}",
                   if self.edited { "* " } else { "" },
                   layout.page.0, layout.page.1,
                   f!("status-num-elements", n => layout.elements.len()),
-                  path.to_string_lossy()));
+                  path_str));
               }
             } else if let Some((is_err, _, s)) = &self.status_msg {
               if *is_err {
