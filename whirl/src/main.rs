@@ -352,22 +352,22 @@ impl ProcessError {
       }
       ProcessError::Io(path, e) => {
         f!("process-io",
-          path => path.display().to_string(),
+          path => path.display().to_string().replace(&['\r', '\n'], " "),
           error => e.to_string(),
         )
       }
       ProcessError::Expr(index, ExprError::NonexistentField(start, end, name)) => {
         f!("process-expr-nonexistent-field",
-          index => *index as i64,
-          start => *start as i64,
-          end => *end as i64,
-          name => name.clone(),
+          index => index,
+          start => start,
+          end => end,
+          name => name.replace(&['\r', '\n'], " "),
         )
       }
       ProcessError::Render(render::RenderError::TypstCompilation(diags)) => {
         f!("process-render-typst-compilation",
-          message => diags[0].message.to_string(),
-          count => diags.len() as i64,
+          message => diags[0].message.to_string().replace(&['\r', '\n'], " "),
+          count => diags.len(),
         )
       }
     }

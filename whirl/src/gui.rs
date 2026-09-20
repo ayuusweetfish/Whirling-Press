@@ -931,7 +931,7 @@ impl eframe::App for WhirlApp {
                       Err(crate::ProcessError::Expr(index, crate::ExprError::NonexistentField(start, end, name))) => {
                         self.sel_element = Some(index);
                         self.sel_element_scroll = true;
-                        self.status_msg = Some((true, std::time::Instant::now(), f!("status-nonexistent-field", name => name)));
+                        self.status_msg = Some((true, std::time::Instant::now(), f!("status-nonexistent-field", name => name.replace(&['\r', '\n'], " "))));
                         self.text_sel_range = Some((start, end));
                       },
                       Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e.message()))),
@@ -974,7 +974,7 @@ impl eframe::App for WhirlApp {
                     Err(crate::ProcessError::Expr(index, crate::ExprError::NonexistentField(start, end, name))) => {
                       self.sel_element = Some(index);
                       self.sel_element_scroll = true;
-                      self.status_msg = Some((true, std::time::Instant::now(), f!("status-nonexistent-field", name => name)));
+                      self.status_msg = Some((true, std::time::Instant::now(), f!("status-nonexistent-field", name => name.replace(&['\r', '\n'], " "))));
                       self.text_sel_range = Some((start, end));
                     },
                     Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e.message()))),
