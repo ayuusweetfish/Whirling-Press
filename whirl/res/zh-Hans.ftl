@@ -12,10 +12,7 @@ process-io = 处理文件 `{$path}` 时错误：{$error}
 process-expr-nonexistent-field =
   元素 {$index}，表达式字符位置 {$start}-{$end} 引用的列名 `{$name}` 不存在
 process-render-typst-compilation =
-  { $count ->
-    [1] 编译：{$message}
-   *[other] 编译：{$message}（共 {$count}）
-  }
+  元素 {$index}，编译错误：{$message}
 
 open-content-folder = 打开文件夹
 or-drag-and-drop = 或拖放到此处

@@ -152,19 +152,14 @@ impl typst::World for SimpleWorld {
 
 #[derive(Debug)]
 pub(crate) enum RenderError {
-  OurAssertion(String),
   TypstCompilation(Vec<(std::ops::Range<usize>, String)>),
 }
 
 fn dispatch_errors(world: &SimpleWorld, diags: Vec<typst::diag::SourceDiagnostic>) -> RenderError {
   use typst::WorldExt;
-  if diags.len() == 1 && diags[0].message.starts_with("assertion failed: ") {
-    RenderError::OurAssertion(diags[0].message["assertion failed: ".len()..].to_string())
-  } else {
-    RenderError::TypstCompilation(diags.into_iter().map(|d|
-      (world.range(d.span).unwrap_or(0..0), d.message.to_string())
-    ).collect())
-  }
+  RenderError::TypstCompilation(diags.into_iter().map(|d|
+    (world.range(d.span).unwrap_or(0..0), d.message.to_string())
+  ).collect())
 }
 
 pub(crate) fn to_pdf<P: AsRef<std::path::Path>>(root: P, source: &str) -> Result<Vec<u8>, RenderError> {

@@ -58,7 +58,10 @@ fn element_to_image<P: AsRef<std::path::Path>>(root_path: P, el: &model::Element
 #set page(width: auto, height: auto, fill: none, margin: {}pt)
   "#, RENDER_TEX_MARGIN) + src;
     let buf = render::to_rgba(root_path, &src, RENDER_TEX_SCALE)
-      .map_err(|e| ProcessError::Render(e))?;
+      .map_err(|e| {
+        let crate::render::RenderError::TypstCompilation(diags) = e;
+        ProcessError::Render(0, diags[0].1.clone())
+      })?;
     Ok(egui::ColorImage::from_rgba_premultiplied([buf.width as usize, buf.height as usize], &buf.pixels))
   }
   match try_to_image(

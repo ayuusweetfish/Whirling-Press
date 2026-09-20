@@ -248,7 +248,7 @@ enum ProcessError {
   CsvFieldsDuplicate(String),
   Io(std::path::PathBuf, std::io::Error),
   Expr(usize, ExprError),
-  Render(render::RenderError),
+  Render(usize, String),
 }
 
 fn process_pack_metadata<P: AsRef<Path>>(path: P, allow_empty_yaml: bool) -> Result<
@@ -307,7 +307,10 @@ fn process_pack<P: AsRef<Path>, R, F: FnOnce(P, &str) -> Result<R, render::Rende
     .map_err(|(i, e)| ProcessError::Expr(i, e))?;
 
   let output = render(path, &typst_source)
-    .map_err(|e| ProcessError::Render(e))?;
+    .map_err(|e| {
+      let crate::render::RenderError::TypstCompilation(diags) = e;
+      ProcessError::Render(0, diags[0].1.clone())
+    })?;
   Ok(output)
 }
 
@@ -364,13 +367,10 @@ impl ProcessError {
           name => name.replace(&['\r', '\n'], " "),
         )
       }
-      ProcessError::Render(render::RenderError::OurAssertion(s)) => {
-        format!("assert {}", s)
-      }
-      ProcessError::Render(render::RenderError::TypstCompilation(diags)) => {
+      ProcessError::Render(index, message) => {
         f!("process-render-typst-compilation",
-          message => diags[0].1.to_string().replace(&['\r', '\n'], " "),
-          count => diags.len(),
+          index => index,
+          message => message.replace(&['\r', '\n'], " "),
         )
       }
     }

@@ -12,10 +12,7 @@ process-io = I/O error on `{$path}`: {$error}
 process-expr-nonexistent-field =
   Element {$index}, expression at characters {$start}-{$end} references nonexistent field `{$name}`
 process-render-typst-compilation =
-  { $count ->
-    [one] Compilation: {$message}
-   *[other] Compilation: {$message} (total {$count})
-  }
+  Element {$index}, compilation failed: {$message}
 
 open-content-folder = Open content folder
 or-drag-and-drop = or drag-and-drop
