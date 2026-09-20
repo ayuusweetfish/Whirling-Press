@@ -9,7 +9,7 @@ mod gui;
 
 #[derive(Debug)]
 enum ExprError {
-  NonexistentField(usize, String),
+  NonexistentField(usize, usize, String),
 }
 
 fn escape(s: &str) -> String {
@@ -36,7 +36,9 @@ fn expand_expr(s: &str, fields: &[String]) -> Result<String, ExprError> {
     if let Some(close) = find_next_char(s, '}', open_post) {
       let field = &s[open_post..close];
       if fields.iter().position(|s| s == field).is_none() {
-        return Err(ExprError::NonexistentField(open_post, field.to_string()));
+        let open_chars = &s[..open].chars().count();
+        let close_chars = open_chars + &s[open..close].chars().count();
+        return Err(ExprError::NonexistentField(open_chars + 1, close_chars, field.to_string()));
       }
       result.push(format!("row.at(\"{}\")", escape(field)));
       cur = close + '}'.len_utf8();
@@ -354,10 +356,11 @@ impl ProcessError {
           error => e.to_string(),
         )
       }
-      ProcessError::Expr(index, ExprError::NonexistentField(pos, name)) => {
+      ProcessError::Expr(index, ExprError::NonexistentField(start, end, name)) => {
         f!("process-expr-nonexistent-field",
           index => *index as i64,
-          pos => *pos as i64,
+          start => *start as i64,
+          end => *end as i64,
           name => name.clone(),
         )
       }

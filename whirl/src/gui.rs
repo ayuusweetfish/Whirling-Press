@@ -31,6 +31,7 @@ struct WhirlApp {
   canvas: CanvasState,
   close_confirming: bool,
   quit_after_close: bool,
+  text_sel_range: Option<(usize, usize)>,
 }
 
 struct CanvasState {
@@ -125,6 +126,7 @@ impl WhirlApp {
       canvas: CanvasState::default(),
       close_confirming: false,
       quit_after_close: false,
+      text_sel_range: None,
     };
 
     if let Some(root_path) = root_path {
@@ -221,7 +223,7 @@ impl WhirlApp {
                     .spacing([20.0, 4.0])
                     .striped(true)
                     .show(ui, |ui| {
-                      let (changed_any, changed_tex) = Self::show_attrs(ui, &self.font_families, el);
+                      let (changed_any, changed_tex) = Self::show_attrs(ui, &self.font_families, el, &mut self.text_sel_range);
                       self.edited |= changed_any;
                       if changed_tex {
                         self.element_texs[i] =
@@ -620,7 +622,7 @@ impl WhirlApp {
       });
   }
 
-  fn show_attrs(ui: &mut egui::Ui, font_families: &[String], el: &mut model::Element) -> (bool, bool) {
+  fn show_attrs(ui: &mut egui::Ui, font_families: &[String], el: &mut model::Element, text_sel_range: &mut Option<(usize, usize)>) -> (bool, bool) {
     let mut changed_tex = false;
     let mut changed_any = false;
     use egui::{DragValue, ComboBox};
@@ -715,12 +717,35 @@ impl WhirlApp {
     match &mut el.content {
       model::Content::Image { src } => {
         ui.label(f!("attr-image-source"));
-        changed_tex |= ui.add(egui::TextEdit::singleline(src)).changed();
+        // XXX: DRY?
+        let mut edit_output = egui::TextEdit::singleline(src).show(ui);
+        if let Some((start, end)) = text_sel_range.take() {
+          edit_output.state.cursor.set_char_range(Some(
+            egui::text_selection::CCursorRange::two(
+              egui::text::CCursor::new(start - 1),
+              egui::text::CCursor::new(end + 1),
+            )
+          ));
+          edit_output.state.store(ui.ctx(), edit_output.response.id);
+          edit_output.response.request_focus();
+        }
+        changed_tex |= edit_output.response.changed();
         ui.end_row();
       },
       model::Content::Text { family, size, weight, italic, tracking, text } => {
         ui.label(f!("attr-text-text"));
-        changed_tex |= ui.add(egui::TextEdit::multiline(text).desired_width(ui.available_width())).changed();
+        let mut edit_output = egui::TextEdit::multiline(text).desired_width(ui.available_width()).show(ui);
+        if let Some((start, end)) = text_sel_range.take() {
+          edit_output.state.cursor.set_char_range(Some(
+            egui::text_selection::CCursorRange::two(
+              egui::text::CCursor::new(start - 1),
+              egui::text::CCursor::new(end + 1),
+            )
+          ));
+          edit_output.state.store(ui.ctx(), edit_output.response.id);
+          edit_output.response.request_focus();
+        }
+        changed_tex |= edit_output.response.changed();
         ui.end_row();
         ui.label(f!("attr-text-family"));
         changed_tex |= Self::font_list_editor(ui, &font_families, family);
@@ -903,10 +928,11 @@ impl eframe::App for WhirlApp {
                       true,
                     ) {
                       Ok(_) => self.status_msg = Some((false, std::time::Instant::now(), f!("status-exported", path => path.to_string_lossy()))),
-                      Err(crate::ProcessError::Expr(index, crate::ExprError::NonexistentField(_pos, name))) => {
+                      Err(crate::ProcessError::Expr(index, crate::ExprError::NonexistentField(start, end, name))) => {
                         self.sel_element = Some(index);
                         self.sel_element_scroll = true;
                         self.status_msg = Some((true, std::time::Instant::now(), f!("status-nonexistent-field", name => name)));
+                        self.text_sel_range = Some((start, end));
                       },
                       Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e.message()))),
                     }
@@ -945,10 +971,11 @@ impl eframe::App for WhirlApp {
                     true,
                   ) {
                     Ok(_) => self.status_msg = Some((false, std::time::Instant::now(), f!("status-exported", path => path.to_string_lossy()))),
-                    Err(crate::ProcessError::Expr(index, crate::ExprError::NonexistentField(_pos, name))) => {
+                    Err(crate::ProcessError::Expr(index, crate::ExprError::NonexistentField(start, end, name))) => {
                       self.sel_element = Some(index);
                       self.sel_element_scroll = true;
                       self.status_msg = Some((true, std::time::Instant::now(), f!("status-nonexistent-field", name => name)));
+                      self.text_sel_range = Some((start, end));
                     },
                     Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e.message()))),
                   }

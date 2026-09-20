@@ -10,7 +10,7 @@ process-csv-fields-utf8 = CSV fields are not valid UTF-8
 process-csv-fields-duplicate = CSV field `{$field}` duplicate
 process-io = I/O error on `{$path}`: {$error}
 process-expr-nonexistent-field =
-  Element {$index}, expression at byte {$pos} references nonexistent field `{$name}`
+  Element {$index}, expression at characters {$start}-{$end} references nonexistent field `{$name}`
 process-render-typst-compilation =
   { $count ->
     [one] Compilation: {$message}
