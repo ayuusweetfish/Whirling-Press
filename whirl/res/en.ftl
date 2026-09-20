@@ -31,6 +31,7 @@ status-error = Error: {$error}
 status-saved = Saved {$path}
 status-exported = Exported {$path}
 status-nonexistent-field = Nonexistent field {"{"}{$name}{"}"}
+status-compilation-error = Compilation failed: {$message}
 
 status-button-theme = Switch colour theme
 status-button-language = Language / 语言

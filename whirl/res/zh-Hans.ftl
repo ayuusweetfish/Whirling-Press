@@ -28,6 +28,7 @@ status-error = 错误：{$error}
 status-saved = 已保存 {$path}
 status-exported = 已导出 {$path}
 status-nonexistent-field = 列名 {"{"}{$name}{"}"} 不存在
+status-compilation-error = 编译错误：{$message}
 
 status-button-theme = 切换颜色主题
 status-button-language = 语言 / Language

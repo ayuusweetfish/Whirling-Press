@@ -961,6 +961,11 @@ impl eframe::App for WhirlApp {
                         self.status_msg = Some((true, std::time::Instant::now(), f!("status-nonexistent-field", name => name.replace(&['\r', '\n'], " "))));
                         self.text_sel_range = Some((start, end));
                       },
+                      Err(crate::ProcessError::Render(index, msg)) => {
+                        self.sel_element = Some(index);
+                        self.sel_element_scroll = true;
+                        self.status_msg = Some((true, std::time::Instant::now(), f!("status-compilation-error", message => msg)));
+                      },
                       Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e.message()))),
                     }
                   }
@@ -1003,6 +1008,11 @@ impl eframe::App for WhirlApp {
                       self.sel_element_scroll = true;
                       self.status_msg = Some((true, std::time::Instant::now(), f!("status-nonexistent-field", name => name.replace(&['\r', '\n'], " "))));
                       self.text_sel_range = Some((start, end));
+                    },
+                    Err(crate::ProcessError::Render(index, msg)) => {
+                      self.sel_element = Some(index);
+                      self.sel_element_scroll = true;
+                      self.status_msg = Some((true, std::time::Instant::now(), f!("status-compilation-error", message => msg)));
                     },
                     Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e.message()))),
                   }
