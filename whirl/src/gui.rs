@@ -437,6 +437,10 @@ impl WhirlApp {
           self.sel_element_scroll = true;
         }
 
+        if resp.clicked() && first_sel.is_none() {
+          self.sel_element = None;
+        }
+
         for (i, el) in self.layout.as_ref().unwrap().elements.iter().enumerate() {
           let tex = &self.element_texs[i];
           let corners = [
