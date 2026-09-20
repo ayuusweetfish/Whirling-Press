@@ -7,7 +7,7 @@ use std::sync::{Arc, RwLock};
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime};
 use typst::syntax::{FileId, Source};
-use typst::text::{Font, FontBook};
+use typst::text::{Font, FontBook, FontInfo};
 use typst::utils::LazyHash;
 use typst::{Library, LibraryExt};
 use typst_kit::fonts::FontStore;
@@ -40,6 +40,28 @@ fn cached_font_store(root: &PathBuf) -> Arc<FontStore> {
   let mut fonts = FontStore::new();
   fonts.extend(typst_kit::fonts::scan(root));
   fonts.extend(typst_kit::fonts::system());
+  #[cfg(feature = "gui")]
+  {
+    // Add fonts for in-document messages rendering
+    fonts.push({
+      let f = include_bytes!("../res/InstrumentSans_Regular.ttf");
+      let mut font_info = FontInfo::new(f, 0).unwrap();
+      font_info.family = "_1".to_string();
+      (Font::new(Bytes::new(f), 0).unwrap(), font_info)
+    });
+    fonts.push({
+      let f = include_bytes!("../res/NotoEmoji_Regular_subset.ttf");
+      let mut font_info = FontInfo::new(f, 0).unwrap();
+      font_info.family = "_2".to_string();
+      (Font::new(Bytes::new(f), 0).unwrap(), font_info)
+    });
+    fonts.push({
+      let f = include_bytes!("../res/DroidSansFallbackFull.ttf");
+      let mut font_info = FontInfo::new(f, 0).unwrap();
+      font_info.family = "_3".to_string();
+      (Font::new(Bytes::new(f), 0).unwrap(), font_info)
+    });
+  }
   cache.lock().unwrap()
     .entry(root.to_path_buf()).or_insert(Arc::new(fonts)).clone()
 }

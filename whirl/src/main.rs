@@ -116,7 +116,7 @@ impl model::Element {
           if let Ok(s) = expand_expr(src, &[]) {
             format!("#image({})", s)
           } else {
-            format!("#raw(\"{}\")", escape(src))
+            format!("#show raw: set text(16pt, font: (\"_1\", \"_2\", \"_3\"))\n#raw(\"🖼️ {}\")", escape(src))
           }
         } else {
           format!("#image({})", expand_expr(src, fields)?)
