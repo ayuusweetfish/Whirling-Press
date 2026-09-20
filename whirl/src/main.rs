@@ -158,7 +158,7 @@ impl model::Layout {
     Ok(include_str!("support.typ").to_string() + format!(r#"
 #set page(width: {page_width}pt, height: {page_height}pt, margin: 0pt)
 
-#for row in csv("{}", row-type: dictionary) [
+#for (index, row) in csv("{}", row-type: dictionary).enumerate() [
   {elements_typst}
   #pagebreak(weak: true)
 ]
@@ -364,9 +364,12 @@ impl ProcessError {
           name => name.replace(&['\r', '\n'], " "),
         )
       }
+      ProcessError::Render(render::RenderError::OurAssertion(s)) => {
+        format!("assert {}", s)
+      }
       ProcessError::Render(render::RenderError::TypstCompilation(diags)) => {
         f!("process-render-typst-compilation",
-          message => diags[0].message.to_string().replace(&['\r', '\n'], " "),
+          message => diags[0].1.to_string().replace(&['\r', '\n'], " "),
           count => diags.len(),
         )
       }

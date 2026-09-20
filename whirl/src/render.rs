@@ -152,26 +152,38 @@ impl typst::World for SimpleWorld {
 
 #[derive(Debug)]
 pub(crate) enum RenderError {
-  TypstCompilation(Vec<typst::diag::SourceDiagnostic>),
+  OurAssertion(String),
+  TypstCompilation(Vec<(std::ops::Range<usize>, String)>),
+}
+
+fn dispatch_errors(world: &SimpleWorld, diags: Vec<typst::diag::SourceDiagnostic>) -> RenderError {
+  use typst::WorldExt;
+  if diags.len() == 1 && diags[0].message.starts_with("assertion failed: ") {
+    RenderError::OurAssertion(diags[0].message["assertion failed: ".len()..].to_string())
+  } else {
+    RenderError::TypstCompilation(diags.into_iter().map(|d|
+      (world.range(d.span).unwrap_or(0..0), d.message.to_string())
+    ).collect())
+  }
 }
 
 pub(crate) fn to_pdf<P: AsRef<std::path::Path>>(root: P, source: &str) -> Result<Vec<u8>, RenderError> {
   let world = SimpleWorld::new(root.as_ref(), source);
   let doc = typst::compile(&world).output
-    .map_err(|e| RenderError::TypstCompilation(e.to_vec()))?;
+    .map_err(|e| dispatch_errors(&world, e.to_vec()))?;
   let pdf_bytes = typst_pdf::pdf(&doc, &PdfOptions::default())
-    .map_err(|e| RenderError::TypstCompilation(e.to_vec()))?;
+    .map_err(|e| dispatch_errors(&world, e.to_vec()))?;
   Ok(pdf_bytes)
 }
 
 pub(crate) fn to_pdf_seq<P: AsRef<std::path::Path>>(root: P, source: &str) -> Result<Vec<Vec<u8>>, RenderError> {
   let world = SimpleWorld::new(root.as_ref(), source);
   let doc = typst::compile::<PagedDocument>(&world).output
-    .map_err(|e| RenderError::TypstCompilation(e.to_vec()))?;
+    .map_err(|e| dispatch_errors(&world, e.to_vec()))?;
   let pdf_seq_bytes = doc.pages().iter().map(|p| {
     let doc = PagedDocument::new([p.clone()].into(), doc.info().clone());
     let pdf_bytes = typst_pdf::pdf(&doc, &PdfOptions::default())
-      .map_err(|e| RenderError::TypstCompilation(e.to_vec()))?;
+      .map_err(|e| dispatch_errors(&world, e.to_vec()))?;
     Ok::<_, RenderError>(pdf_bytes)
   }).collect::<Result<_, _>>()?;
   Ok(pdf_seq_bytes)
@@ -187,7 +199,7 @@ pub(crate) fn to_rgba<P: AsRef<std::path::Path>>(root: P, source: &str, pixel_pe
   let world = SimpleWorld::new(root.as_ref(), source);
   let compiled = typst::compile::<PagedDocument>(&world);
   for w in compiled.warnings { eprintln!("{w:?}"); }
-  let doc = compiled.output.map_err(|e| RenderError::TypstCompilation(e.to_vec()))?;
+  let doc = compiled.output.map_err(|e| dispatch_errors(&world, e.to_vec()))?;
   let pixmap = typst_render::render(
     &doc.pages()[0],
     &typst_render::RenderOptions {
