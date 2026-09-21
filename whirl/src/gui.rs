@@ -47,36 +47,115 @@ impl Default for CanvasState {
   }
 }
 
-enum SafeTextureHandle {
-  Texture(egui::TextureHandle),
-  Missing(f32, f32),
+pub struct SafeTextureHandle {
+  patches: Vec<SafeTexturePatch>,
+  size: (f32, f32),
 }
+
+struct SafeTexturePatch {
+  tex: egui::TextureHandle,
+  x0: f32,
+  y0: f32,
+  x1: f32,
+  y1: f32,
+}
+
 impl SafeTextureHandle {
   fn size(&self) -> (f32, f32) {
-    match &self {
-      Self::Texture(t) => t.size_vec2().into(),
-      Self::Missing(w, h) => (*w, *h),
-    }
+    self.size
   }
-  fn id(&self) -> Option<egui::TextureId> {
-    match &self {
-      Self::Texture(t) => Some(t.id()),
-      Self::Missing(_, _) => None,
+
+  fn draw(&self, painter: &egui::Painter, corners: [egui::Pos2; 4]) {
+    fn interpolate(p: [egui::Pos2; 4], x: f32, y: f32) -> egui::Pos2 {
+      let p_a = p[0] + (p[1] - p[0]) * x;
+      let p_b = p[3] + (p[2] - p[3]) * x;
+      p_a + (p_b - p_a) * y
+    }
+    for patch in &self.patches {
+      painter.add(textured_quad([
+        interpolate(corners, patch.x0, patch.y0),
+        interpolate(corners, patch.x1, patch.y0),
+        interpolate(corners, patch.x1, patch.y1),
+        interpolate(corners, patch.x0, patch.y1),
+      ], patch.tex.id()));
     }
   }
 }
-impl From<egui::TextureHandle> for SafeTextureHandle {
-  fn from(handle: egui::TextureHandle) -> Self {
-    Self::Texture(handle)
+
+fn textured_quad(
+  corners: [egui::Pos2; 4], // [00, 10, 11, 01]
+  texture_id: egui::TextureId,
+) -> egui::Shape {
+  let mut mesh = egui::Mesh::with_texture(texture_id);
+  let uvs = [
+    egui::Pos2::new(0.0, 0.0),
+    egui::Pos2::new(1.0, 0.0),
+    egui::Pos2::new(1.0, 1.0),
+    egui::Pos2::new(0.0, 1.0),
+  ];
+  mesh.vertices.extend(
+    corners.iter().zip(uvs.iter()).map(|(pos, uv)| egui::epaint::Vertex {
+      pos: *pos,
+      uv: *uv,
+      color: egui::Color32::WHITE,
+    }),
+  );
+  mesh.indices.extend_from_slice(&[0, 1, 2, 0, 2, 3]);
+  egui::Shape::mesh(mesh)
+}
+
+fn load_texture(ctx: &egui::Context, buf: crate::render::RgbaBuffer) -> SafeTextureHandle {
+  let (w, h) = (buf.width as usize, buf.height as usize);
+
+  let max_patch_size = 4096usize;
+  let cols = (w + max_patch_size - 1) / max_patch_size;
+  let rows = (h + max_patch_size - 1) / max_patch_size;
+  let mut patches = Vec::with_capacity(cols * rows);
+
+  for row in 0..rows {
+    for col in 0..cols {
+      let x0 = col * max_patch_size;
+      let y0 = row * max_patch_size;
+      let x1 = (x0 + max_patch_size).min(w);
+      let y1 = (y0 + max_patch_size).min(h);
+      let patch_w = x1 - x0;
+      let patch_h = y1 - y0;
+
+      // Extract pixels on the patch
+      let mut patch_pix = Vec::with_capacity(patch_w * patch_h * 4);
+      for y in y0..y1 {
+        let start = (y * w + x0) * 4;
+        let end = start + patch_w * 4;
+        patch_pix.extend_from_slice(&buf.pixels[start..end]);
+      }
+
+      let image = egui::ColorImage::from_rgba_premultiplied(
+        [patch_w, patch_h],
+        &patch_pix,
+      );
+      let tex = ctx.load_texture("", image, egui::TextureOptions::default());
+      patches.push(SafeTexturePatch {
+        tex,
+        x0: x0 as f32 / w as f32,
+        y0: y0 as f32 / h as f32,
+        x1: x1 as f32 / w as f32,
+        y1: y1 as f32 / h as f32,
+      });
+    }
+  }
+
+  SafeTextureHandle {
+    patches,
+    size: (w as f32, h as f32),
   }
 }
 
 const RENDER_TEX_MARGIN: f32 = 32.0;
 const RENDER_TEX_SCALE: f32 = 2.0;
 
-fn element_to_image<P: AsRef<std::path::Path>>(root_path: P, el: &model::Element) -> egui::ColorImage {
+fn element_to_image<P: AsRef<std::path::Path>>(root_path: P, el: &model::Element) -> crate::render::RgbaBuffer {
   use crate::{ProcessError, escape};
-  fn try_to_image<P: AsRef<std::path::Path>>(root_path: P, src: &str) -> Result<egui::ColorImage, ProcessError> {
+  fn try_to_image<P: AsRef<std::path::Path>>(root_path: P, src: &str) -> Result<crate::render::RgbaBuffer, ProcessError> {
     let src = include_str!("support.typ").to_string() +
   &format!(r#"
 #set page(width: auto, height: auto, fill: none, margin: {}pt)
@@ -86,13 +165,13 @@ fn element_to_image<P: AsRef<std::path::Path>>(root_path: P, el: &model::Element
         let crate::render::RenderError::TypstCompilation(diags) = e;
         ProcessError::Render(0, diags[0].1.clone())
       })?;
-    Ok(egui::ColorImage::from_rgba_premultiplied([buf.width as usize, buf.height as usize], &buf.pixels))
+    Ok(buf)
   }
   match try_to_image(
     &root_path,
     &el.typst_source(&[], true).unwrap(),
   ) {
-    Ok(image) => image,
+    Ok(buf) => buf,
     Err(e) => {
       // XXX: Display better error messages
       try_to_image(root_path,
@@ -104,15 +183,6 @@ fn element_to_image<P: AsRef<std::path::Path>>(root_path: P, el: &model::Element
         },
       ).unwrap()
     },
-  }
-}
-
-fn load_texture(ctx: &egui::Context, image: impl Into<egui::ImageData>) -> SafeTextureHandle {
-  let image = image.into();
-  if image.width() > 4096 || image.height() > 4096 {
-    SafeTextureHandle::Missing(image.width() as f32, image.height() as f32)
-  } else {
-    ctx.load_texture("", image, egui::TextureOptions::default()).into()
   }
 }
 
@@ -388,28 +458,6 @@ impl WhirlApp {
           )
         }
 
-        fn textured_quad(
-          corners: [egui::Pos2; 4], // [00, 10, 11, 01]
-          texture_id: egui::TextureId,
-        ) -> egui::Shape {
-          let mut mesh = egui::Mesh::with_texture(texture_id);
-          let uvs = [
-            egui::Pos2::new(0.0, 0.0),
-            egui::Pos2::new(1.0, 0.0),
-            egui::Pos2::new(1.0, 1.0),
-            egui::Pos2::new(0.0, 1.0),
-          ];
-          mesh.vertices.extend(
-            corners.iter().zip(uvs.iter()).map(|(pos, uv)| egui::epaint::Vertex {
-              pos: *pos,
-              uv: *uv,
-              color: egui::Color32::WHITE,
-            }),
-          );
-          mesh.indices.extend_from_slice(&[0, 1, 2, 0, 2, 3]);
-          egui::Shape::mesh(mesh)
-        }
-
         pub fn point_in_simple_polygon(p: (f32, f32), a: &[(f32, f32)]) -> bool {
           // Even-odd crossing number; optimization by W. Randolph Franklin
           // https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
@@ -482,9 +530,7 @@ impl WhirlApp {
             doc_to_canvas(element_tex_pos(&el, tex.size(), (1., 1.))).into(),
             doc_to_canvas(element_tex_pos(&el, tex.size(), (0., 1.))).into(),
           ];
-          if let Some(id) = tex.id() {
-            painter.add(textured_quad(corners, id));
-          }
+          tex.draw(&painter, corners);
 
           let r = (4.0 * self.canvas.zoom).clamp(2.0, 4.0);
           let corners_content = [
