@@ -321,7 +321,7 @@ impl WhirlApp {
       .resizable(true).default_size(320.0).size_range(80.0..=800.0)
       .show_collapsible(ui, &mut self.attr_panel_expanded, |ui| {
         let panel_avail_h = ui.available_height();
-        egui::ScrollArea::vertical().max_height(self.attrs_panel_h - 6.).show(ui, |ui| {
+        egui::ScrollArea::vertical().id_salt(self.sel_element).max_height(self.attrs_panel_h - 6.).show(ui, |ui| {
           ui.with_layout(Layout::top_down_justified(Align::Min), |ui| {
             if let Some(i) = self.sel_element {
               let el = &mut self.layout.as_mut().unwrap().elements[i];
