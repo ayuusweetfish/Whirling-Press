@@ -387,8 +387,8 @@ impl WhirlApp {
         let h = ui.style().spacing.interact_size.y;
         let w = ui.available_size().x;
         ui.allocate_ui(ui.available_size(), |ui| {
-          ui.heading(f!("elements"));
           egui::ScrollArea::vertical().show(ui, |ui| {
+            ui.heading(f!("elements"));
             let layout = &mut self.layout.as_mut().unwrap();
             let elements = &mut layout.elements;
             // Button for adding new
@@ -1063,6 +1063,8 @@ impl eframe::App for WhirlApp {
                   ui.add_sized([80.0, ui.style().spacing.interact_size.y], egui::DragValue::new(&mut self.layout.as_mut().unwrap().page.0).speed(1).range(1.0..=f32::INFINITY));
                   ui.add_sized([80.0, ui.style().spacing.interact_size.y], egui::DragValue::new(&mut self.layout.as_mut().unwrap().page.1).speed(1).range(1.0..=f32::INFINITY));
                 });
+                ui.separator();
+                ui.spacing_mut().button_padding = (0., 3.).into();
                 if ui.add(egui::Button::new(format!("💾 {}", f!("menu-save"))).shortcut_text(ui.ctx().format_shortcut(&save_shortcut))).clicked() {
                   // Save YAML
                   to_save = true;
