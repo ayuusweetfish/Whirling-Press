@@ -337,7 +337,9 @@ impl WhirlApp {
                     .spacing([20.0, 4.0])
                     .striped(true)
                     .show(ui, |ui| {
-                      let (changed_any, changed_tex) = Self::show_attrs(ui, &self.font_families, el, &mut self.text_sel_range);
+                      let (changed_any, changed_tex) = Self::show_attrs(
+                        ui, &self.font_families, el, self.canvas.zoom, &mut self.text_sel_range,
+                      );
                       self.edited |= changed_any;
                       if changed_tex {
                         self.element_texs[i] =
@@ -752,14 +754,15 @@ impl WhirlApp {
       });
   }
 
-  fn show_attrs(ui: &mut egui::Ui, font_families: &[String], el: &mut model::Element, text_sel_range: &mut Option<(usize, usize)>) -> (bool, bool) {
+  fn show_attrs(ui: &mut egui::Ui, font_families: &[String], el: &mut model::Element, zoom: f32, text_sel_range: &mut Option<(usize, usize)>) -> (bool, bool) {
     let mut changed_tex = false;
     let mut changed_any = false;
     use egui::{DragValue, ComboBox};
     ui.label(f!("attr-position"));
     ui.horizontal(|ui| {
-      changed_any |= ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.x).speed(0.1)).changed();
-      changed_any |= ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.y).speed(0.1)).changed();
+      let s = 0.1 * (10. / zoom).round_ties_even().max(1.);
+      changed_any |= ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.x).speed(s).min_decimals(1)).changed();
+      changed_any |= ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.y).speed(s).min_decimals(1)).changed();
       ui.add_space(ui.available_width()); // XXX: Hack to extend the grid to fill remaining width?
     });
     ui.end_row();
