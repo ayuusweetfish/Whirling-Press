@@ -352,11 +352,17 @@ impl WhirlApp {
         });
         ui.add_space(self.attrs_panel_h - ui.cursor().top());
         // Draggable separator
+        // Ref: egui_extras-0.36.2 src/egui_extras/table.rs
+        let margin = ui.spacing().item_spacing.y;
         let (x, y) = (ui.cursor().left(), ui.cursor().top());
         let w = ui.available_width();
-        let line_rect = egui::Rect::from_min_size((x, y).into(), (w, 0.).into()).expand(ui.style().interaction.resize_grab_radius_side);
+        let p0 = (x, y).into();
+        let p1 = (x + w, y).into();
+        let line_rect = egui::Rect::from_min_max(p0, p1).expand(ui.style().interaction.resize_grab_radius_side);
         let resize_response = ui.interact(line_rect, "panel_resize".into(), egui::Sense::click_and_drag());
-        if resize_response.hovered() || resize_response.dragged() {
+        let resize_hover = resize_response.hovered() &&
+          !ui.input(|i| i.pointer.any_down() || i.pointer.any_pressed());
+        if resize_hover || resize_response.dragged() {
           ui.set_cursor_icon(egui::CursorIcon::ResizeRow);
         }
         if resize_response.drag_started() {
@@ -368,6 +374,15 @@ impl WhirlApp {
             + ui.input(|i| i.pointer.interact_pos().unwrap().y);
         }
         self.attrs_panel_h = self.attrs_panel_h.max(120.).min(panel_avail_h - 120.);
+        let stroke = if resize_response.dragged() {
+          ui.style().visuals.widgets.active.bg_stroke
+        } else if resize_hover {
+          ui.style().visuals.widgets.hovered.bg_stroke
+        } else {
+          ui.visuals().widgets.noninteractive.bg_stroke
+        };
+        ui.painter().line_segment([p0, p1], stroke);
+        ui.add_space(margin * 2.);
         // Element list
         let h = ui.style().spacing.interact_size.y;
         let w = ui.available_size().x;
