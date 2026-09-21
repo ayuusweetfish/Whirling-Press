@@ -15,6 +15,7 @@ use crate::model;
 use crate::render;
 use crate::localize;
 use crate::f;   // Fluent localization; src/localize.rs
+use crate::dir_watcher;
 
 struct WhirlApp {
   root_path: Option<std::path::PathBuf>,
@@ -34,6 +35,7 @@ struct WhirlApp {
   text_sel_range: Option<(usize, usize)>,
   attrs_panel_h: f32,
   attrs_panel_drag_offs: f32,
+  watcher: Option<dir_watcher::DirWatcher>,
 }
 
 struct CanvasState {
@@ -245,6 +247,7 @@ impl WhirlApp {
       text_sel_range: None,
       attrs_panel_h: 400.,
       attrs_panel_drag_offs: 0.,
+      watcher: None,
     };
 
     if let Some(root_path) = root_path {
@@ -273,6 +276,8 @@ impl WhirlApp {
         self.layout = Some(layout);
 
         self.status_msg = None;
+
+        self.watcher = dir_watcher::DirWatcher::new(root_path).ok();
       },
       Err(e) => {
         self.status_msg = Some((true, std::time::Instant::now(), e.message()));
@@ -318,6 +323,10 @@ impl WhirlApp {
   }
 
   fn ui_edit(&mut self, ui: &mut egui::Ui) {
+    if let Some(watcher) = self.watcher.as_mut() && watcher.take_changed() {
+      println!("Directory changed!");
+    }
+
     use egui::{Layout, Align, Grid};
 
     let mut sel_element_pan = false;
@@ -1194,6 +1203,7 @@ impl eframe::App for WhirlApp {
             self.edited = false;
             self.font_families.clear();
             self.element_texs.clear();
+            self.watcher = None;
           }
         }
       });
