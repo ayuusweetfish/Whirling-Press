@@ -313,6 +313,8 @@ impl WhirlApp {
   fn ui_edit(&mut self, ui: &mut egui::Ui) {
     use egui::{Layout, Align, Grid};
 
+    let mut sel_element_pan = false;
+
     egui::Panel::right("attr_panel")
       .resizable(true).default_size(320.0).size_range(80.0..=800.0)
       .show_collapsible(ui, &mut self.attr_panel_expanded, |ui| {
@@ -355,10 +357,141 @@ impl WhirlApp {
           ui.set_cursor_icon(egui::CursorIcon::ResizeRow);
           self.attrs_panel_h += resize_response.drag_delta().y;
         }
+        // Element list
+        let h = ui.style().spacing.interact_size.y;
+        let w = ui.available_size().x;
+        ui.allocate_ui(ui.available_size(), |ui| {
+          ui.heading(f!("elements"));
+          egui::ScrollArea::vertical().show(ui, |ui| {
+            let layout = &mut self.layout.as_mut().unwrap();
+            let elements = &mut layout.elements;
+            // Button for adding new
+            let add_resp = ui.add_sized(
+              [ui.available_width(), ui.style().spacing.interact_size.y],
+              egui::Button::selectable(false, "+")
+            ).on_hover_text(f!("list-add"));
+            egui::Popup::menu(&add_resp).id(ui.id().with("add_element_popup"))
+              .show(|ui| {
+                ui.set_min_width(add_resp.rect.width() -
+                  ui.style().spacing.menu_margin.left as f32 -
+                  ui.style().spacing.menu_margin.right as f32);
+                fn new_element(page: (f32, f32), origin: (f32, f32), content: model::Content) -> model::Element {
+                  model::Element {
+                    x: origin.0 + page.0 * 0.5,
+                    y: origin.1 + page.1 * 0.5,
+                    anchor: Default::default(),
+                    scale: model::default_scale(),
+                    rotation: Default::default(),
+                    skew: Default::default(),
+                    width: Default::default(),
+                    height: Default::default(),
+                    content,
+                  }
+                }
+                if ui.add(egui::Button::selectable(false, format!("🖼️ {}", f!("attr-heading-image")))).clicked() {
+                  elements.push(new_element(layout.page, self.canvas.origin, model::Content::Image {
+                    src: "".to_string(),
+                  }));
+                  self.element_texs.push(
+                    load_texture(ui.ctx(), element_to_image(self.root_path.as_ref().unwrap(), &elements.last().unwrap()))
+                  );
+                  self.edited = true;
+                  self.sel_element = Some(elements.len() - 1);
+                }
+                if ui.add(egui::Button::selectable(false, format!("💬 {}", f!("attr-heading-text")))).clicked() {
+                  elements.push(new_element(layout.page, self.canvas.origin, model::Content::Text {
+                    family: vec![self.font_families[0].clone()],
+                    size: 16.0,
+                    weight: model::Weight::Regular,
+                    italic: false,
+                    tracking: 0.0,
+                    text: "".to_string(),
+                  }));
+                  self.element_texs.push(
+                    load_texture(ui.ctx(), element_to_image(self.root_path.as_ref().unwrap(), &elements.last().unwrap()))
+                  );
+                  self.edited = true;
+                  self.sel_element = Some(elements.len() - 1);
+                }
+              });
+            // List
+            let mut to_prioritize = None;
+            let mut to_remove = None;
+            for (i, el) in elements.iter().enumerate().rev() {
+              let sel = self.sel_element.map_or(false, |j| j == i);
+              ui.horizontal(|ui| {
+                let resp = ui.add_sized(
+                  egui::vec2(w - (h + ui.style().spacing.item_spacing.x) * 2.0, ui.style().spacing.interact_size.y),
+                  egui::Button::selectable(sel, "").left_text(
+                    match &el.content {
+                      model::Content::Image { src, .. } => format!("🖼️ {}", src),
+                      model::Content::Text { text, .. } => format!("💬 {}", text),
+                    },
+                  ).truncate(),
+                );
+                if sel && self.sel_element_scroll {
+                  self.sel_element_scroll = false;
+                  resp.scroll_to_me_animation(None,
+                    egui::style::ScrollAnimation::new(1500., egui::Rangef::new(0.1, 0.15)));
+                }
+                if resp.clicked() {
+                  self.sel_element = Some(i);
+                  sel_element_pan = true;
+                }
+                if i + 1 == elements.len() {
+                  ui.add_space(h + ui.style().spacing.item_spacing.x);
+                } else {
+                  if ui.add_sized([h, h], egui::Button::new("↑")).on_hover_text(f!("list-move-up")).clicked() {
+                    to_prioritize = Some(i);
+                  }
+                }
+                if ui.add_sized([h, h], egui::Button::new("×")).on_hover_text(f!("list-remove")).clicked() {
+                  to_remove = Some(i);
+                }
+              });
+            }
+            if let Some(i) = to_prioritize {
+              elements.swap(i, i + 1);
+              self.element_texs.swap(i, i + 1);
+              match self.sel_element {
+                Some(j) if j == i => self.sel_element = Some(i + 1),
+                Some(j) if j == i + 1 => self.sel_element = Some(i),
+                _ => (),
+              }
+              self.edited = true;
+            }
+            if let Some(i) = to_remove {
+              elements.remove(i);
+              drop(self.element_texs.remove(i));
+              match self.sel_element {
+                Some(j) if j == i => self.sel_element = None,
+                Some(j) if j > i => self.sel_element = Some(j - 1),
+                _ => (),
+              }
+              self.edited = true;
+            }
+          });
+        });
       });
 
     // Both central and canvas
     let (c_width, c_height) = ui.available_size().into();
+
+    if sel_element_pan {
+      // Pan canvas to element
+      let page_size = &self.layout.as_ref().unwrap().page;
+      let el = &self.layout.as_ref().unwrap().elements[self.sel_element.unwrap()];
+      if el.x - page_size.0 * 0.5 < self.canvas.origin.0 - c_width * 0.5 / self.canvas.zoom
+        || el.x - page_size.0 * 0.5 > self.canvas.origin.0 + c_width * 0.5 / self.canvas.zoom
+        || el.y - page_size.1 * 0.5 < self.canvas.origin.1 - c_height * 0.5 / self.canvas.zoom
+        || el.y - page_size.1 * 0.5 > self.canvas.origin.1 + c_height * 0.5 / self.canvas.zoom
+      {
+        self.canvas.origin = (
+          el.x - page_size.0 * 0.5,
+          el.y - page_size.1 * 0.5,
+        );
+      }
+    }
 
     egui::CentralPanel::no_frame()
       .frame(egui::Frame::canvas(ui.style()).stroke(egui::Stroke::NONE).corner_radius(0.0))
@@ -577,139 +710,6 @@ impl WhirlApp {
             }));
           }
         }
-
-        // Elements exapndable menu
-        egui::Area::new(ui.id().with("elements_area"))
-          .fixed_pos(egui::pos2(0.0, 0.0))
-          .pivot(egui::Align2::LEFT_TOP)
-          .show(ui.ctx(), |ui| {
-            egui::Frame::menu(ui.style()).inner_margin(2.0).show(ui, |ui| {
-              egui::CollapsingHeader::new(f!("elements")).default_open(true).show(ui, |ui| {
-                let h = ui.style().spacing.interact_size.y;
-                ui.allocate_ui(egui::vec2(160.0 + (h + ui.style().spacing.item_spacing.x) * 2.0, 240.0), |ui| {
-                  egui::ScrollArea::vertical().show(ui, |ui| {
-                    let layout = &mut self.layout.as_mut().unwrap();
-                    let elements = &mut layout.elements;
-                    // Button for adding new
-                    let add_resp = ui.add_sized(
-                      [ui.available_width(), ui.style().spacing.interact_size.y],
-                      egui::Button::selectable(false, "+")
-                    ).on_hover_text(f!("list-add"));
-                    egui::Popup::menu(&add_resp).id(ui.id().with("add_element_popup"))
-                      .show(|ui| {
-                        ui.set_min_width(add_resp.rect.width() -
-                          ui.style().spacing.menu_margin.left as f32 -
-                          ui.style().spacing.menu_margin.right as f32);
-                        fn new_element(page: (f32, f32), origin: (f32, f32), content: model::Content) -> model::Element {
-                          model::Element {
-                            x: origin.0 + page.0 * 0.5,
-                            y: origin.1 + page.1 * 0.5,
-                            anchor: Default::default(),
-                            scale: model::default_scale(),
-                            rotation: Default::default(),
-                            skew: Default::default(),
-                            width: Default::default(),
-                            height: Default::default(),
-                            content,
-                          }
-                        }
-                        if ui.add(egui::Button::selectable(false, format!("🖼️ {}", f!("attr-heading-image")))).clicked() {
-                          elements.push(new_element(layout.page, self.canvas.origin, model::Content::Image {
-                            src: "".to_string(),
-                          }));
-                          self.element_texs.push(
-                            load_texture(ui.ctx(), element_to_image(self.root_path.as_ref().unwrap(), &elements.last().unwrap()))
-                          );
-                          self.edited = true;
-                          self.sel_element = Some(elements.len() - 1);
-                        }
-                        if ui.add(egui::Button::selectable(false, format!("💬 {}", f!("attr-heading-text")))).clicked() {
-                          elements.push(new_element(layout.page, self.canvas.origin, model::Content::Text {
-                            family: vec![self.font_families[0].clone()],
-                            size: 16.0,
-                            weight: model::Weight::Regular,
-                            italic: false,
-                            tracking: 0.0,
-                            text: "".to_string(),
-                          }));
-                          self.element_texs.push(
-                            load_texture(ui.ctx(), element_to_image(self.root_path.as_ref().unwrap(), &elements.last().unwrap()))
-                          );
-                          self.edited = true;
-                          self.sel_element = Some(elements.len() - 1);
-                        }
-                      });
-                    // List
-                    let mut to_prioritize = None;
-                    let mut to_remove = None;
-                    for (i, el) in elements.iter().enumerate().rev() {
-                      let sel = self.sel_element.map_or(false, |j| j == i);
-                      ui.horizontal(|ui| {
-                        let resp = ui.add_sized(
-                          egui::vec2(160.0, ui.style().spacing.interact_size.y),
-                          egui::Button::selectable(sel, "").left_text(
-                            match &el.content {
-                              model::Content::Image { src, .. } => format!("🖼️ {}", src),
-                              model::Content::Text { text, .. } => format!("💬 {}", text),
-                            },
-                          ).truncate(),
-                        );
-                        if sel && self.sel_element_scroll {
-                          self.sel_element_scroll = false;
-                          resp.scroll_to_me_animation(None,
-                            egui::style::ScrollAnimation::new(1500., egui::Rangef::new(0.1, 0.15)));
-                        }
-                        if resp.clicked() {
-                          self.sel_element = Some(i);
-                          // Pan canvas to element
-                          if el.x - layout.page.0 * 0.5 < self.canvas.origin.0 - c_width * 0.5 / self.canvas.zoom
-                            || el.x - layout.page.0 * 0.5 > self.canvas.origin.0 + c_width * 0.5 / self.canvas.zoom
-                            || el.y - layout.page.1 * 0.5 < self.canvas.origin.1 - c_height * 0.5 / self.canvas.zoom
-                            || el.y - layout.page.1 * 0.5 > self.canvas.origin.1 + c_height * 0.5 / self.canvas.zoom
-                          {
-                            self.canvas.origin = (
-                              el.x - layout.page.0 * 0.5,
-                              el.y - layout.page.1 * 0.5,
-                            );
-                          }
-                        }
-                        if i + 1 == elements.len() {
-                          ui.add_space(h + ui.style().spacing.item_spacing.x);
-                        } else {
-                          if ui.add_sized([h, h], egui::Button::new("↑")).on_hover_text(f!("list-move-up")).clicked() {
-                            to_prioritize = Some(i);
-                          }
-                        }
-                        if ui.add_sized([h, h], egui::Button::new("×")).on_hover_text(f!("list-remove")).clicked() {
-                          to_remove = Some(i);
-                        }
-                      });
-                    }
-                    if let Some(i) = to_prioritize {
-                      elements.swap(i, i + 1);
-                      self.element_texs.swap(i, i + 1);
-                      match self.sel_element {
-                        Some(j) if j == i => self.sel_element = Some(i + 1),
-                        Some(j) if j == i + 1 => self.sel_element = Some(i),
-                        _ => (),
-                      }
-                      self.edited = true;
-                    }
-                    if let Some(i) = to_remove {
-                      elements.remove(i);
-                      drop(self.element_texs.remove(i));
-                      match self.sel_element {
-                        Some(j) if j == i => self.sel_element = None,
-                        Some(j) if j > i => self.sel_element = Some(j - 1),
-                        _ => (),
-                      }
-                      self.edited = true;
-                    }
-                  });
-                });
-              });
-            });
-          });
 
         // Panel toggle
         egui::Area::new(ui.id().with("attr_panel_toggle"))
