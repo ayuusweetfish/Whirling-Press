@@ -202,11 +202,14 @@ impl WhirlApp {
       std::sync::Arc::new(FontData::from_static(include_bytes!("../res/NotoEmoji_Regular_subset.ttf"))));
     fonts.font_data.insert("f3".to_string(),
       std::sync::Arc::new(FontData::from_static(include_bytes!("../res/NotoSansMono_Condensed_Regular_subset.ttf"))));
+    fonts.font_data.insert("f4".to_string(),
+      std::sync::Arc::new(FontData::from_static(include_bytes!("../res/AdwaitaSans_Regular_subset.ttf"))));
     fonts.font_data.insert("f9".to_string(),
       std::sync::Arc::new(FontData::from_static(include_bytes!("../res/DroidSansFallbackFull.ttf"))));
     fonts.families.get_mut(&FontFamily::Proportional).unwrap().push("f1".to_owned());
     fonts.families.get_mut(&FontFamily::Proportional).unwrap().push("f2".to_owned());
     fonts.families.get_mut(&FontFamily::Proportional).unwrap().push("f3".to_owned());
+    fonts.families.get_mut(&FontFamily::Proportional).unwrap().push("f4".to_owned());
     fonts.families.get_mut(&FontFamily::Proportional).unwrap().push("f9".to_owned());
     ctx.set_fonts(fonts);
 
@@ -469,7 +472,7 @@ impl WhirlApp {
                 if i + 1 == elements.len() {
                   ui.add_space(h + ui.style().spacing.item_spacing.x);
                 } else {
-                  if ui.add_sized([h, h], egui::Button::new("↑")).on_hover_text(f!("list-move-up")).clicked() {
+                  if ui.add_sized([h, h], egui::Button::new("⌃")).on_hover_text(f!("list-move-up")).clicked() {
                     to_prioritize = Some(i);
                   }
                 }
@@ -960,7 +963,7 @@ impl WhirlApp {
             if i == 0 {
               ui.add_space(h + ui.style().spacing.item_spacing.x);
             } else {
-              if ui.add_sized([h, h], egui::Button::new("↑")).on_hover_text(f!("list-move-up")).clicked() {
+              if ui.add_sized([h, h], egui::Button::new("⌃")).on_hover_text(f!("list-move-up")).clicked() {
                 to_prioritize = Some(i);
               }
             }
