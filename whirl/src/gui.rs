@@ -27,7 +27,7 @@ struct WhirlApp {
   edited: bool,
   sel_element: Option<usize>,
   sel_element_scroll: bool,
-  element_texs: Vec<egui::TextureHandle>,
+  element_texs: Vec<SafeTextureHandle>,
   canvas: CanvasState,
   close_confirming: bool,
   quit_after_close: bool,
@@ -44,6 +44,30 @@ impl Default for CanvasState {
       zoom: 1.0,
       origin: (0.0, 0.0),
     }
+  }
+}
+
+enum SafeTextureHandle {
+  Texture(egui::TextureHandle),
+  Missing(f32, f32),
+}
+impl SafeTextureHandle {
+  fn size(&self) -> (f32, f32) {
+    match &self {
+      Self::Texture(t) => t.size_vec2().into(),
+      Self::Missing(w, h) => (*w, *h),
+    }
+  }
+  fn id(&self) -> Option<egui::TextureId> {
+    match &self {
+      Self::Texture(t) => Some(t.id()),
+      Self::Missing(_, _) => None,
+    }
+  }
+}
+impl From<egui::TextureHandle> for SafeTextureHandle {
+  fn from(handle: egui::TextureHandle) -> Self {
+    Self::Texture(handle)
   }
 }
 
@@ -80,6 +104,15 @@ fn element_to_image<P: AsRef<std::path::Path>>(root_path: P, el: &model::Element
         },
       ).unwrap()
     },
+  }
+}
+
+fn load_texture(ctx: &egui::Context, image: impl Into<egui::ImageData>) -> SafeTextureHandle {
+  let image = image.into();
+  if image.width() > 4096 || image.height() > 4096 {
+    SafeTextureHandle::Missing(image.width() as f32, image.height() as f32)
+  } else {
+    ctx.load_texture("", image, egui::TextureOptions::default()).into()
   }
 }
 
@@ -157,11 +190,7 @@ impl WhirlApp {
         self.just_loaded = true;
         self.edited = false;
         self.element_texs = layout.elements.iter().map(|el| {
-          ctx.load_texture(
-            "",
-            element_to_image(root_path, &el),
-            egui::TextureOptions::default(),
-          )
+          load_texture(ctx, element_to_image(root_path, &el))
         }).collect();
 
         self.layout = Some(layout);
@@ -235,11 +264,7 @@ impl WhirlApp {
                       self.edited |= changed_any;
                       if changed_tex {
                         self.element_texs[i] =
-                          ui.ctx().load_texture(
-                            "",
-                            element_to_image(self.root_path.as_ref().unwrap(), el),
-                            egui::TextureOptions::default(),
-                          );
+                          load_texture(ui.ctx(), element_to_image(self.root_path.as_ref().unwrap(), el));
                       }
                     });
                 });
@@ -413,10 +438,10 @@ impl WhirlApp {
           // XXX: DRY
           let tex = &self.element_texs[i];
           let corners_content = [
-            doc_to_canvas(element_tex_pos_content(&el, tex.size_vec2().into(), (0., 0.))),
-            doc_to_canvas(element_tex_pos_content(&el, tex.size_vec2().into(), (1., 0.))),
-            doc_to_canvas(element_tex_pos_content(&el, tex.size_vec2().into(), (1., 1.))),
-            doc_to_canvas(element_tex_pos_content(&el, tex.size_vec2().into(), (0., 1.))),
+            doc_to_canvas(element_tex_pos_content(&el, tex.size(), (0., 0.))),
+            doc_to_canvas(element_tex_pos_content(&el, tex.size(), (1., 0.))),
+            doc_to_canvas(element_tex_pos_content(&el, tex.size(), (1., 1.))),
+            doc_to_canvas(element_tex_pos_content(&el, tex.size(), (0., 1.))),
           ];
           if resp.clicked() {
             if let Some(p) = resp.interact_pointer_pos()
@@ -452,19 +477,21 @@ impl WhirlApp {
         for (i, el) in self.layout.as_ref().unwrap().elements.iter().enumerate() {
           let tex = &self.element_texs[i];
           let corners = [
-            doc_to_canvas(element_tex_pos(&el, tex.size_vec2().into(), (0., 0.))).into(),
-            doc_to_canvas(element_tex_pos(&el, tex.size_vec2().into(), (1., 0.))).into(),
-            doc_to_canvas(element_tex_pos(&el, tex.size_vec2().into(), (1., 1.))).into(),
-            doc_to_canvas(element_tex_pos(&el, tex.size_vec2().into(), (0., 1.))).into(),
+            doc_to_canvas(element_tex_pos(&el, tex.size(), (0., 0.))).into(),
+            doc_to_canvas(element_tex_pos(&el, tex.size(), (1., 0.))).into(),
+            doc_to_canvas(element_tex_pos(&el, tex.size(), (1., 1.))).into(),
+            doc_to_canvas(element_tex_pos(&el, tex.size(), (0., 1.))).into(),
           ];
-          painter.add(textured_quad(corners, tex.id()));
+          if let Some(id) = tex.id() {
+            painter.add(textured_quad(corners, id));
+          }
 
           let r = (4.0 * self.canvas.zoom).clamp(2.0, 4.0);
           let corners_content = [
-            doc_to_canvas(element_tex_pos_content(&el, tex.size_vec2().into(), (0., 0.))),
-            doc_to_canvas(element_tex_pos_content(&el, tex.size_vec2().into(), (1., 0.))),
-            doc_to_canvas(element_tex_pos_content(&el, tex.size_vec2().into(), (1., 1.))),
-            doc_to_canvas(element_tex_pos_content(&el, tex.size_vec2().into(), (0., 1.))),
+            doc_to_canvas(element_tex_pos_content(&el, tex.size(), (0., 0.))),
+            doc_to_canvas(element_tex_pos_content(&el, tex.size(), (1., 0.))),
+            doc_to_canvas(element_tex_pos_content(&el, tex.size(), (1., 1.))),
+            doc_to_canvas(element_tex_pos_content(&el, tex.size(), (0., 1.))),
           ];
           let mut inside = false;
           if let Some(p) = hover_pos && point_in_simple_polygon(p, &corners_content) {
@@ -533,11 +560,7 @@ impl WhirlApp {
                             src: "".to_string(),
                           }));
                           self.element_texs.push(
-                            ui.ctx().load_texture(
-                              "",
-                              element_to_image(self.root_path.as_ref().unwrap(), &elements.last().unwrap()),
-                              egui::TextureOptions::default(),
-                            )
+                            load_texture(ui.ctx(), element_to_image(self.root_path.as_ref().unwrap(), &elements.last().unwrap()))
                           );
                           self.edited = true;
                           self.sel_element = Some(elements.len() - 1);
@@ -552,11 +575,7 @@ impl WhirlApp {
                             text: "".to_string(),
                           }));
                           self.element_texs.push(
-                            ui.ctx().load_texture(
-                              "",
-                              element_to_image(self.root_path.as_ref().unwrap(), &elements.last().unwrap()),
-                              egui::TextureOptions::default(),
-                            )
+                            load_texture(ui.ctx(), element_to_image(self.root_path.as_ref().unwrap(), &elements.last().unwrap()))
                           );
                           self.edited = true;
                           self.sel_element = Some(elements.len() - 1);
