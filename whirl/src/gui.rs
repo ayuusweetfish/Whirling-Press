@@ -33,6 +33,7 @@ struct WhirlApp {
   quit_after_close: bool,
   text_sel_range: Option<(usize, usize)>,
   attrs_panel_h: f32,
+  attrs_panel_drag_offs: f32,
 }
 
 struct CanvasState {
@@ -240,6 +241,7 @@ impl WhirlApp {
       quit_after_close: false,
       text_sel_range: None,
       attrs_panel_h: 400.,
+      attrs_panel_drag_offs: 0.,
     };
 
     if let Some(root_path) = root_path {
@@ -318,6 +320,7 @@ impl WhirlApp {
     egui::Panel::right("attr_panel")
       .resizable(true).default_size(320.0).size_range(80.0..=800.0)
       .show_collapsible(ui, &mut self.attr_panel_expanded, |ui| {
+        let panel_avail_h = ui.available_height();
         egui::ScrollArea::vertical().max_height(self.attrs_panel_h - 6.).show(ui, |ui| {
           ui.with_layout(Layout::top_down_justified(Align::Min), |ui| {
             if let Some(i) = self.sel_element {
@@ -355,8 +358,16 @@ impl WhirlApp {
         let resize_response = ui.interact(line_rect, "panel_resize".into(), egui::Sense::click_and_drag());
         if resize_response.hovered() || resize_response.dragged() {
           ui.set_cursor_icon(egui::CursorIcon::ResizeRow);
-          self.attrs_panel_h += resize_response.drag_delta().y;
         }
+        if resize_response.drag_started() {
+          self.attrs_panel_drag_offs = self.attrs_panel_h
+            - ui.input(|i| i.pointer.interact_pos().unwrap().y);
+        }
+        if resize_response.dragged() {
+          self.attrs_panel_h = self.attrs_panel_drag_offs
+            + ui.input(|i| i.pointer.interact_pos().unwrap().y);
+        }
+        self.attrs_panel_h = self.attrs_panel_h.max(120.).min(panel_avail_h - 120.);
         // Element list
         let h = ui.style().spacing.interact_size.y;
         let w = ui.available_size().x;
