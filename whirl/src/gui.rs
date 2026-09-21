@@ -309,8 +309,10 @@ impl WhirlApp {
             self.load_document(&path, ui.ctx());
           }
         }
-        ui.add_space(6.0);
-        ui.label(f!("or-drag-and-drop"));
+        if false {
+          ui.add_space(6.0);
+          ui.label(f!("or-drag-and-drop"));
+        }
       });
     });
   }
