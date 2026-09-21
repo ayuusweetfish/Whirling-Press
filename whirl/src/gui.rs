@@ -1120,7 +1120,7 @@ impl eframe::App for WhirlApp {
                 }
               } else {
                 let layout = self.layout.as_ref().unwrap();
-                ui.label(format!("{}{}×{}, {}— {}",
+                ui.label(format!("{}{}×{}, {} — {}",
                   if self.edited { "* " } else { "" },
                   layout.page.0, layout.page.1,
                   f!("status-num-elements", n => layout.elements.len()),
