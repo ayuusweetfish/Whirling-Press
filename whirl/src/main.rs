@@ -240,7 +240,7 @@ fn get_csv_fields<P: AsRef<Path>>(path: P) -> Result<Vec<String>, ProcessError> 
   let first_line = str::from_utf8(&first_line)
     .map_err(|_e| ProcessError::CsvFieldsUtf8)?;
   let fields: Vec<String> =
-    first_line.split(',').map(|s| s.to_string()).collect();
+    first_line.split(',').filter(|s| s.len() > 0).map(|s| s.to_string()).collect();
   let mut seen = std::collections::HashSet::new();
   for field in &fields {
     if field.is_empty() {

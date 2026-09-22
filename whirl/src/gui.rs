@@ -24,6 +24,7 @@ struct WhirlApp {
   yml_file_name: Option<std::path::PathBuf>,
   layout: Option<model::Layout>,
   font_families: Vec<String>,
+  csv_fields: Vec<String>,
   just_loaded: bool,
   edited: bool,
   sel_element: Option<usize>,
@@ -236,6 +237,7 @@ impl WhirlApp {
       yml_file_name: None,
       layout: None,
       font_families: crate::render::font_families(None::<&str>),
+      csv_fields: vec![],
       just_loaded: false,
       edited: false,
       sel_element: None,
@@ -260,10 +262,11 @@ impl WhirlApp {
   fn load_document<P: AsRef<std::path::Path>>(&mut self, root_path: P, ctx: &egui::Context) {
     let root_path = root_path.as_ref();
     match crate::process_pack_metadata(root_path, true) {
-      Ok((yml_file_name, layout, _, _fields)) => {
+      Ok((yml_file_name, layout, _, fields)) => {
         self.root_path = Some(root_path.to_path_buf());
         self.yml_file_name = Some(yml_file_name);
         self.font_families = crate::render::font_families(Some(root_path));
+        self.csv_fields = fields;
         ctx.send_viewport_cmd(egui::ViewportCommand::Title(
           format!("{} — Whirling Press", root_path.display())));
 
@@ -352,7 +355,8 @@ impl WhirlApp {
                     .striped(true)
                     .show(ui, |ui| {
                       let (changed_any, changed_tex) = Self::show_attrs(
-                        ui, &self.font_families, el, self.canvas.zoom, &mut self.text_sel_range,
+                        ui, &self.font_families, &self.csv_fields,
+                        el, self.canvas.zoom, &mut self.text_sel_range,
                       );
                       self.edited |= changed_any;
                       if changed_tex {
@@ -768,7 +772,7 @@ impl WhirlApp {
       });
   }
 
-  fn show_attrs(ui: &mut egui::Ui, font_families: &[String], el: &mut model::Element, zoom: f32, text_sel_range: &mut Option<(usize, usize)>) -> (bool, bool) {
+  fn show_attrs(ui: &mut egui::Ui, font_families: &[String], csv_fields: &[String], el: &mut model::Element, zoom: f32, text_sel_range: &mut Option<(usize, usize)>) -> (bool, bool) {
     let mut changed_tex = false;
     let mut changed_any = false;
     use egui::{DragValue, ComboBox};
@@ -861,6 +865,7 @@ impl WhirlApp {
       changed_tex |= size_limit_editor(ui, &mut el.height);
     });
     ui.end_row();
+    use egui::TextBuffer;
     match &mut el.content {
       model::Content::Image { src } => {
         ui.label(f!("attr-image-source"));
@@ -876,6 +881,29 @@ impl WhirlApp {
           edit_output.state.store(ui.ctx(), edit_output.response.id);
           edit_output.response.request_focus();
         }
+        let resp = &edit_output.response;
+        egui::Popup::menu(&resp).id(ui.id().with("completion_src"))
+          .show(|ui| {
+            ui.set_min_width(resp.rect.width() -
+              ui.style().spacing.menu_margin.left as f32 -
+              ui.style().spacing.menu_margin.right as f32);
+            egui::ScrollArea::vertical()
+              .max_height(ui.style().spacing.combo_height)
+              .show(ui, |ui| {
+                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
+                for field in csv_fields {
+                  let braced_field = format!("{{{}}}", field);
+                  if ui.add(egui::Button::selectable(src == &braced_field, &braced_field)).clicked() {
+                    let cursor = src.delete_selected(&edit_output.cursor_range.unwrap_or(
+                      egui::text_selection::CCursorRange::one(
+                        egui::text::CCursor::new(src.chars().count()))
+                    ));
+                    src.insert_text(&braced_field, cursor.index);
+                    changed_any = true;
+                  }
+                }
+              }).inner
+          });
         changed_tex |= edit_output.response.changed();
         ui.end_row();
       },
