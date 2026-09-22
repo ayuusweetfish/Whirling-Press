@@ -261,29 +261,34 @@ impl WhirlApp {
 
   fn load_document<P: AsRef<std::path::Path>>(&mut self, root_path: P, ctx: &egui::Context) {
     let root_path = root_path.as_ref();
+    if let Ok(layout) = self.reload_metadata(root_path) {
+      self.root_path = Some(root_path.to_path_buf());
+      ctx.send_viewport_cmd(egui::ViewportCommand::Title(
+        format!("{} — Whirling Press", root_path.display())));
+
+      self.just_loaded = true;
+      self.edited = false;
+      self.element_texs = layout.elements.iter().map(|el| {
+        load_texture(ctx, element_to_image(root_path, &el))
+      }).collect();
+
+      self.layout = Some(layout);
+    }
+  }
+
+  fn reload_metadata(&mut self, root_path: &std::path::Path) -> Result<model::Layout, ()> {
     match crate::process_pack_metadata(root_path, true) {
       Ok((yml_file_name, layout, _, fields)) => {
-        self.root_path = Some(root_path.to_path_buf());
         self.yml_file_name = Some(yml_file_name);
         self.font_families = crate::render::font_families(Some(root_path));
         self.csv_fields = fields;
-        ctx.send_viewport_cmd(egui::ViewportCommand::Title(
-          format!("{} — Whirling Press", root_path.display())));
-
-        self.just_loaded = true;
-        self.edited = false;
-        self.element_texs = layout.elements.iter().map(|el| {
-          load_texture(ctx, element_to_image(root_path, &el))
-        }).collect();
-
-        self.layout = Some(layout);
-
         self.status_msg = None;
-
         self.watcher = dir_watcher::DirWatcher::new(root_path).ok();
+        Ok(layout)
       },
       Err(e) => {
         self.status_msg = Some((true, std::time::Instant::now(), e.message()));
+        Err(())
       },
     }
   }
