@@ -26,6 +26,7 @@ struct WhirlApp {
   font_families: Vec<String>,
   font_families_tag: u64,
   csv_fields: Vec<String>,
+  asset_files: Vec<String>,
   just_loaded: bool,
   edited: bool,
   sel_element: Option<usize>,
@@ -242,6 +243,7 @@ impl WhirlApp {
       font_families,
       font_families_tag,
       csv_fields: vec![],
+      asset_files: vec![],
       just_loaded: false,
       edited: false,
       sel_element: None,
@@ -281,6 +283,8 @@ impl WhirlApp {
           crate::render::font_families(Some(root_path));
 
         self.layout = Some(layout);
+        self.watcher = dir_watcher::DirWatcher::new(root_path).ok();
+
         self.status_msg = None;
       }
       Err(e) => {
@@ -294,7 +298,20 @@ impl WhirlApp {
       Ok((yml_file_name, layout, _, fields)) => {
         self.yml_file_name = Some(yml_file_name);
         self.csv_fields = fields;
-        self.watcher = dir_watcher::DirWatcher::new(root_path).ok();
+
+        // Traverse to refresh files list
+        let exclude_exts = ["yml", "yaml", "csv"];
+        self.asset_files = walkdir::WalkDir::new(&root_path).follow_links(true)
+          .into_iter().filter_map(Result::ok)
+          .filter(|e| {
+            e.file_type().is_file() &&
+            e.path().extension()
+              .map_or(true, |file_ext| exclude_exts.iter().all(|target_ext| file_ext != *target_ext))
+          })
+          .map(|e| e.path().strip_prefix(&root_path).unwrap().to_string_lossy().into_owned())
+          .collect();
+        self.asset_files.sort();
+
         Ok(layout)
       },
       Err(e) => Err(e),
@@ -398,7 +415,7 @@ impl WhirlApp {
                     .striped(true)
                     .show(ui, |ui| {
                       let (changed_any, changed_tex) = Self::show_attrs(
-                        ui, &self.font_families, &self.csv_fields,
+                        ui, &self.font_families, &self.csv_fields, &self.asset_files,
                         el, self.canvas.zoom, &mut self.text_sel_range,
                       );
                       self.edited |= changed_any;
@@ -815,7 +832,7 @@ impl WhirlApp {
       });
   }
 
-  fn show_attrs(ui: &mut egui::Ui, font_families: &[String], csv_fields: &[String], el: &mut model::Element, zoom: f32, text_sel_range: &mut Option<(usize, usize)>) -> (bool, bool) {
+  fn show_attrs(ui: &mut egui::Ui, font_families: &[String], csv_fields: &[String], asset_files: &[String], el: &mut model::Element, zoom: f32, text_sel_range: &mut Option<(usize, usize)>) -> (bool, bool) {
     let mut changed_tex = false;
     let mut changed_any = false;
     use egui::{DragValue, ComboBox};
@@ -909,7 +926,7 @@ impl WhirlApp {
     });
     ui.end_row();
     use egui::TextBuffer;
-    let mut show_autocomplete = |ui: &egui::Ui, edit_output: egui::widgets::text_edit::TextEditOutput, src: &mut String| {
+    let mut show_autocomplete = |ui: &egui::Ui, edit_output: egui::widgets::text_edit::TextEditOutput, src: &mut String, extras: &[&String]| {
       let mut edit_output = edit_output;
       if let Some((start, end)) = text_sel_range.take() {
         edit_output.state.cursor.set_char_range(Some(
@@ -920,7 +937,7 @@ impl WhirlApp {
         ));
         edit_output.response.request_focus();
       }
-      let resp = &edit_output.response;
+      let resp = &mut edit_output.response;
       egui::Popup::menu(&resp).id(ui.id().with("completion_src"))
         .show(|ui| {
           ui.set_min_width(resp.rect.width() -
@@ -930,20 +947,21 @@ impl WhirlApp {
             .max_height(ui.style().spacing.combo_height)
             .show(ui, |ui| {
               ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
-              for field in csv_fields {
-                let braced_field = format!("{{{}}}", field);
-                if ui.add(egui::Button::selectable(src == &braced_field, &braced_field)).clicked() {
+              for option in csv_fields.iter().map(|field| format!("{{{}}}", field))
+                .chain(extras.into_iter().map(|&s| s.clone()))
+              {
+                if ui.add(egui::Button::selectable(src == &option, &option)).clicked() {
                   let cursor = src.delete_selected(&edit_output.cursor_range.unwrap_or(
                     egui::text_selection::CCursorRange::one(
                       egui::text::CCursor::new(src.chars().count()))
                   ));
-                  let cursor = cursor.index + src.insert_text(&braced_field, cursor.index);
+                  let cursor = cursor.index + src.insert_text(&option, cursor.index);
                   edit_output.state.cursor.set_char_range(Some(
                     egui::text_selection::CCursorRange::one(
                       egui::text::CCursor::new(cursor))
                   ));
-                  edit_output.response.request_focus();
-                  changed_any = true;
+                  resp.mark_changed();
+                  resp.request_focus();
                 }
               }
             }).inner
@@ -955,13 +973,15 @@ impl WhirlApp {
       model::Content::Image { src } => {
         ui.label(f!("attr-image-source"));
         let edit_output = egui::TextEdit::singleline(src).show(ui);
-        show_autocomplete(ui, edit_output, src);
+        show_autocomplete(ui, edit_output, src, asset_files.iter().filter(|s|
+          s.ends_with(".png") || s.ends_with(".jpg") || s.ends_with(".jpeg") || s.ends_with(".gif") || s.ends_with(".svg") || s.ends_with(".pdf") || s.ends_with(".webp")
+        ).collect::<Vec<_>>().as_slice());
         ui.end_row();
       },
       model::Content::Text { family, size, weight, italic, tracking, text } => {
         ui.label(f!("attr-text-text"));
         let edit_output = egui::TextEdit::multiline(text).desired_width(ui.available_width()).show(ui);
-        show_autocomplete(ui, edit_output, text);
+        show_autocomplete(ui, edit_output, text, &[]);
         ui.end_row();
         ui.label(f!("attr-text-family"));
         changed_tex |= Self::font_list_editor(ui, &font_families, family);
