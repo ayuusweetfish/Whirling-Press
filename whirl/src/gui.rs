@@ -24,6 +24,7 @@ struct WhirlApp {
   yml_file_name: Option<std::path::PathBuf>,
   layout: Option<model::Layout>,
   font_families: Vec<String>,
+  font_families_tag: u64,
   csv_fields: Vec<String>,
   just_loaded: bool,
   edited: bool,
@@ -230,13 +231,16 @@ impl WhirlApp {
       style.spacing.combo_height = 300.;
     });
 
+    let (font_families, font_families_tag) = crate::render::font_families(None::<&str>);
+
     let mut self_ = Self {
       root_path: None,
       attr_panel_expanded: true,
       status_msg: None,
       yml_file_name: None,
       layout: None,
-      font_families: crate::render::font_families(None::<&str>),
+      font_families,
+      font_families_tag,
       csv_fields: vec![],
       just_loaded: false,
       edited: false,
@@ -273,6 +277,9 @@ impl WhirlApp {
           load_texture(ctx, element_to_image(root_path, &el))
         }).collect();
 
+        (self.font_families, self.font_families_tag) =
+          crate::render::font_families(Some(root_path));
+
         self.layout = Some(layout);
         self.status_msg = None;
       }
@@ -286,7 +293,6 @@ impl WhirlApp {
     match crate::process_pack_metadata(root_path, true, parse_layout) {
       Ok((yml_file_name, layout, _, fields)) => {
         self.yml_file_name = Some(yml_file_name);
-        self.font_families = crate::render::font_families(Some(root_path));
         self.csv_fields = fields;
         self.watcher = dir_watcher::DirWatcher::new(root_path).ok();
         Ok(layout)
@@ -338,13 +344,23 @@ impl WhirlApp {
       render::invalidate_cached_font_store(&root_path);
       match self.reload_metadata(&root_path, false) {
         Ok(_layout) => {
-          if false {
-            // XXX: Only reload when fonts change!
-            self.element_texs = self.layout.as_ref().unwrap().elements.iter().map(|el| {
-              load_texture(ui.ctx(), element_to_image(&root_path, &el))
-            }).collect();
+          let old_tag = self.font_families_tag;
+          (self.font_families, self.font_families_tag) =
+            crate::render::font_families(Some(&root_path));
+          if self.font_families_tag != old_tag {
+            // Fonts changed; re-render text elements
+            for (el, tex) in self.layout.as_ref().unwrap().elements.iter().zip(self.element_texs.iter_mut()) {
+              if let model::Content::Text { .. } = &el.content {
+                *tex = load_texture(ui.ctx(), element_to_image(&root_path, el));
+              }
+            }
           }
-          self.font_families = crate::render::font_families(Some(&root_path));
+          // Unconditionally re-render image elements
+          for (el, tex) in self.layout.as_ref().unwrap().elements.iter().zip(self.element_texs.iter_mut()) {
+            if let model::Content::Image { .. } = &el.content {
+              *tex = load_texture(ui.ctx(), element_to_image(&root_path, el));
+            }
+          }
         }
         Err(e) => {
           self.status_msg = Some((true, std::time::Instant::now(), e.message()));

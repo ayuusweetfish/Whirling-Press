@@ -76,18 +76,28 @@ pub(crate) fn invalidate_cached_font_store(root: &std::path::Path) {
 // This is not depended upon by the rest of this module;
 // placed here so that it is easier to maintain parity with actual rendering
 
-pub(crate) fn font_families(root: Option<impl Into<PathBuf>>) -> Vec<String> {
-  let mut user_fonts: Vec<String> = if let Some(root) = root {
-    typst_kit::fonts::scan(&root.into()).map(|(_, font_info)| font_info.family.clone()).collect()
-  } else {
-    vec![]
-  };
+pub(crate) fn font_families(root: Option<impl Into<PathBuf>>) -> (Vec<String>, u64) {
+  let mut font_paths: Vec<PathBuf> = Vec::new();
+
+  let mut user_fonts: Vec<String> = Vec::new();
+  if let Some(root) = root {
+    let root = root.into();
+    for (path, font_info) in typst_kit::fonts::scan(&root) {
+      user_fonts.push(font_info.family.clone());
+      font_paths.push(path.path);
+    }
+  }
   user_fonts.sort();
   user_fonts.dedup();
-  let mut system_fonts: Vec<String> =
-    typst_kit::fonts::system().map(|(_, font_info)| font_info.family.clone()).collect();
+
+  let mut system_fonts: Vec<String> = Vec::new();
+  for (path, font_info) in typst_kit::fonts::system() {
+    system_fonts.push(font_info.family.clone());
+    font_paths.push(path.path);
+  }
   system_fonts.sort();
   system_fonts.dedup();
+
   // Remove system fonts that are overridden by user fonts
   let mut i = 0;
   system_fonts.retain(|val| {
@@ -97,7 +107,24 @@ pub(crate) fn font_families(root: Option<impl Into<PathBuf>>) -> Vec<String> {
     !(i < user_fonts.len() && user_fonts[i] == *val)
   });
   user_fonts.extend(system_fonts);
-  user_fonts
+
+  // Combined hash over all files, without family deduplication, to be conservative
+  use std::collections::hash_map::DefaultHasher;
+  use std::hash::{Hash, Hasher};
+  let mut hasher = DefaultHasher::new();
+  font_paths.sort();
+  font_paths.dedup();
+  for path in font_paths {
+    path.hash(&mut hasher);
+    if let Ok(meta) = std::fs::metadata(path) {
+      meta.len().hash(&mut hasher);
+      if let Ok(mtime) = meta.modified() {
+        mtime.hash(&mut hasher);
+      }
+    }
+  }
+
+  (user_fonts, hasher.finish())
 }
 
 impl SimpleWorld {
