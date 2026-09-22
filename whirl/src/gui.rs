@@ -878,7 +878,6 @@ impl WhirlApp {
               egui::text::CCursor::new(end + 1),
             )
           ));
-          edit_output.state.store(ui.ctx(), edit_output.response.id);
           edit_output.response.request_focus();
         }
         let resp = &edit_output.response;
@@ -898,13 +897,19 @@ impl WhirlApp {
                       egui::text_selection::CCursorRange::one(
                         egui::text::CCursor::new(src.chars().count()))
                     ));
-                    src.insert_text(&braced_field, cursor.index);
+                    let cursor = cursor.index + src.insert_text(&braced_field, cursor.index);
+                    edit_output.state.cursor.set_char_range(Some(
+                      egui::text_selection::CCursorRange::one(
+                        egui::text::CCursor::new(cursor))
+                    ));
+                    edit_output.response.request_focus();
                     changed_any = true;
                   }
                 }
               }).inner
           });
         changed_tex |= edit_output.response.changed();
+        edit_output.state.store(ui.ctx(), edit_output.response.id);
         ui.end_row();
       },
       model::Content::Text { family, size, weight, italic, tracking, text } => {
