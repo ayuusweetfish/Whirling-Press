@@ -909,66 +909,59 @@ impl WhirlApp {
     });
     ui.end_row();
     use egui::TextBuffer;
+    let mut show_autocomplete = |ui: &egui::Ui, edit_output: egui::widgets::text_edit::TextEditOutput, src: &mut String| {
+      let mut edit_output = edit_output;
+      if let Some((start, end)) = text_sel_range.take() {
+        edit_output.state.cursor.set_char_range(Some(
+          egui::text_selection::CCursorRange::two(
+            egui::text::CCursor::new(start - 1),
+            egui::text::CCursor::new(end + 1),
+          )
+        ));
+        edit_output.response.request_focus();
+      }
+      let resp = &edit_output.response;
+      egui::Popup::menu(&resp).id(ui.id().with("completion_src"))
+        .show(|ui| {
+          ui.set_min_width(resp.rect.width() -
+            ui.style().spacing.menu_margin.left as f32 -
+            ui.style().spacing.menu_margin.right as f32);
+          egui::ScrollArea::vertical()
+            .max_height(ui.style().spacing.combo_height)
+            .show(ui, |ui| {
+              ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
+              for field in csv_fields {
+                let braced_field = format!("{{{}}}", field);
+                if ui.add(egui::Button::selectable(src == &braced_field, &braced_field)).clicked() {
+                  let cursor = src.delete_selected(&edit_output.cursor_range.unwrap_or(
+                    egui::text_selection::CCursorRange::one(
+                      egui::text::CCursor::new(src.chars().count()))
+                  ));
+                  let cursor = cursor.index + src.insert_text(&braced_field, cursor.index);
+                  edit_output.state.cursor.set_char_range(Some(
+                    egui::text_selection::CCursorRange::one(
+                      egui::text::CCursor::new(cursor))
+                  ));
+                  edit_output.response.request_focus();
+                  changed_any = true;
+                }
+              }
+            }).inner
+        });
+      changed_tex |= edit_output.response.changed();
+      edit_output.state.store(ui.ctx(), edit_output.response.id);
+    };
     match &mut el.content {
       model::Content::Image { src } => {
         ui.label(f!("attr-image-source"));
-        // XXX: DRY?
-        let mut edit_output = egui::TextEdit::singleline(src).show(ui);
-        if let Some((start, end)) = text_sel_range.take() {
-          edit_output.state.cursor.set_char_range(Some(
-            egui::text_selection::CCursorRange::two(
-              egui::text::CCursor::new(start - 1),
-              egui::text::CCursor::new(end + 1),
-            )
-          ));
-          edit_output.response.request_focus();
-        }
-        let resp = &edit_output.response;
-        egui::Popup::menu(&resp).id(ui.id().with("completion_src"))
-          .show(|ui| {
-            ui.set_min_width(resp.rect.width() -
-              ui.style().spacing.menu_margin.left as f32 -
-              ui.style().spacing.menu_margin.right as f32);
-            egui::ScrollArea::vertical()
-              .max_height(ui.style().spacing.combo_height)
-              .show(ui, |ui| {
-                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
-                for field in csv_fields {
-                  let braced_field = format!("{{{}}}", field);
-                  if ui.add(egui::Button::selectable(src == &braced_field, &braced_field)).clicked() {
-                    let cursor = src.delete_selected(&edit_output.cursor_range.unwrap_or(
-                      egui::text_selection::CCursorRange::one(
-                        egui::text::CCursor::new(src.chars().count()))
-                    ));
-                    let cursor = cursor.index + src.insert_text(&braced_field, cursor.index);
-                    edit_output.state.cursor.set_char_range(Some(
-                      egui::text_selection::CCursorRange::one(
-                        egui::text::CCursor::new(cursor))
-                    ));
-                    edit_output.response.request_focus();
-                    changed_any = true;
-                  }
-                }
-              }).inner
-          });
-        changed_tex |= edit_output.response.changed();
-        edit_output.state.store(ui.ctx(), edit_output.response.id);
+        let edit_output = egui::TextEdit::singleline(src).show(ui);
+        show_autocomplete(ui, edit_output, src);
         ui.end_row();
       },
       model::Content::Text { family, size, weight, italic, tracking, text } => {
         ui.label(f!("attr-text-text"));
-        let mut edit_output = egui::TextEdit::multiline(text).desired_width(ui.available_width()).show(ui);
-        if let Some((start, end)) = text_sel_range.take() {
-          edit_output.state.cursor.set_char_range(Some(
-            egui::text_selection::CCursorRange::two(
-              egui::text::CCursor::new(start - 1),
-              egui::text::CCursor::new(end + 1),
-            )
-          ));
-          edit_output.state.store(ui.ctx(), edit_output.response.id);
-          edit_output.response.request_focus();
-        }
-        changed_tex |= edit_output.response.changed();
+        let edit_output = egui::TextEdit::multiline(text).desired_width(ui.available_width()).show(ui);
+        show_autocomplete(ui, edit_output, text);
         ui.end_row();
         ui.label(f!("attr-text-family"));
         changed_tex |= Self::font_list_editor(ui, &font_families, family);
