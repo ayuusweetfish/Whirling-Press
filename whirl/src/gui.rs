@@ -261,7 +261,7 @@ impl WhirlApp {
 
   fn load_document<P: AsRef<std::path::Path>>(&mut self, root_path: P, ctx: &egui::Context) {
     let root_path = root_path.as_ref();
-    match self.reload_metadata(root_path) {
+    match self.reload_metadata(root_path, true) {
       Ok(layout) => {
         self.root_path = Some(root_path.to_path_buf());
         ctx.send_viewport_cmd(egui::ViewportCommand::Title(
@@ -282,8 +282,8 @@ impl WhirlApp {
     }
   }
 
-  fn reload_metadata(&mut self, root_path: &std::path::Path) -> Result<model::Layout, crate::ProcessError> {
-    match crate::process_pack_metadata(root_path, true) {
+  fn reload_metadata(&mut self, root_path: &std::path::Path, parse_layout: bool) -> Result<model::Layout, crate::ProcessError> {
+    match crate::process_pack_metadata(root_path, true, parse_layout) {
       Ok((yml_file_name, layout, _, fields)) => {
         self.yml_file_name = Some(yml_file_name);
         self.font_families = crate::render::font_families(Some(root_path));
@@ -335,7 +335,8 @@ impl WhirlApp {
   fn ui_edit(&mut self, ui: &mut egui::Ui) {
     if let Some(watcher) = self.watcher.as_mut() && watcher.take_changed() {
       let root_path = self.root_path.as_ref().unwrap().to_path_buf();
-      match self.reload_metadata(&root_path) {
+      render::invalidate_cached_font_store(&root_path);
+      match self.reload_metadata(&root_path, false) {
         Ok(_layout) => {
           if false {
             // XXX: Only reload when fonts change!
@@ -343,6 +344,7 @@ impl WhirlApp {
               load_texture(ui.ctx(), element_to_image(&root_path, &el))
             }).collect();
           }
+          self.font_families = crate::render::font_families(Some(&root_path));
         }
         Err(e) => {
           self.status_msg = Some((true, std::time::Instant::now(), e.message()));

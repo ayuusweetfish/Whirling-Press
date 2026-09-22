@@ -66,6 +66,12 @@ fn cached_font_store(root: &PathBuf) -> Arc<FontStore> {
     .entry(root.to_path_buf()).or_insert(Arc::new(fonts)).clone()
 }
 
+pub(crate) fn invalidate_cached_font_store(root: &std::path::Path) {
+  if let Some(cache) = FONT_CACHE.get() {
+    cache.lock().unwrap().remove(root);
+  }
+}
+
 // Public-facing font family listing subroutine
 // This is not depended upon by the rest of this module;
 // placed here so that it is easier to maintain parity with actual rendering

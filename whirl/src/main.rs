@@ -266,7 +266,7 @@ enum ProcessError {
   Render(usize, String),
 }
 
-fn process_pack_metadata<P: AsRef<Path>>(path: P, allow_empty_yaml: bool) -> Result<
+fn process_pack_metadata<P: AsRef<Path>>(path: P, allow_empty_yaml: bool, parse_yaml: bool) -> Result<
   (PathBuf, model::Layout, PathBuf, Vec<String>),
   ProcessError>
 {
@@ -286,9 +286,15 @@ fn process_pack_metadata<P: AsRef<Path>>(path: P, allow_empty_yaml: bool) -> Res
       let yaml = std::fs::read_to_string(&yaml_path)
         .map_err(|e| ProcessError::Io(yaml_path.to_path_buf(), e))?;
 
-      let parse_result: Result<model::Layout, _> = serde_saphyr::from_str(&yaml);
-      let layout = parse_result
-        .map_err(|e| ProcessError::ParseYaml(e))?;
+      let layout = if parse_yaml {
+        let parse_result: Result<model::Layout, _> = serde_saphyr::from_str(&yaml);
+        parse_result.map_err(|e| ProcessError::ParseYaml(e))?
+      } else {
+        model::Layout {
+          page: (0., 0.),
+          elements: vec![],
+        }
+      };
       (yaml_file_name, layout)
     }
   };
@@ -305,10 +311,10 @@ fn process_pack<P: AsRef<Path>, R, F: FnOnce(P, &str) -> Result<R, render::Rende
   let owned_layout;
   let (layout, csv_file_name, list_fields) =
     if let Some(layout) = layout {
-      let (_, _, csv_file_name, list_fields) = process_pack_metadata(&path, false)?;
+      let (_, _, csv_file_name, list_fields) = process_pack_metadata(&path, false, true)?;
       (layout, csv_file_name, list_fields)
     } else {
-      let (_, layout, csv_file_name, list_fields) = process_pack_metadata(&path, false)?;
+      let (_, layout, csv_file_name, list_fields) = process_pack_metadata(&path, false, true)?;
       owned_layout = layout;
       (&owned_layout, csv_file_name, list_fields)
     };
