@@ -951,7 +951,14 @@ impl WhirlApp {
               for option in csv_fields.iter().map(|field| Cow::Owned(format!("{{{}}}", field)))
                 .chain(extras.into_iter().map(Cow::Borrowed))
               {
-                if ui.add(egui::Button::selectable(*src == *option, &*option)).clicked() {
+                let menu_resp = ui.add(egui::Button::selectable(*src == *option, &*option));
+                if (resp.gained_focus() || resp.changed()) &&
+                  src.len() > 0 && option.starts_with(&*src)
+                {
+                  menu_resp.scroll_to_me_animation(None,
+                    egui::style::ScrollAnimation::new(1500., egui::Rangef::new(0.1, 0.15)));
+                }
+                if menu_resp.clicked() {
                   let cursor = src.delete_selected(&edit_output.cursor_range.unwrap_or(
                     egui::text_selection::CCursorRange::one(
                       egui::text::CCursor::new(src.chars().count()))
