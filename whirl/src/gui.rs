@@ -956,11 +956,11 @@ impl WhirlApp {
         }
       }
       Some((
-        text.char_index_from_byte_index((open + 1).into()).into(),
-        text.char_index_from_byte_index(end.into()).into(),
+        text.char_index_from_byte_index(open.into()).into(),
+        text.char_index_from_byte_index((end + 1).into()).into(),
       ))
     }
-    fn show_autocomplete(ui: &egui::Ui, edit_output: egui::widgets::text_edit::TextEditOutput, src: &mut String, text_sel_range: &mut Option<(usize, usize)>, csv_fields: &[String], extras: &[String]) -> bool {
+    fn show_autocomplete(ui: &egui::Ui, edit_output: egui::widgets::text_edit::TextEditOutput, src: &mut String, text_sel_range: &mut Option<(usize, usize)>, replace_range: Option<(usize, usize)>, csv_fields: &[String], extras: &[String]) -> bool {
       let mut edit_output = edit_output;
       if let Some((start, end)) = text_sel_range.take() {
         edit_output.state.cursor.set_char_range(Some(
@@ -985,14 +985,15 @@ impl WhirlApp {
             .max_height(ui.style().spacing.combo_height)
             .show(ui, |ui| {
               ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
+              use std::borrow::Cow;
               let full_match =
                 csv_fields.iter().map(|field| Cow::Owned(format!("{{{}}}", field)))
                   .chain(extras.into_iter().map(Cow::Borrowed))
                   .any(|option| *src == *option);
-              use std::borrow::Cow;
               for option in csv_fields.iter().map(|field| Cow::Owned(format!("{{{}}}", field)))
                 .chain(extras.into_iter().map(Cow::Borrowed))
               {
+                let replaces_all = matches!(option, Cow::Borrowed(_));
                 let menu_resp = ui.add(egui::Button::selectable(*src == *option, &*option));
                 if (resp.gained_focus() || resp.changed()) &&
                   src.len() > 0 && option.starts_with(&*src)
@@ -1001,15 +1002,27 @@ impl WhirlApp {
                     egui::style::ScrollAnimation::new(1500., egui::Rangef::new(0.1, 0.15)));
                 }
                 if menu_resp.clicked() {
-                  let cursor = src.delete_selected(&if full_match {
+                  let replace_range = replace_range.map(|(start, end)|
+                    egui::text_selection::CCursorRange::two(
+                      egui::text::CCursor::new(start),
+                      egui::text::CCursor::new(end),
+                    )
+                  );
+                  let cursor = src.delete_selected(&if replaces_all || full_match {
                     egui::text_selection::CCursorRange::two(
                       egui::text::CCursor::new(0),
                       egui::text::CCursor::new(src.chars().count()),
                     )
+                  } else if let Some(r) = edit_output.cursor_range && !r.is_empty() &&
+                    (replace_range.is_none() || !replace_range.unwrap().contains(r))
+                  {
+                    r
+                  } else if let Some(r) = replace_range {
+                    r
                   } else {
-                    edit_output.cursor_range.unwrap_or(
-                      egui::text_selection::CCursorRange::one(
-                        egui::text::CCursor::new(src.chars().count())))
+                    egui::text_selection::CCursorRange::one(
+                      egui::text::CCursor::new(src.chars().count())
+                    )
                   });
                   let cursor = cursor.index + src.insert_text(&option, cursor.index);
                   edit_output.state.cursor.set_char_range(Some(
@@ -1029,7 +1042,10 @@ impl WhirlApp {
       model::Content::Image { src } => {
         ui.label(f!("attr-image-source"));
         let edit_output = egui::TextEdit::singleline(src).show(ui);
-        changed_tex |= show_autocomplete(ui, edit_output, src, text_sel_range, csv_fields, &asset_files);
+        let range = if let Some(c) = edit_output.state.cursor.char_range() {
+          field_range(src, c.primary.index.into())
+        } else { None };
+        changed_tex |= show_autocomplete(ui, edit_output, src, text_sel_range, range, csv_fields, &asset_files);
         ui.end_row();
       },
       model::Content::Text { family, size, weight, italic, tracking, text } => {
@@ -1039,7 +1055,7 @@ impl WhirlApp {
           field_range(text, c.primary.index.into())
         } else { None };
         if range.is_some() {
-          changed_tex |= show_autocomplete(ui, edit_output, text, text_sel_range, csv_fields, &[]);
+          changed_tex |= show_autocomplete(ui, edit_output, text, text_sel_range, range, csv_fields, &[]);
         } else {
           changed_tex |= edit_output.response.changed();
         }
