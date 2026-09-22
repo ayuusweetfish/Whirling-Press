@@ -261,35 +261,37 @@ impl WhirlApp {
 
   fn load_document<P: AsRef<std::path::Path>>(&mut self, root_path: P, ctx: &egui::Context) {
     let root_path = root_path.as_ref();
-    if let Ok(layout) = self.reload_metadata(root_path) {
-      self.root_path = Some(root_path.to_path_buf());
-      ctx.send_viewport_cmd(egui::ViewportCommand::Title(
-        format!("{} — Whirling Press", root_path.display())));
+    match self.reload_metadata(root_path) {
+      Ok(layout) => {
+        self.root_path = Some(root_path.to_path_buf());
+        ctx.send_viewport_cmd(egui::ViewportCommand::Title(
+          format!("{} — Whirling Press", root_path.display())));
 
-      self.just_loaded = true;
-      self.edited = false;
-      self.element_texs = layout.elements.iter().map(|el| {
-        load_texture(ctx, element_to_image(root_path, &el))
-      }).collect();
+        self.just_loaded = true;
+        self.edited = false;
+        self.element_texs = layout.elements.iter().map(|el| {
+          load_texture(ctx, element_to_image(root_path, &el))
+        }).collect();
 
-      self.layout = Some(layout);
+        self.layout = Some(layout);
+        self.status_msg = None;
+      }
+      Err(e) => {
+        self.status_msg = Some((true, std::time::Instant::now(), e.message()));
+      }
     }
   }
 
-  fn reload_metadata(&mut self, root_path: &std::path::Path) -> Result<model::Layout, ()> {
+  fn reload_metadata(&mut self, root_path: &std::path::Path) -> Result<model::Layout, crate::ProcessError> {
     match crate::process_pack_metadata(root_path, true) {
       Ok((yml_file_name, layout, _, fields)) => {
         self.yml_file_name = Some(yml_file_name);
         self.font_families = crate::render::font_families(Some(root_path));
         self.csv_fields = fields;
-        self.status_msg = None;
         self.watcher = dir_watcher::DirWatcher::new(root_path).ok();
         Ok(layout)
       },
-      Err(e) => {
-        self.status_msg = Some((true, std::time::Instant::now(), e.message()));
-        Err(())
-      },
+      Err(e) => Err(e),
     }
   }
 
@@ -332,7 +334,20 @@ impl WhirlApp {
 
   fn ui_edit(&mut self, ui: &mut egui::Ui) {
     if let Some(watcher) = self.watcher.as_mut() && watcher.take_changed() {
-      println!("Directory changed!");
+      let root_path = self.root_path.as_ref().unwrap().to_path_buf();
+      match self.reload_metadata(&root_path) {
+        Ok(_layout) => {
+          if false {
+            // XXX: Only reload when fonts change!
+            self.element_texs = self.layout.as_ref().unwrap().elements.iter().map(|el| {
+              load_texture(ui.ctx(), element_to_image(&root_path, &el))
+            }).collect();
+          }
+        }
+        Err(e) => {
+          self.status_msg = Some((true, std::time::Instant::now(), e.message()));
+        }
+      }
     }
 
     use egui::{Layout, Align, Grid};
