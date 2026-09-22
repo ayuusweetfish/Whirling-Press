@@ -6313,6 +6313,7 @@ dependencies = [
  "typst-layout",
  "typst-pdf",
  "typst-render",
+ "walkdir",
 ]
 
 [[package]]

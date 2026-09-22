@@ -192,25 +192,32 @@ enum FindSingleError {
 }
 
 fn find_single_ext<P: AsRef<Path>>(dir: P, ext: &[&str]) -> Result<PathBuf, FindSingleError> {
-  let mut yml_files = std::fs::read_dir(&dir)
-    .map_err(|e| FindSingleError::Io(e))?
-    .flat_map(|entry| {
-      if let Ok(entry) = entry {
-        let path = entry.path();
-        if path.is_file() && path.extension().map_or(false,
-            |file_ext| ext.iter().any(|target_ext| file_ext == *target_ext)) {
-          Some(path.strip_prefix(&dir).unwrap().to_path_buf())
-        } else {
-          None
-        }
-      } else {
-        None
-      }
-    });
+  let dir = dir.as_ref();
 
-  let first = yml_files.next();
+  let mut walk = walkdir::WalkDir::new(dir).follow_links(true).into_iter().peekable();
+
+  if let Some(Err(err)) = walk.peek() {
+    if err.depth() == 0 {
+      let err = walk.next().unwrap().unwrap_err();
+      return Err(FindSingleError::Io(
+        err.into_io_error()
+          .unwrap_or_else(|| std::io::Error::other("walkdir root error")),
+      ));
+    }
+  }
+
+  let mut files = walk
+    .filter_map(Result::ok)   // Deeper errors fail silently
+    .filter(|e| {
+      e.file_type().is_file() &&
+      e.path().extension()
+        .map_or(false, |file_ext| ext.iter().any(|target_ext| file_ext == *target_ext))
+    })
+    .map(|e| e.path().strip_prefix(dir).unwrap().to_path_buf());
+
+  let first = files.next();
   if let Some(path) = first {
-    if yml_files.next().is_none() {
+    if files.next().is_none() {
       Ok(path)
     } else {
       Err(FindSingleError::MultipleFound)
