@@ -926,6 +926,40 @@ impl WhirlApp {
     });
     ui.end_row();
     use egui::TextBuffer;
+    fn field_range(text: &str, cursor: usize) -> Option<(usize, usize)> {
+      if cursor > text.chars().count() {
+        return None;
+      }
+      let byte_cursor = text.byte_index_from_char_index(cursor.into()).into();
+      let bytes = text.as_bytes();
+      let mut open = None;
+      for i in (0..byte_cursor).rev() {
+        match bytes[i] {
+          b'}' => return None,
+          b'{' => {
+            open = Some(i);
+            break;
+          }
+          _ => {}
+        }
+      }
+      let open = open?;
+      let mut end = text.len();
+      for j in byte_cursor..text.len() {
+        match bytes[j] {
+          b'}' => {
+            end = j;
+            break;
+          }
+          b'{' => return None,
+          _ => {}
+        }
+      }
+      Some((
+        text.char_index_from_byte_index((open + 1).into()).into(),
+        text.char_index_from_byte_index(end.into()).into(),
+      ))
+    }
     fn show_autocomplete(ui: &egui::Ui, edit_output: egui::widgets::text_edit::TextEditOutput, src: &mut String, text_sel_range: &mut Option<(usize, usize)>, csv_fields: &[String], extras: &[String]) -> bool {
       let mut edit_output = edit_output;
       if let Some((start, end)) = text_sel_range.take() {
@@ -938,7 +972,11 @@ impl WhirlApp {
         edit_output.response.request_focus();
       }
       let resp = &mut edit_output.response;
-      egui::Popup::menu(&resp).id(ui.id().with("completion_src"))
+      egui::Popup::from_response(&resp).id(ui.id().with("completion_src"))
+        .open_memory(resp.has_focus().then_some(egui::containers::SetOpenCommand::Bool(true)))
+        .kind(egui::PopupKind::Menu)
+        .layout(egui::Layout::top_down_justified(egui::Align::Min))
+        .style(egui::containers::menu::menu_style)
         .show(|ui| {
           ui.set_min_width(resp.rect.width() -
             ui.style().spacing.menu_margin.left as f32 -
@@ -947,6 +985,10 @@ impl WhirlApp {
             .max_height(ui.style().spacing.combo_height)
             .show(ui, |ui| {
               ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
+              let full_match =
+                csv_fields.iter().map(|field| Cow::Owned(format!("{{{}}}", field)))
+                  .chain(extras.into_iter().map(Cow::Borrowed))
+                  .any(|option| *src == *option);
               use std::borrow::Cow;
               for option in csv_fields.iter().map(|field| Cow::Owned(format!("{{{}}}", field)))
                 .chain(extras.into_iter().map(Cow::Borrowed))
@@ -959,10 +1001,16 @@ impl WhirlApp {
                     egui::style::ScrollAnimation::new(1500., egui::Rangef::new(0.1, 0.15)));
                 }
                 if menu_resp.clicked() {
-                  let cursor = src.delete_selected(&edit_output.cursor_range.unwrap_or(
-                    egui::text_selection::CCursorRange::one(
-                      egui::text::CCursor::new(src.chars().count()))
-                  ));
+                  let cursor = src.delete_selected(&if full_match {
+                    egui::text_selection::CCursorRange::two(
+                      egui::text::CCursor::new(0),
+                      egui::text::CCursor::new(src.chars().count()),
+                    )
+                  } else {
+                    edit_output.cursor_range.unwrap_or(
+                      egui::text_selection::CCursorRange::one(
+                        egui::text::CCursor::new(src.chars().count())))
+                  });
                   let cursor = cursor.index + src.insert_text(&option, cursor.index);
                   edit_output.state.cursor.set_char_range(Some(
                     egui::text_selection::CCursorRange::one(
@@ -987,7 +1035,14 @@ impl WhirlApp {
       model::Content::Text { family, size, weight, italic, tracking, text } => {
         ui.label(f!("attr-text-text"));
         let edit_output = egui::TextEdit::multiline(text).desired_width(ui.available_width()).show(ui);
-        changed_tex |= show_autocomplete(ui, edit_output, text, text_sel_range, csv_fields, &[]);
+        let range = if let Some(c) = edit_output.state.cursor.char_range() {
+          field_range(text, c.primary.index.into())
+        } else { None };
+        if range.is_some() {
+          changed_tex |= show_autocomplete(ui, edit_output, text, text_sel_range, csv_fields, &[]);
+        } else {
+          changed_tex |= edit_output.response.changed();
+        }
         ui.end_row();
         ui.label(f!("attr-text-family"));
         changed_tex |= Self::font_list_editor(ui, &font_families, family);
