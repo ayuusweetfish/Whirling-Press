@@ -6,6 +6,7 @@ use std::thread::JoinHandle;
 
 pub struct DirWatcher {
   flag: Arc<AtomicBool>,
+  flag_yml: Arc<AtomicBool>,
   // `Option`-wrapped for ordered dropping
   thread: Option<JoinHandle<()>>,
   watcher: Option<notify::RecommendedWatcher>,
@@ -20,6 +21,8 @@ impl DirWatcher {
 
     let flag = Arc::new(AtomicBool::new(false));
     let flag_t = Arc::clone(&flag);
+    let flag_yml = Arc::new(AtomicBool::new(false));
+    let flag_yml_t = Arc::clone(&flag_yml);
 
     let thread = std::thread::spawn(move || {
       for res in rx {
@@ -27,7 +30,13 @@ impl DirWatcher {
           Ok(event) =>
             // Previous `watcher.configure()` may fail; filter here to ensure
             if EventKindMask::CORE.matches(&event.kind) {
-              flag_t.store(true, Ordering::Release);
+              for path in event.paths {
+                if path.extension().map_or(false, |ext| ext == "yml" || ext == "yaml") {
+                  flag_yml_t.store(true, Ordering::Release);
+                } else {
+                  flag_t.store(true, Ordering::Release);
+                }
+              }
             }
           Err(e) => eprintln!("notify::Watcher error: {:?}", e),
         }
@@ -36,13 +45,17 @@ impl DirWatcher {
 
     Ok(Self {
       flag,
+      flag_yml,
       thread: Some(thread),
       watcher: Some(watcher),
     })
   }
 
-  pub fn take_changed(&self) -> bool {
-    self.flag.swap(false, Ordering::AcqRel)
+  pub fn take_changed(&self) -> (bool, bool) {
+    (
+      self.flag.swap(false, Ordering::AcqRel),
+      self.flag_yml.swap(false, Ordering::AcqRel),
+    )
   }
 }
 

@@ -339,26 +339,31 @@ impl WhirlApp {
   }
 
   fn ui_edit(&mut self, ui: &mut egui::Ui) {
-    if let Some(watcher) = self.watcher.as_mut() && watcher.take_changed() {
+    if let Some(watcher) = self.watcher.as_mut() &&
+      let (flag_others, flag_yml) = watcher.take_changed() && (flag_others || flag_yml)
+    {
       let root_path = self.root_path.as_ref().unwrap().to_path_buf();
       render::invalidate_cached_font_store(&root_path);
       match self.reload_metadata(&root_path, false) {
         Ok(_layout) => {
-          let old_tag = self.font_families_tag;
-          (self.font_families, self.font_families_tag) =
-            crate::render::font_families(Some(&root_path));
-          if self.font_families_tag != old_tag {
-            // Fonts changed; re-render text elements
-            for (el, tex) in self.layout.as_ref().unwrap().elements.iter().zip(self.element_texs.iter_mut()) {
-              if let model::Content::Text { .. } = &el.content {
-                *tex = load_texture(ui.ctx(), element_to_image(&root_path, el));
+          if flag_others {
+            // Process changed asset files
+            let old_tag = self.font_families_tag;
+            (self.font_families, self.font_families_tag) =
+              crate::render::font_families(Some(&root_path));
+            if self.font_families_tag != old_tag {
+              // Fonts changed; re-render text elements
+              for (el, tex) in self.layout.as_ref().unwrap().elements.iter().zip(self.element_texs.iter_mut()) {
+                if let model::Content::Text { .. } = &el.content {
+                  *tex = load_texture(ui.ctx(), element_to_image(&root_path, el));
+                }
               }
             }
-          }
-          // Unconditionally re-render image elements
-          for (el, tex) in self.layout.as_ref().unwrap().elements.iter().zip(self.element_texs.iter_mut()) {
-            if let model::Content::Image { .. } = &el.content {
-              *tex = load_texture(ui.ctx(), element_to_image(&root_path, el));
+            // Unconditionally re-render image elements
+            for (el, tex) in self.layout.as_ref().unwrap().elements.iter().zip(self.element_texs.iter_mut()) {
+              if let model::Content::Image { .. } = &el.content {
+                *tex = load_texture(ui.ctx(), element_to_image(&root_path, el));
+              }
             }
           }
         }
