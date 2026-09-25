@@ -25,6 +25,7 @@ struct WhirlApp {
   layout: Option<model::Layout>,
   font_families: Vec<String>,
   font_families_tag: u64,
+  csv_file_name: Option<std::path::PathBuf>,
   csv_fields: Vec<String>,
   asset_files: Vec<String>,
   just_loaded: bool,
@@ -244,6 +245,7 @@ impl WhirlApp {
       layout: None,
       font_families,
       font_families_tag,
+      csv_file_name: None,
       csv_fields: vec![],
       asset_files: vec![],
       just_loaded: false,
@@ -298,8 +300,9 @@ impl WhirlApp {
 
   fn reload_metadata(&mut self, root_path: &std::path::Path, parse_layout: bool) -> Result<model::Layout, crate::ProcessError> {
     match crate::process_pack_metadata(root_path, true, parse_layout) {
-      Ok((yml_file_name, layout, _, fields)) => {
+      Ok((yml_file_name, layout, csv_file_name, fields)) => {
         self.yml_file_name = Some(yml_file_name);
+        self.csv_file_name = Some(csv_file_name);
         self.csv_fields = fields;
 
         // Traverse to refresh files list
@@ -882,8 +885,8 @@ impl WhirlApp {
           });
       });
 
-    if ui.input_mut(|i| i.consume_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::Z))) {
-      println!("undo");
+    if ui.input_mut(|i| i.consume_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::NONE, egui::Key::Delete))) {
+      println!("remove");
     }
   }
 
@@ -1319,6 +1322,18 @@ impl eframe::App for WhirlApp {
                   }
                   egui::Popup::close_id(ui.ctx(), popup_id);
                 }
+                ui.separator();
+                if ui.add(egui::Button::new(format!("📂 {}", f!("menu-open-content-folder")))).clicked() {
+                  if let Err(e) = opener::open(&self.root_path.as_ref().unwrap()) {
+                    self.status_msg = Some((true, std::time::Instant::now(), f!("status-open-error", message => format!("{}", e))));
+                  }
+                }
+                if ui.add(egui::Button::new(format!("📂 {}", f!("menu-open-spreadsheet")))).clicked() {
+                  if let Err(e) = opener::reveal(&self.root_path.as_ref().unwrap().join(self.csv_file_name.as_ref().unwrap())) {
+                    self.status_msg = Some((true, std::time::Instant::now(), f!("status-open-error", message => format!("{}", e))));
+                  }
+                }
+                ui.separator();
                 if ui.add(egui::Button::new(format!("⬅️ {}", f!("menu-close"))).shortcut_text(ui.ctx().format_shortcut(&close_shortcut))).clicked() {
                   to_close = true;
                   egui::Popup::close_id(ui.ctx(), popup_id);
@@ -1420,6 +1435,7 @@ impl eframe::App for WhirlApp {
             self.root_path = None;
             self.status_msg = None;
             self.yml_file_name = None;
+            self.csv_file_name = None;
             self.layout = None;
             self.edited = false;
             self.font_families.clear();

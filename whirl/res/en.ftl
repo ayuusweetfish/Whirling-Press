@@ -21,6 +21,8 @@ menu-page-size = Page size
 menu-save = Save
 menu-export-pdf = Export PDF…
 menu-export-pdf-seq = Export PDF sequence…
+menu-open-content-folder = Open content folder
+menu-open-spreadsheet = Show spreadsheet file
 menu-close = Close
 
 status-num-elements = {$n ->
@@ -32,6 +34,7 @@ status-saved = Saved {$path}
 status-exported = Exported {$path}
 status-nonexistent-field = Nonexistent field {"{"}{$name}{"}"}
 status-compilation-error = Compilation failed: {$message}
+status-open-error = Failed to open: {$message}
 
 status-button-theme = Switch colour theme
 status-button-language = Language / 语言
