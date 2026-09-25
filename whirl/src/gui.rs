@@ -1323,12 +1323,12 @@ impl eframe::App for WhirlApp {
                   egui::Popup::close_id(ui.ctx(), popup_id);
                 }
                 ui.separator();
-                if ui.add(egui::Button::new(format!("📂 {}", f!("menu-open-content-folder")))).clicked() {
+                if ui.add(egui::Button::new(format!("📂 {}", f!("menu-show-content-folder")))).clicked() {
                   if let Err(e) = opener::open(&self.root_path.as_ref().unwrap()) {
                     self.status_msg = Some((true, std::time::Instant::now(), f!("status-open-error", message => format!("{}", e))));
                   }
                 }
-                if ui.add(egui::Button::new(format!("📂 {}", f!("menu-open-spreadsheet")))).clicked() {
+                if ui.add(egui::Button::new(format!("📂 {}", f!("menu-show-spreadsheet")))).clicked() {
                   if let Err(e) = opener::reveal(&self.root_path.as_ref().unwrap().join(self.csv_file_name.as_ref().unwrap())) {
                     self.status_msg = Some((true, std::time::Instant::now(), f!("status-open-error", message => format!("{}", e))));
                   }

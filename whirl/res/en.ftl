@@ -21,8 +21,8 @@ menu-page-size = Page size
 menu-save = Save
 menu-export-pdf = Export PDF…
 menu-export-pdf-seq = Export PDF sequence…
-menu-open-content-folder = Open content folder
-menu-open-spreadsheet = Show spreadsheet file
+menu-show-content-folder = Open content folder
+menu-show-spreadsheet = Show spreadsheet file
 menu-close = Close
 
 status-num-elements = {$n ->

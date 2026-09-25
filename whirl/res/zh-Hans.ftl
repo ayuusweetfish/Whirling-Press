@@ -21,8 +21,8 @@ menu-page-size = 页面尺寸
 menu-save = 保存
 menu-export-pdf = 导出 PDF…
 menu-export-pdf-seq = 导出 PDF 序列…
-menu-open-content-folder = 打开内容文件夹
-menu-open-spreadsheet = 显示数据表格文件
+menu-show-content-folder = 打开内容文件夹
+menu-show-spreadsheet = 显示数据表格文件
 menu-close = 关闭
 
 status-num-elements = {$n} 个元素
