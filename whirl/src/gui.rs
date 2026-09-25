@@ -396,6 +396,19 @@ impl WhirlApp {
       }
     }
 
+    if !ui.ctx().egui_wants_keyboard_input() && ui.input_mut(|i|
+      i.consume_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::NONE, egui::Key::Delete)) ||
+      i.consume_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::NONE, egui::Key::Backspace))
+    ) {
+      if let Some(i) = self.sel_element {
+        // XXX: DRY
+        self.layout.as_mut().unwrap().elements.remove(i);
+        drop(self.element_texs.remove(i));
+        self.sel_element = None;
+        self.edited = true;
+      }
+    }
+
     use egui::{Layout, Align, Grid};
 
     let mut sel_element_pan = false;
@@ -884,10 +897,6 @@ impl WhirlApp {
             }
           });
       });
-
-    if ui.input_mut(|i| i.consume_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::NONE, egui::Key::Delete))) {
-      println!("remove");
-    }
   }
 
   fn show_attrs(ui: &mut egui::Ui, font_families: &[String], csv_fields: &[String], asset_files: &[String], el: &mut model::Element, zoom: f32, text_sel_range: &mut Option<(usize, usize)>) -> (bool, bool) {
