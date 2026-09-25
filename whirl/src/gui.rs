@@ -42,6 +42,8 @@ struct WhirlApp {
   attrs_panel_h: f32,
   attrs_panel_drag_offs: f32,
   watcher: Option<dir_watcher::DirWatcher>,
+  undo_stack: std::collections::VecDeque<Operation>,
+  redo_stack: std::collections::VecDeque<Operation>,
 }
 
 struct CanvasState {
@@ -53,6 +55,93 @@ impl Default for CanvasState {
     Self {
       zoom: 1.0,
       origin: (0.0, 0.0),
+    }
+  }
+}
+
+pub enum Operation {
+  AddElement { i: usize, element: model::Element },
+  RemoveElement { i: usize },
+  SwapElements { i: usize, j: usize },
+  ChangeElement { i: usize, element: model::Element, retex: bool },
+  ChangePageSize { page_size: (f32, f32) },
+  Sequence(Vec<Operation>),
+}
+
+impl WhirlApp {
+  // Applies an operation and returns the inverse operation
+  fn op_apply(&mut self, ctx: &egui::Context, op: Operation) -> Operation {
+    use Operation::*;
+    match op {
+      AddElement { i, element } => {
+        self.element_texs.insert(i,
+          load_texture(ctx, element_to_image(self.root_path.as_ref().unwrap(), &element)));
+        self.layout.as_mut().unwrap().elements.insert(i, element);
+        match self.sel_element {
+          Some(j) if j >= i => self.sel_element = Some(j + 1),
+          _ => (),
+        }
+        RemoveElement { i }
+      },
+      RemoveElement { i } => {
+        let element = self.layout.as_mut().unwrap().elements.remove(i);
+        self.element_texs.remove(i);
+        match self.sel_element {
+          Some(j) if j == i => self.sel_element = None,
+          Some(j) if j > i => self.sel_element = Some(j - 1),
+          _ => (),
+        }
+        AddElement { i, element }
+      },
+      SwapElements { i, j } => {
+        self.layout.as_mut().unwrap().elements.swap(i, j);
+        self.element_texs.swap(i, j);
+        match self.sel_element {
+          Some(k) if k == i => self.sel_element = Some(j),
+          Some(k) if k == j => self.sel_element = Some(i),
+          _ => (),
+        }
+        SwapElements { i, j }
+      },
+      ChangeElement { i, element, retex } => {
+        if retex {
+          self.element_texs[i] = load_texture(ctx, element_to_image(self.root_path.as_ref().unwrap(), &element));
+        }
+        let old = std::mem::replace(
+          &mut self.layout.as_mut().unwrap().elements[i],
+          element,
+        );
+        ChangeElement { i, element: old, retex }
+      },
+      ChangePageSize { page_size } => {
+        let old = self.layout.as_mut().unwrap().page;
+        self.layout.as_mut().unwrap().page = page_size;
+        ChangePageSize { page_size: old }
+      },
+      Sequence(seq) => {
+        let inv = seq.into_iter().map(|op| self.op_apply(ctx, op)).rev().collect();
+        Sequence(inv)
+      },
+    }
+  }
+
+  fn op(&mut self, ctx: &egui::Context, op: Operation) {
+    let inv_op = self.op_apply(ctx, op);
+    self.undo_stack.push_back(inv_op);
+    self.redo_stack.clear();
+  }
+
+  fn undo(&mut self, ctx: &egui::Context) {
+    if let Some(op) = self.undo_stack.pop_back() {
+      let inv_op = self.op_apply(ctx, op);
+      self.redo_stack.push_back(inv_op);
+    }
+  }
+
+  fn redo(&mut self, ctx: &egui::Context) {
+    if let Some(op) = self.redo_stack.pop_back() {
+      let inv_op = self.op_apply(ctx, op);
+      self.undo_stack.push_back(inv_op);
     }
   }
 }
@@ -261,6 +350,8 @@ impl WhirlApp {
       attrs_panel_h: 400.,
       attrs_panel_drag_offs: 0.,
       watcher: None,
+      undo_stack: Default::default(),
+      redo_stack: Default::default(),
     };
 
     if let Some(root_path) = root_path {
@@ -397,25 +488,35 @@ impl WhirlApp {
     }
 
     if !ui.ctx().egui_wants_keyboard_input() && ui.input_mut(|i|
+      i.consume_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::SHIFT | egui::Modifiers::CTRL, egui::Key::Z)) ||
+      i.consume_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::Y))
+    ) {
+      self.redo(ui.ctx());
+    }
+    if !ui.ctx().egui_wants_keyboard_input() && ui.input_mut(|i| i.consume_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::Z))) {
+      self.undo(ui.ctx());
+    }
+
+    if !ui.ctx().egui_wants_keyboard_input() && ui.input_mut(|i|
       i.consume_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::NONE, egui::Key::Delete)) ||
       i.consume_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::NONE, egui::Key::Backspace))
     ) {
       if let Some(i) = self.sel_element {
-        // XXX: DRY
-        self.layout.as_mut().unwrap().elements.remove(i);
-        drop(self.element_texs.remove(i));
-        self.sel_element = None;
+        self.op(ui.ctx(), Operation::RemoveElement { i: i });
         self.edited = true;
       }
     }
+
+    let mut ops = vec![];
 
     use egui::{Layout, Align, Grid};
 
     let mut sel_element_pan = false;
 
+    let mut attr_panel_expanded = self.attr_panel_expanded;
     egui::Panel::right("attr_panel")
       .resizable(true).default_size(320.0).size_range(80.0..=800.0)
-      .show_collapsible(ui, &mut self.attr_panel_expanded, |ui| {
+      .show_collapsible(ui, &mut attr_panel_expanded, |ui| {
         let panel_avail_h = ui.available_height();
         egui::ScrollArea::vertical().id_salt(self.sel_element).max_height(self.attrs_panel_h - 6.).show(ui, |ui| {
           ui.with_layout(Layout::top_down_justified(Align::Min), |ui| {
@@ -488,8 +589,6 @@ impl WhirlApp {
         ui.allocate_ui(ui.available_size(), |ui| {
           egui::ScrollArea::vertical().show(ui, |ui| {
             ui.heading(f!("elements"));
-            let layout = &mut self.layout.as_mut().unwrap();
-            let elements = &mut layout.elements;
             // Button for adding new
             let add_resp = ui.add_sized(
               [ui.available_width(), ui.style().spacing.interact_size.y],
@@ -514,35 +613,40 @@ impl WhirlApp {
                   }
                 }
                 if ui.add(egui::Button::selectable(false, format!("🖼️ {}", f!("attr-heading-image")))).clicked() {
-                  elements.push(new_element(layout.page, self.canvas.origin, model::Content::Image {
-                    src: "".to_string(),
-                  }));
-                  self.element_texs.push(
-                    load_texture(ui.ctx(), element_to_image(self.root_path.as_ref().unwrap(), &elements.last().unwrap()))
-                  );
+                  let layout = &mut self.layout.as_mut().unwrap();
+                  let n = layout.elements.len();
+                  let page_size = layout.page;
+                  self.op(ui.ctx(), Operation::AddElement { i: n, element:
+                    new_element(page_size, self.canvas.origin, model::Content::Image {
+                      src: "".to_string(),
+                    })
+                  });
                   self.edited = true;
-                  self.sel_element = Some(elements.len() - 1);
+                  self.sel_element = Some(n);
                 }
                 if ui.add(egui::Button::selectable(false, format!("💬 {}", f!("attr-heading-text")))).clicked() {
-                  elements.push(new_element(layout.page, self.canvas.origin, model::Content::Text {
-                    family: vec![self.font_families[0].clone()],
-                    size: 16.0,
-                    weight: model::Weight::Regular,
-                    italic: false,
-                    tracking: 0.0,
-                    text: "".to_string(),
-                  }));
-                  self.element_texs.push(
-                    load_texture(ui.ctx(), element_to_image(self.root_path.as_ref().unwrap(), &elements.last().unwrap()))
-                  );
+                  let layout = &mut self.layout.as_mut().unwrap();
+                  let n = layout.elements.len();
+                  let page_size = layout.page;
+                  self.op(ui.ctx(), Operation::AddElement { i: n, element:
+                    new_element(page_size, self.canvas.origin, model::Content::Text {
+                      family: vec![self.font_families[0].clone()],
+                      size: 16.0,
+                      weight: model::Weight::Regular,
+                      italic: false,
+                      tracking: 0.0,
+                      text: "".to_string(),
+                    })
+                  });
                   self.edited = true;
-                  self.sel_element = Some(elements.len() - 1);
+                  self.sel_element = Some(n);
                 }
               });
             // List
             let mut to_prioritize = None;
             let mut to_remove = None;
-            for (i, el) in elements.iter().enumerate().rev() {
+            let n = self.layout.as_mut().unwrap().elements.len();
+            for (i, el) in self.layout.as_ref().unwrap().elements.iter().enumerate().rev() {
               let sel = self.sel_element.map_or(false, |j| j == i);
               ui.horizontal(|ui| {
                 let resp = ui.add_sized(
@@ -563,7 +667,7 @@ impl WhirlApp {
                   self.sel_element = Some(i);
                   sel_element_pan = true;
                 }
-                if i + 1 == elements.len() {
+                if i + 1 == n {
                   ui.add_space(h + ui.style().spacing.item_spacing.x);
                 } else {
                   if ui.add_sized([h, h], egui::Button::new("⌃")).on_hover_text(f!("list-move-up")).clicked() {
@@ -576,28 +680,21 @@ impl WhirlApp {
               });
             }
             if let Some(i) = to_prioritize {
-              elements.swap(i, i + 1);
-              self.element_texs.swap(i, i + 1);
-              match self.sel_element {
-                Some(j) if j == i => self.sel_element = Some(i + 1),
-                Some(j) if j == i + 1 => self.sel_element = Some(i),
-                _ => (),
-              }
+              self.op(ui.ctx(), Operation::SwapElements { i: i, j: i + 1 });
               self.edited = true;
             }
             if let Some(i) = to_remove {
-              elements.remove(i);
-              drop(self.element_texs.remove(i));
-              match self.sel_element {
-                Some(j) if j == i => self.sel_element = None,
-                Some(j) if j > i => self.sel_element = Some(j - 1),
-                _ => (),
-              }
+              self.op(ui.ctx(), Operation::RemoveElement { i: i });
               self.edited = true;
             }
           });
         });
       });
+    self.attr_panel_expanded = attr_panel_expanded;
+
+    for op in ops.drain(..) {
+      self.op(ui.ctx(), op);
+    }
 
     // Both central and canvas
     let (c_width, c_height) = ui.available_size().into();
@@ -1451,6 +1548,8 @@ impl eframe::App for WhirlApp {
             self.font_families.clear();
             self.element_texs.clear();
             self.watcher = None;
+            self.undo_stack.clear();
+            self.redo_stack.clear();
           }
         }
       });
