@@ -31,7 +31,8 @@ struct WhirlApp {
   edited: bool,
   sel_element: Option<usize>,
   sel_element_scroll: bool,
-  dragged_element: Option<usize>,
+  dragged_element: Option<(usize, (f32, f32), (f32, f32))>,
+    // index, starting position, total dragged distance
   element_texs: Vec<SafeTextureHandle>,
   canvas: CanvasState,
   close_confirming: bool,
@@ -601,6 +602,19 @@ impl WhirlApp {
       }
     }
 
+    let (pos_move_precision, pos_round_precision) =
+      match (100. / self.canvas.zoom).round_ties_even().clamp(1., 100.) {
+        t if t < 6. => (t, 1.),
+        _ => (10., 10.),
+      /*
+        t if t < 20. => (10., 10.),
+        t if t < 60. => (10. * (t / 10.).floor(), 10.),
+        _ => (100., 100.),
+      */
+      };
+    let (pos_move_precision, pos_round_precision) =
+      (pos_move_precision * 0.01, pos_round_precision * 0.01);
+
     egui::CentralPanel::no_frame()
       .frame(egui::Frame::canvas(ui.style()).stroke(egui::Stroke::NONE).corner_radius(0.0))
       .show(ui, |ui| {
@@ -624,11 +638,17 @@ impl WhirlApp {
             );
           });
         } else if resp.dragged() {
-          if let Some(i) = self.dragged_element {
+          if let Some((i, p0, delta)) = self.dragged_element {
             let layout = self.layout.as_mut().unwrap();
+            let new_delta = (
+              delta.0 + resp.drag_delta().x / self.canvas.zoom,
+              delta.1 + resp.drag_delta().y / self.canvas.zoom,
+            );
+            self.dragged_element = Some((i, p0, new_delta));
+            let round = |x: f32, p: f32| (x / p).round_ties_even() * p;
             (layout.elements[i].x, layout.elements[i].y) = (
-              layout.elements[i].x + resp.drag_delta().x / self.canvas.zoom,
-              layout.elements[i].y + resp.drag_delta().y / self.canvas.zoom,
+              round(p0.0 + round(new_delta.0, pos_move_precision), pos_round_precision),
+              round(p0.1 + round(new_delta.1, pos_move_precision), pos_round_precision),
             );
           } else {
             self.canvas.origin = (
@@ -827,12 +847,12 @@ impl WhirlApp {
             if pointer_near_anchor && resp.is_pointer_button_down_on()
               && self.dragged_element.is_none() // Unlikely, but to prevent glitch
             {
-              self.dragged_element = Some(i);
+              self.dragged_element = Some((i, (el.x, el.y), (0., 0.)));
             }
             painter.add(egui::Shape::Circle(egui::epaint::CircleShape {
               center: anchor_canvas.into(),
               radius: r,
-              fill: if self.dragged_element == Some(i) {
+              fill: if let Some((j, _, _)) = self.dragged_element && j == i {
                 egui::Color32::from_rgba_premultiplied(128, 120, 96, 255)
               } else if pointer_near_anchor {
                 egui::Color32::from_rgba_premultiplied(255, 240, 192, 255)
@@ -861,6 +881,10 @@ impl WhirlApp {
             }
           });
       });
+
+    if ui.input_mut(|i| i.consume_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::Z))) {
+      println!("undo");
+    }
   }
 
   fn show_attrs(ui: &mut egui::Ui, font_families: &[String], csv_fields: &[String], asset_files: &[String], el: &mut model::Element, zoom: f32, text_sel_range: &mut Option<(usize, usize)>) -> (bool, bool) {
