@@ -1030,6 +1030,13 @@ impl WhirlApp {
         edit_output.response.request_focus();
       }
       let resp = &mut edit_output.response;
+      let replace_range = replace_range.map(|(start, end)|
+        egui::text_selection::CCursorRange::two(
+          egui::text::CCursor::new(start),
+          egui::text::CCursor::new(end),
+        )
+      );
+      let replace_text = (if let Some(r) = replace_range { r.slice_str(src) } else { "" }).to_owned();
       egui::Popup::from_response(&resp).id(ui.id().with("completion_src"))
         .open_memory(resp.has_focus().then_some(egui::containers::SetOpenCommand::Bool(true)))
         .kind(egui::PopupKind::Menu)
@@ -1052,7 +1059,7 @@ impl WhirlApp {
                 .chain(extras.into_iter().map(Cow::Borrowed))
               {
                 let replaces_all = matches!(option, Cow::Borrowed(_));
-                let menu_resp = ui.add(egui::Button::selectable(*src == *option, &*option));
+                let menu_resp = ui.add(egui::Button::selectable(*src == *option || replace_text == *option, &*option));
                 if (resp.gained_focus() || resp.changed()) &&
                   src.len() > 0 && option.starts_with(&*src)
                 {
@@ -1060,12 +1067,6 @@ impl WhirlApp {
                     egui::style::ScrollAnimation::new(1500., egui::Rangef::new(0.1, 0.15)));
                 }
                 if menu_resp.clicked() {
-                  let replace_range = replace_range.map(|(start, end)|
-                    egui::text_selection::CCursorRange::two(
-                      egui::text::CCursor::new(start),
-                      egui::text::CCursor::new(end),
-                    )
-                  );
                   let cursor = src.delete_selected(&if replaces_all || full_match {
                     egui::text_selection::CCursorRange::two(
                       egui::text::CCursor::new(0),
