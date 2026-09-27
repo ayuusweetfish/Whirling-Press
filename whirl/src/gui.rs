@@ -140,6 +140,7 @@ impl WhirlApp {
   }
 
   fn undo(&mut self, ctx: &egui::Context) {
+    if self.abort_changes_in_progress() { return; }
     if let Some(op) = self.undo_stack.pop_back() {
       let inv_op = self.op_apply(ctx, op);
       self.redo_stack.push_back(inv_op);
@@ -147,6 +148,7 @@ impl WhirlApp {
   }
 
   fn redo(&mut self, ctx: &egui::Context) {
+    self.abort_changes_in_progress();   // Continue redo if possible
     if let Some(op) = self.redo_stack.pop_back() {
       let inv_op = self.op_apply(ctx, op);
       self.undo_stack.push_back(inv_op);
@@ -422,6 +424,23 @@ impl WhirlApp {
       },
       Err(e) => Err(e),
     }
+  }
+
+  fn abort_changes_in_progress(&mut self) -> bool {
+    let mut changed = false;
+    if let Some((i, p0, _)) = self.dragged_element.take() &&
+      let Some(layout) = self.layout.as_mut()
+    {
+      (layout.elements[i].x, layout.elements[i].y) = p0;
+      changed = true;
+    }
+    for (i, el) in self.undo_start_state.elements.drain() {
+      if let Some(layout) = self.layout.as_mut() {
+        layout.elements[i] = el;
+        changed = true;
+      }
+    }
+    changed
   }
 
   fn ui_landing(&mut self, ui: &mut egui::Ui) {
