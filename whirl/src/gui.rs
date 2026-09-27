@@ -1417,13 +1417,7 @@ impl eframe::App for WhirlApp {
                   ui.label(f!("menu-page-size"));
                   let page_size_start = self.layout.as_ref().unwrap().page;
                   let resp_x = ui.add_sized([80.0, ui.style().spacing.interact_size.y], egui::DragValue::new(&mut self.layout.as_mut().unwrap().page.0).speed(1).range(1.0..=f32::INFINITY));
-                  if resp_x.drag_started() || resp_x.gained_focus() {
-                    self.undo_start_state.page_size = Some(page_size_start);
-                  }
                   let resp_y = ui.add_sized([80.0, ui.style().spacing.interact_size.y], egui::DragValue::new(&mut self.layout.as_mut().unwrap().page.1).speed(1).range(1.0..=f32::INFINITY));
-                  if resp_y.drag_started() || resp_y.gained_focus() {
-                    self.undo_start_state.page_size = Some(page_size_start);
-                  }
                   if (resp_x.drag_stopped() || resp_x.lost_focus() ||
                       resp_y.drag_stopped() || resp_y.lost_focus())
                     && let Some(p) = self.undo_start_state.page_size.take()
@@ -1433,6 +1427,12 @@ impl eframe::App for WhirlApp {
                     self.layout.as_mut().unwrap().page = p; // For proper undo
                     self.op(ui.ctx(), Operation::ChangePageSize { page_size: page_size });
                     self.edited = true;
+                  }
+                  if resp_x.drag_started() || resp_x.gained_focus() {
+                    self.undo_start_state.page_size = Some(page_size_start);
+                  }
+                  if resp_y.drag_started() || resp_y.gained_focus() {
+                    self.undo_start_state.page_size = Some(page_size_start);
                   }
                 });
                 ui.separator();
