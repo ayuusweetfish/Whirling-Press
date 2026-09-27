@@ -799,10 +799,15 @@ impl WhirlApp {
               delta.1 + resp.drag_delta().y / self.canvas.zoom,
             );
             self.dragged_element = Some((i, p0, new_delta));
+            let (keep_x, keep_y) = if ui.ctx().input(|i| i.modifiers.shift) {
+              (delta.0.abs() < delta.1.abs(), delta.1.abs() <= delta.0.abs())
+            } else {
+              (false, false)
+            };
             let round = |x: f32, p: f32| (x / p).round_ties_even() * p;
             (layout.elements[i].x, layout.elements[i].y) = (
-              round(p0.0 + round(new_delta.0, pos_move_precision), pos_round_precision),
-              round(p0.1 + round(new_delta.1, pos_move_precision), pos_round_precision),
+              if keep_x { p0.0 } else { round(p0.0 + round(new_delta.0, pos_move_precision), pos_round_precision) },
+              if keep_y { p0.1 } else { round(p0.1 + round(new_delta.1, pos_move_precision), pos_round_precision) },
             );
           } else {
             self.canvas.origin = (
