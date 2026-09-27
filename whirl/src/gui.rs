@@ -1612,10 +1612,13 @@ impl eframe::App for WhirlApp {
                 ui.label(s.to_string());
               }
             } else {
-              ui.colored_label(
-                ui.style().visuals.weak_text_color(),
-                crate::version(),
-              );
+              let label = egui::Label::new(
+                <String as Into<egui::widget_text::WidgetText>>::into(crate::version()).color(ui.style().visuals.weak_text_color()))
+                .selectable(false)
+                .sense(egui::Sense::HOVER | egui::Sense::CLICK | egui::Sense::FOCUSABLE);
+              if ui.add(label).clicked() {
+                println!("a");
+              }
             }
           });
         });
