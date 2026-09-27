@@ -29,7 +29,7 @@ struct WhirlApp {
   csv_fields: Vec<String>,
   asset_files: Vec<String>,
   just_loaded: bool,
-  edited: bool,
+  saved_at_undo: usize,
   sel_element: Option<usize>,
   sel_element_scroll: bool,
   dragged_element: Option<(usize, (f32, f32), (f32, f32))>,
@@ -348,7 +348,7 @@ impl WhirlApp {
       csv_fields: vec![],
       asset_files: vec![],
       just_loaded: false,
-      edited: false,
+      saved_at_undo: 0,
       sel_element: None,
       sel_element_scroll: false,
       dragged_element: None,
@@ -381,7 +381,7 @@ impl WhirlApp {
           format!("{} — Whirling Press", root_path.display())));
 
         self.just_loaded = true;
-        self.edited = false;
+        self.saved_at_undo = 0;
         self.element_texs = layout.elements.iter().map(|el| {
           load_texture(ctx, element_to_image(root_path, &el))
         }).collect();
@@ -531,7 +531,6 @@ impl WhirlApp {
     ) {
       if let Some(i) = self.sel_element {
         self.op(ui.ctx(), Operation::RemoveElement { i: i });
-        self.edited = true;
       }
     }
 
@@ -568,7 +567,6 @@ impl WhirlApp {
                         ui, &self.font_families, &self.csv_fields, &self.asset_files,
                         el, self.canvas.zoom, &mut self.text_sel_range,
                       );
-                      self.edited |= changed_any;
                       self.undo_start_state.changed_tex |= changed_tex;
                       if changed_tex {
                         self.element_texs[i] =
@@ -662,7 +660,6 @@ impl WhirlApp {
                       src: "".to_string(),
                     })
                   });
-                  self.edited = true;
                   self.sel_element = Some(n);
                 }
                 if ui.add(egui::Button::selectable(false, format!("💬 {}", f!("attr-heading-text")))).clicked() {
@@ -679,7 +676,6 @@ impl WhirlApp {
                       text: "".to_string(),
                     })
                   });
-                  self.edited = true;
                   self.sel_element = Some(n);
                 }
               });
@@ -722,11 +718,9 @@ impl WhirlApp {
             }
             if let Some(i) = to_prioritize {
               self.op(ui.ctx(), Operation::SwapElements { i: i, j: i + 1 });
-              self.edited = true;
             }
             if let Some(i) = to_remove {
               self.op(ui.ctx(), Operation::RemoveElement { i: i });
-              self.edited = true;
             }
           });
         });
@@ -1444,6 +1438,7 @@ impl eframe::App for WhirlApp {
       .show(ui, |ui| {
         let close_shortcut = egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::W);
         let mut to_close = ui.input_mut(|i| i.consume_shortcut(&close_shortcut));
+        let modified = !(self.saved_at_undo == self.undo_stack.len());
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
           // `egui::widgets::global_theme_preference_switch` uses a frameless button
           // which has less-than-ideal hover feedback
@@ -1496,7 +1491,6 @@ impl eframe::App for WhirlApp {
                     let page_size = self.layout.as_ref().unwrap().page;
                     self.layout.as_mut().unwrap().page = p; // For proper undo
                     self.op(ui.ctx(), Operation::ChangePageSize { page_size: page_size });
-                    self.edited = true;
                   }
                   if resp_x.drag_started() || resp_x.gained_focus() {
                     self.undo_start_state.page_size = Some(page_size_start);
@@ -1552,7 +1546,7 @@ impl eframe::App for WhirlApp {
                   Ok(_) => self.status_msg = Some((false, std::time::Instant::now(), f!("status-saved", path => yml_file_name.to_string_lossy()))),
                   Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e))),
                 }
-                self.edited = false;
+                self.saved_at_undo = self.undo_stack.len();
               }
               if to_export_p {
                 if let Some(path) = rfd::FileDialog::new()
@@ -1575,7 +1569,7 @@ impl eframe::App for WhirlApp {
               } else {
                 let layout = self.layout.as_ref().unwrap();
                 ui.label(format!("{}{}×{}, {} — {}",
-                  if self.edited { "* " } else { "" },
+                  if modified { "* " } else { "" },
                   layout.page.0, layout.page.1,
                   f!("status-num-elements", n => layout.elements.len()),
                   path_str));
@@ -1594,7 +1588,7 @@ impl eframe::App for WhirlApp {
         });
         let mut really_close = false;
         if to_close {
-          if self.edited {
+          if modified {
             self.close_confirming = true;
           } else {
             really_close = true;
@@ -1602,7 +1596,7 @@ impl eframe::App for WhirlApp {
         }
         // `quit_after_close` is also used as a flag to denote confirmed quit
         // so that the close is not intercepted by `CancelClose`
-        if self.edited && ui.input(|i| i.viewport().close_requested()) && !self.quit_after_close {
+        if modified && ui.input(|i| i.viewport().close_requested()) && !self.quit_after_close {
           self.close_confirming = true;
           self.quit_after_close = true;
           ui.send_viewport_cmd(egui::ViewportCommand::CancelClose);
@@ -1638,7 +1632,6 @@ impl eframe::App for WhirlApp {
             self.yml_file_name = None;
             self.csv_file_name = None;
             self.layout = None;
-            self.edited = false;
             self.font_families.clear();
             self.element_texs.clear();
             self.watcher = None;
