@@ -983,6 +983,7 @@ impl WhirlApp {
               && self.dragged_element.is_none() // Unlikely, but to prevent glitch
             {
               self.dragged_element = Some((i, (el.x, el.y), (0., 0.)));
+              self.undo_start_state.elements.entry(i).or_insert(el.clone());
             }
             painter.add(egui::Shape::Circle(egui::epaint::CircleShape {
               center: anchor_canvas.into(),
@@ -999,8 +1000,14 @@ impl WhirlApp {
           }
         }
 
-        if !resp.is_pointer_button_down_on() {
-          self.dragged_element = None;
+        if !resp.is_pointer_button_down_on() && let Some((i, _, _)) = self.dragged_element.take() {
+          if let Some(el_start) = self.undo_start_state.elements.remove(&i) {
+            let el = &mut self.layout.as_mut().unwrap().elements[i];
+            let el_after_change = std::mem::replace(el, el_start);
+            self.op(ui.ctx(), Operation::ChangeElement {
+              i: i, element: el_after_change, retex: false,
+            });
+          }
         }
 
         // Panel toggle
