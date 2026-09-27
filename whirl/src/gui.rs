@@ -1530,6 +1530,17 @@ impl eframe::App for WhirlApp {
                   egui::Popup::close_id(ui.ctx(), popup_id);
                 }
                 ui.separator();
+                if ui.add(egui::Button::new(format!("📂 {}", f!("menu-show-content-folder")))).clicked() {
+                  if let Err(e) = opener::open(&self.root_path.as_ref().unwrap()) {
+                    self.status_msg = Some((true, std::time::Instant::now(), f!("status-open-error", message => format!("{}", e))));
+                  }
+                }
+                if ui.add(egui::Button::new(format!("📂 {}", f!("menu-show-spreadsheet")))).clicked() {
+                  if let Err(e) = opener::reveal(&self.root_path.as_ref().unwrap().join(self.csv_file_name.as_ref().unwrap())) {
+                    self.status_msg = Some((true, std::time::Instant::now(), f!("status-open-error", message => format!("{}", e))));
+                  }
+                }
+                ui.separator();
                 if ui.add(egui::Button::new(format!("🖨 {}", f!("menu-export-pdf"))).shortcut_text(ui.ctx().format_shortcut(&export_p_shortcut))).clicked() {
                   // Export PDF
                   to_export_p = true;
@@ -1540,17 +1551,6 @@ impl eframe::App for WhirlApp {
                     self.export(&path, crate::ArgsFormat::PdfSeq);
                   }
                   egui::Popup::close_id(ui.ctx(), popup_id);
-                }
-                ui.separator();
-                if ui.add(egui::Button::new(format!("📂 {}", f!("menu-show-content-folder")))).clicked() {
-                  if let Err(e) = opener::open(&self.root_path.as_ref().unwrap()) {
-                    self.status_msg = Some((true, std::time::Instant::now(), f!("status-open-error", message => format!("{}", e))));
-                  }
-                }
-                if ui.add(egui::Button::new(format!("📂 {}", f!("menu-show-spreadsheet")))).clicked() {
-                  if let Err(e) = opener::reveal(&self.root_path.as_ref().unwrap().join(self.csv_file_name.as_ref().unwrap())) {
-                    self.status_msg = Some((true, std::time::Instant::now(), f!("status-open-error", message => format!("{}", e))));
-                  }
                 }
                 ui.separator();
                 if ui.add(egui::Button::new(format!("⬅️ {}", f!("menu-close"))).shortcut_text(ui.ctx().format_shortcut(&close_shortcut))).clicked() {
