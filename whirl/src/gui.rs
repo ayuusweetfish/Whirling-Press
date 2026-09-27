@@ -319,6 +319,8 @@ impl WhirlApp {
     fonts.font_data.insert("f3".to_string(),
       std::sync::Arc::new(FontData::from_static(include_bytes!("../res/NotoSansMono_Condensed_Regular_subset.ttf"))));
     fonts.font_data.insert("f4".to_string(),
+      std::sync::Arc::new(FontData::from_static(include_bytes!("../res/NotoSansMath_Regular_subset.ttf"))));
+    fonts.font_data.insert("f5".to_string(),
       std::sync::Arc::new(FontData::from_static(include_bytes!("../res/AdwaitaSans_Regular_subset.ttf"))));
     fonts.font_data.insert("f9".to_string(),
       std::sync::Arc::new(FontData::from_static(include_bytes!("../res/DroidSansFallbackFull.ttf"))));
@@ -326,6 +328,7 @@ impl WhirlApp {
     fonts.families.get_mut(&FontFamily::Proportional).unwrap().push("f2".to_owned());
     fonts.families.get_mut(&FontFamily::Proportional).unwrap().push("f3".to_owned());
     fonts.families.get_mut(&FontFamily::Proportional).unwrap().push("f4".to_owned());
+    fonts.families.get_mut(&FontFamily::Proportional).unwrap().push("f5".to_owned());
     fonts.families.get_mut(&FontFamily::Proportional).unwrap().push("f9".to_owned());
     ctx.set_fonts(fonts);
 
@@ -1517,14 +1520,14 @@ impl eframe::App for WhirlApp {
                 }
                 if ui.add_enabled(
                   self.undo_stack.len() > 0,
-                  egui::Button::new(format!("🖨 {}", f!("menu-undo"))).shortcut_text(ui.ctx().format_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::Z))),
+                  egui::Button::new(format!("↶ {}", f!("menu-undo"))).shortcut_text(ui.ctx().format_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::Z))),
                 ).clicked() {
                   self.undo(ui.ctx());
                   egui::Popup::close_id(ui.ctx(), popup_id);
                 }
                 if ui.add_enabled(
                   self.redo_stack.len() > 0,
-                  egui::Button::new(format!("🖨 {}", f!("menu-redo"))).shortcut_text(ui.ctx().format_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::Y))),
+                  egui::Button::new(format!("↷ {}", f!("menu-redo"))).shortcut_text(ui.ctx().format_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::Y))),
                 ).clicked() {
                   self.redo(ui.ctx());
                   egui::Popup::close_id(ui.ctx(), popup_id);
