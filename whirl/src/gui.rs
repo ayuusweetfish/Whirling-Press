@@ -17,6 +17,8 @@ use crate::localize;
 use crate::f;   // Fluent localization; src/localize.rs
 use crate::dir_watcher;
 
+const UNDO_LIMIT: usize = 10000;
+
 struct WhirlApp {
   root_path: Option<std::path::PathBuf>,
   attr_panel_expanded: bool,
@@ -137,6 +139,13 @@ impl WhirlApp {
     let inv_op = self.op_apply(ctx, op);
     self.undo_stack.push_back(inv_op);
     self.redo_stack.clear();
+    if self.undo_stack.len() >= UNDO_LIMIT {
+      self.undo_stack.pop_front();
+      self.saved_at_undo = match self.saved_at_undo {
+        0 => UNDO_LIMIT + 1,
+        x => x - 1,
+      };
+    }
   }
 
   fn undo(&mut self, ctx: &egui::Context) {
