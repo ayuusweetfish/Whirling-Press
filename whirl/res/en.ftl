@@ -19,6 +19,8 @@ or-drag-and-drop = or drag-and-drop
 
 menu-page-size = Page size
 menu-save = Save
+menu-undo = Undo
+menu-redo = Redo
 menu-export-pdf = Export PDF…
 menu-export-pdf-seq = Export PDF sequence…
 menu-show-content-folder = Open content folder

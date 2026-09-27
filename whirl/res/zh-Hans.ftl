@@ -19,6 +19,8 @@ or-drag-and-drop = 或拖放到此处
 
 menu-page-size = 页面尺寸
 menu-save = 保存
+menu-undo = 撤销
+menu-redo = 恢复
 menu-export-pdf = 导出 PDF…
 menu-export-pdf-seq = 导出 PDF 序列…
 menu-show-content-folder = 打开内容文件夹

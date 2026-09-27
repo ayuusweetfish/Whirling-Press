@@ -1515,6 +1515,21 @@ impl eframe::App for WhirlApp {
                   to_save = true;
                   egui::Popup::close_id(ui.ctx(), popup_id);
                 }
+                if ui.add_enabled(
+                  self.undo_stack.len() > 0,
+                  egui::Button::new(format!("🖨 {}", f!("menu-undo"))).shortcut_text(ui.ctx().format_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::Z))),
+                ).clicked() {
+                  self.undo(ui.ctx());
+                  egui::Popup::close_id(ui.ctx(), popup_id);
+                }
+                if ui.add_enabled(
+                  self.redo_stack.len() > 0,
+                  egui::Button::new(format!("🖨 {}", f!("menu-redo"))).shortcut_text(ui.ctx().format_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::Y))),
+                ).clicked() {
+                  self.redo(ui.ctx());
+                  egui::Popup::close_id(ui.ctx(), popup_id);
+                }
+                ui.separator();
                 if ui.add(egui::Button::new(format!("🖨 {}", f!("menu-export-pdf"))).shortcut_text(ui.ctx().format_shortcut(&export_p_shortcut))).clicked() {
                   // Export PDF
                   to_export_p = true;
