@@ -63,6 +63,8 @@ impl Default for CanvasState {
 #[derive(Default)]
 pub struct UndoStartState {
   page_size: Option<(f32, f32)>,
+  elements: std::collections::HashMap<usize, model::Element>,
+  changed_tex: bool,
 }
 
 pub enum Operation {
@@ -541,14 +543,27 @@ impl WhirlApp {
                     .spacing([20.0, 4.0])
                     .striped(true)
                     .show(ui, |ui| {
-                      let (changed_any, changed_tex) = Self::show_attrs(
+                      let el = &mut self.layout.as_mut().unwrap().elements[i];
+                      let el_start = el.clone();
+                      let (changed_any, changed_tex, change_ended) = Self::show_attrs(
                         ui, &self.font_families, &self.csv_fields, &self.asset_files,
                         el, self.canvas.zoom, &mut self.text_sel_range,
                       );
                       self.edited |= changed_any;
+                      self.undo_start_state.changed_tex |= changed_tex;
                       if changed_tex {
                         self.element_texs[i] =
                           load_texture(ui.ctx(), element_to_image(self.root_path.as_ref().unwrap(), el));
+                      }
+                      if changed_any {
+                        self.undo_start_state.elements.entry(i).or_insert(el_start);
+                      }
+                      if change_ended && let Some(el_start) = self.undo_start_state.elements.remove(&i) {
+                        let el_after_change = std::mem::replace(el, el_start);
+                        let retex = std::mem::replace(&mut self.undo_start_state.changed_tex, false);
+                        self.op(ui.ctx(), Operation::ChangeElement {
+                          i: i, element: el_after_change, retex: retex,
+                        });
                       }
                     });
                 });
@@ -1003,15 +1018,18 @@ impl WhirlApp {
       });
   }
 
-  fn show_attrs(ui: &mut egui::Ui, font_families: &[String], csv_fields: &[String], asset_files: &[String], el: &mut model::Element, zoom: f32, text_sel_range: &mut Option<(usize, usize)>) -> (bool, bool) {
-    let mut changed_tex = false;
+  fn show_attrs(ui: &mut egui::Ui, font_families: &[String], csv_fields: &[String], asset_files: &[String], el: &mut model::Element, zoom: f32, text_sel_range: &mut Option<(usize, usize)>) -> (bool, bool, bool) {
     let mut changed_any = false;
+    let mut changed_tex = false;
+    let mut change_ended = false;
     use egui::{DragValue, ComboBox};
     ui.label(f!("attr-position"));
     ui.horizontal(|ui| {
       let s = 0.1 * (10. / zoom).round_ties_even().max(1.);
-      changed_any |= ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.x).speed(s).min_decimals(1)).changed();
-      changed_any |= ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.y).speed(s).min_decimals(1)).changed();
+      let resp_x = ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.x).speed(s).min_decimals(1));
+      let resp_y = ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.y).speed(s).min_decimals(1));
+      changed_any |= resp_x.changed() || resp_y.changed();
+      change_ended |= resp_x.drag_stopped() || resp_x.lost_focus() || resp_y.drag_stopped() || resp_y.lost_focus();
       ui.add_space(ui.available_width()); // XXX: Hack to extend the grid to fill remaining width?
     });
     ui.end_row();
@@ -1049,6 +1067,7 @@ impl WhirlApp {
                 *current_value = selected_value;
                 response.mark_changed();
                 changed_any = true;
+                change_ended = true;
               }
             }
             ui.end_row();
@@ -1057,23 +1076,29 @@ impl WhirlApp {
     ui.end_row();
     ui.label(f!("attr-scale"));
     ui.horizontal(|ui| {
-      changed_any |= ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.scale.0).speed(0.01)).changed();
-      changed_any |= ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.scale.1).speed(0.01)).changed();
+      let resp_x = ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.scale.0).speed(0.01));
+      let resp_y = ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.scale.1).speed(0.01));
+      changed_any |= resp_x.changed() || resp_y.changed();
+      change_ended |= resp_x.drag_stopped() || resp_x.lost_focus() || resp_y.drag_stopped() || resp_y.lost_focus();
     });
     ui.end_row();
     ui.label(f!("attr-skew"));
     ui.horizontal(|ui| {
-      changed_any |= ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.skew.0).speed(0.1).range(-89.9..=89.9)).changed();
-      changed_any |= ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.skew.1).speed(0.1).range(-89.9..=89.9)).changed();
+      let resp_x = ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.skew.0).speed(0.1).range(-89.9..=89.9));
+      let resp_y = ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(&mut el.skew.1).speed(0.1).range(-89.9..=89.9));
+      changed_any |= resp_x.changed() || resp_y.changed();
+      change_ended |= resp_x.drag_stopped() || resp_x.lost_focus() || resp_y.drag_stopped() || resp_y.lost_focus();
     });
     ui.end_row();
     ui.label(f!("attr-rotation"));
     ui.horizontal(|ui| {
-      changed_any |= ui.add_sized([80.0, ui.available_height()], DragValue::new(&mut el.rotation).speed(0.1)).changed();
+      let resp = ui.add_sized([80.0, ui.available_height()], DragValue::new(&mut el.rotation).speed(0.1));
+      changed_any |= resp.changed();
+      change_ended |= resp.drag_stopped() || resp.lost_focus();
     });
     ui.end_row();
     ui.label(f!("attr-size-limit"));
-    fn size_limit_editor(ui: &mut egui::Ui, value: &mut Option<f32>) -> bool {
+    fn size_limit_editor(ui: &mut egui::Ui, value: &mut Option<f32>) -> (bool, bool) {
       let mut x = value.unwrap_or(0.0);
       let resp = ui.add_sized([80.0, ui.style().spacing.interact_size.y],
         DragValue::new(&mut x).range(0.0..=f32::INFINITY).speed(0.1)
@@ -1089,11 +1114,13 @@ impl WhirlApp {
             }
           }));
       *value = if x > 0.0 { Some(x) } else { None };
-      resp.changed()
+      (resp.changed(), resp.lost_focus())
     }
     ui.horizontal(|ui| {
-      changed_tex |= size_limit_editor(ui, &mut el.width);
-      changed_tex |= size_limit_editor(ui, &mut el.height);
+      let (a, b) = size_limit_editor(ui, &mut el.width);
+      changed_tex |= a; change_ended |= b;
+      let (a, b) = size_limit_editor(ui, &mut el.height);
+      changed_tex |= a; change_ended |= b;
     });
     ui.end_row();
     use egui::TextBuffer;
@@ -1131,7 +1158,7 @@ impl WhirlApp {
         text.char_index_from_byte_index((end + 1).into()).into(),
       ))
     }
-    fn show_autocomplete(ui: &egui::Ui, edit_output: egui::widgets::text_edit::TextEditOutput, src: &mut String, text_sel_range: &mut Option<(usize, usize)>, replace_range: Option<(usize, usize)>, csv_fields: &[String], extras: &[String]) -> bool {
+    fn show_autocomplete(ui: &egui::Ui, edit_output: egui::widgets::text_edit::TextEditOutput, src: &mut String, text_sel_range: &mut Option<(usize, usize)>, replace_range: Option<(usize, usize)>, csv_fields: &[String], extras: &[String]) -> (bool, bool) {
       let mut edit_output = edit_output;
       if let Some((start, end)) = text_sel_range.take() {
         edit_output.state.cursor.set_char_range(Some(
@@ -1208,7 +1235,7 @@ impl WhirlApp {
             }).inner
         });
       edit_output.state.store(ui.ctx(), edit_output.response.id);
-      edit_output.response.changed()
+      (edit_output.response.changed(), edit_output.response.lost_focus())
     }
     match &mut el.content {
       model::Content::Image { src } => {
@@ -1217,7 +1244,8 @@ impl WhirlApp {
         let range = if let Some(c) = edit_output.state.cursor.char_range() {
           field_range(src, c.primary.index.into())
         } else { None };
-        changed_tex |= show_autocomplete(ui, edit_output, src, text_sel_range, range, csv_fields, &asset_files);
+        let (a, b) = show_autocomplete(ui, edit_output, src, text_sel_range, range, csv_fields, &asset_files);
+        changed_tex |= a; change_ended |= b;
         ui.end_row();
       },
       model::Content::Text { family, size, weight, italic, tracking, text } => {
@@ -1227,16 +1255,22 @@ impl WhirlApp {
           field_range(text, c.primary.index.into())
         } else { None };
         if range.is_some() {
-          changed_tex |= show_autocomplete(ui, edit_output, text, text_sel_range, range, csv_fields, &[]);
+          let (a, b) = show_autocomplete(ui, edit_output, text, text_sel_range, range, csv_fields, &[]);
+          changed_tex |= a; change_ended |= b;
         } else {
           changed_tex |= edit_output.response.changed();
+          change_ended |= edit_output.response.lost_focus();
         }
         ui.end_row();
         ui.label(f!("attr-text-family"));
-        changed_tex |= Self::font_list_editor(ui, &font_families, family);
+        let fonts_changed = Self::font_list_editor(ui, &font_families, family);
+        changed_tex |= fonts_changed;
+        change_ended |= fonts_changed;
         ui.end_row();
         ui.label(f!("attr-text-size"));
-        changed_tex |= ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(size).range(0.0..=f32::INFINITY).speed(1.0)).changed();
+        let resp = ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(size).range(0.0..=f32::INFINITY).speed(1.0));
+        changed_tex |= resp.changed();
+        change_ended |= resp.drag_stopped() || resp.lost_focus();
         ui.end_row();
         ui.label(f!("attr-text-weight"));
         let weights_and_names = [
@@ -1259,19 +1293,24 @@ impl WhirlApp {
             for (value, name) in weights_and_names {
               if ui.selectable_value(weight, value, name).clicked() {
                 changed_tex = true;
+                change_ended = true;
               }
             }
           });
         ui.end_row();
         ui.label(f!("attr-text-italic"));
-        changed_tex |= ui.checkbox(italic, "").changed();
+        let resp = ui.checkbox(italic, "");
+        changed_tex |= resp.changed();
+        change_ended |= resp.changed();
         ui.end_row();
         ui.label(f!("attr-text-tracking"));
-        changed_tex |= ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(tracking).speed(0.1)).changed();
+        let resp = ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(tracking).speed(0.1));
+        changed_tex |= resp.changed();
+        change_ended |= resp.drag_stopped() || resp.lost_focus();
         ui.end_row();
       },
     }
-    (changed_any || changed_tex, changed_tex)
+    (changed_any || changed_tex, changed_tex, change_ended)
   }
 
   fn font_list_editor(ui: &mut egui::Ui, font_families: &[String], el: &mut Vec<String>) -> bool {
