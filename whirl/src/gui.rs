@@ -75,6 +75,7 @@ pub enum Operation {
   SwapElements { i: usize, j: usize },
   ChangeElement { i: usize, element: model::Element, retex: bool },
   ChangePageSize { page_size: (f32, f32) },
+  #[allow(unused)]
   Sequence(Vec<Operation>),
 }
 
@@ -1610,6 +1611,11 @@ impl eframe::App for WhirlApp {
               } else {
                 ui.label(s.to_string());
               }
+            } else {
+              ui.colored_label(
+                ui.style().visuals.weak_text_color(),
+                crate::version(),
+              );
             }
           });
         });

@@ -431,6 +431,8 @@ struct Args {
   format: ArgsFormat,
   #[argh(switch, short = 'c', description = "compress output harder")]
   compress: bool,
+  #[argh(switch, short = 'v', long = "version", description = "version")]
+  version: bool,
 }
 #[derive(Debug, Clone, Default, FromArgValue)]
 enum ArgsFormat {
@@ -476,10 +478,17 @@ fn start_gui(root_path: Option<&str>) {
   }
 }
 
+pub fn version() -> String {
+  format!("{}-{}", env!("CARGO_PKG_VERSION"), option_env!("REV_TAG").unwrap_or("dev"))
+}
+
 fn main() {
   let args: Args = argh::from_env();
 
-  if let Some(pack_root) = args.pack_root {
+  if args.version {
+    println!("Whirling Press {}", version());
+
+  } else if let Some(pack_root) = args.pack_root {
     if let Some(output) = args.output {
       match process_and_write(&pack_root, None, &output, args.format, args.compress) {
         Err(e) => eprintln!("Error: {}", e.message()),
