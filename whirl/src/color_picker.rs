@@ -436,11 +436,13 @@ pub fn color_edit_button_hsvag(ui: &mut Ui, hsvag: &mut HsvaGamma, alpha: Alpha)
 
 /// Shows a button with the given color.
 /// If the user clicks the button, a full color picker is shown.
-pub fn color_edit_button_rgba(ui: &mut Ui, rgba: &mut Rgba, alpha: Alpha) -> (bool, bool) {
-    let mut hsvag = color_cache_get(ui.ctx(), *rgba);
+pub fn color_edit_button_rgba(ui: &mut Ui, tint: &mut (f32, f32, f32, f32), alpha: Alpha) -> (bool, bool) {
+    let mut rgba = egui::Rgba::from_rgba_unmultiplied(tint.0, tint.1, tint.2, tint.3);
+    let mut hsvag = color_cache_get(ui.ctx(), rgba);
     let response = color_edit_button_hsvag(ui, &mut hsvag, alpha);
-    *rgba = Rgba::from(hsvag);
-    color_cache_set(ui.ctx(), *rgba, hsvag);
+    rgba = Rgba::from(hsvag);
+    color_cache_set(ui.ctx(), rgba, hsvag);
+    *tint = Hsva::from(hsvag).to_rgba_unmultiplied().into();
     response
 }
 
