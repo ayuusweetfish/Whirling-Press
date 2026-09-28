@@ -1354,7 +1354,7 @@ impl WhirlApp {
         let mut t = egui::Rgba::from_rgba_unmultiplied(tint.0, tint.1, tint.2, tint.3);
         let (picker_changed, picker_change_ended) = color_picker::color_edit_button_rgba(
           ui, &mut t, color_picker::Alpha::OnlyBlend);
-        *tint = t.to_rgba_unmultiplied().into();
+        *tint = t.to_rgba_unmultiplied().map(|x| (x * 1000.).round_ties_even() / 1000.).into();
         changed_tex |= picker_changed;
         change_ended |= picker_change_ended;
         ui.end_row();
