@@ -38,7 +38,7 @@ jobs:
 
     - name: Environment variables
       run: |
-        echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+        echo "REV_TAG=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
     - name: Install Rust toolchain
       uses: actions-rust-lang/setup-rust-toolchain@v2
@@ -77,5 +77,5 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v7
       with:
-        name: whirl-${{ env.SHORT_SHA }}-${{ matrix.artifactname }}
+        name: whirl-${{ env.REV_TAG }}-${{ matrix.artifactname }}
         path: whirl/target/${{ matrix.target }}/release/${{ contains(matrix.target, 'windows') && 'whirl.exe' || 'whirl' }}
