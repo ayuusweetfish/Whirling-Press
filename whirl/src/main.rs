@@ -8,6 +8,8 @@ mod localize;
 mod gui;
 #[cfg(feature = "gui")]
 mod dir_watcher;
+#[cfg(feature = "gui")]
+mod color_picker;
 
 #[derive(Debug)]
 enum ExprError {

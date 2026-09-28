@@ -16,6 +16,7 @@ use crate::render;
 use crate::localize;
 use crate::f;   // Fluent localization; src/localize.rs
 use crate::dir_watcher;
+use crate::color_picker;
 
 const UNDO_LIMIT: usize = 10000;
 
@@ -1356,8 +1357,8 @@ impl WhirlApp {
           egui::ecolor::linear_from_gamma(tint.2),
           tint.3,
         );
-        let resp = egui::widgets::color_picker::color_edit_button_rgba(
-          ui, &mut t, egui::widgets::color_picker::Alpha::OnlyBlend);
+        let resp = color_picker::color_edit_button_rgba(
+          ui, &mut t, color_picker::Alpha::OnlyBlend);
         let [r, g, b, a] = t.to_rgba_unmultiplied();
         *tint = (
           egui::ecolor::gamma_from_linear(r),
