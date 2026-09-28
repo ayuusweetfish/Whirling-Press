@@ -141,7 +141,7 @@ impl model::Element {
         if *tracking != 0.0 {
           args.push(format!("tracking: {}pt", tracking));
         }
-        if *tint != Default::default() {
+        if *tint != model::default_tint() {
           args.push(format!("fill: rgb({}%, {}%, {}%, {}%)",
             tint.0 * 100., tint.1 * 100., tint.2 * 100., tint.3 * 100.));
         }
