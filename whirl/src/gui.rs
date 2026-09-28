@@ -293,14 +293,15 @@ fn element_to_image<P: AsRef<std::path::Path>>(root_path: P, el: &model::Element
     Ok(buf) => buf,
     Err(e) => {
       // XXX: Display better error messages
-      try_to_image(root_path,
-        &if let model::Content::Image { src, .. } = &el.content {
-          format!("#show raw: set text(16pt, font: (\"_1\", \"_2\", \"_3\"))\n#place-element(0pt, 0pt, in_flow: true)[#raw(\"🖼️? {}\")]", escape(&src))
+      try_to_image(root_path, &{
+        let s = if let model::Content::Image { src, .. } = &el.content {
+          format!("🖼️? {}", escape(&src))
         } else {
           // Should not happen normally; maybe fonts not loaded when migrating between machines?
-          format!("#show raw: set text(16pt, font: (\"_1\", \"_2\", \"_3\"))\n#place-element(0pt, 0pt, in_flow: true)[#raw(\"{}\")]", escape(&format!("{}", e.message())))
-        },
-      ).unwrap()
+          escape(&e.message())
+        };
+        format!("#show raw: set text(16pt, font: (\"_1\", \"_2\", \"_3\"), stroke: 2pt + white)\n#raw(\"{s}\")\n#show raw: set text(stroke: none)\n#place(top + start)[#raw(\"{s}\")]")
+      }).unwrap()
     },
   }
 }
