@@ -1348,15 +1348,22 @@ impl WhirlApp {
         change_ended |= resp.drag_stopped() || resp.lost_focus();
         ui.end_row();
         ui.label(f!("attr-text-tint"));
-        let mut t = egui::Color32::from_rgba_unmultiplied(
-          (tint.0 * 255.).round() as u8,
-          (tint.1 * 255.).round() as u8,
-          (tint.2 * 255.).round() as u8,
-          (tint.3 * 255.).round() as u8,
+        // Convert to linear for operations, as `egui` does not support `f32` picker in sRGB space
+        let mut t = egui::Rgba::from_rgba_unmultiplied(
+          egui::ecolor::linear_from_gamma(tint.0),
+          egui::ecolor::linear_from_gamma(tint.1),
+          egui::ecolor::linear_from_gamma(tint.2),
+          tint.3,
         );
-        let resp = egui::widgets::color_picker::color_edit_button_srgba(
+        let resp = egui::widgets::color_picker::color_edit_button_rgba(
           ui, &mut t, egui::widgets::color_picker::Alpha::OnlyBlend);
-        *tint = t.to_srgba_unmultiplied().map(|x| x as f32 / 255.).into();
+        let [r, g, b, a] = t.to_rgba_unmultiplied();
+        *tint = (
+          egui::ecolor::gamma_from_linear(r),
+          egui::ecolor::gamma_from_linear(g),
+          egui::ecolor::gamma_from_linear(b),
+          a,
+        );
         changed_tex |= resp.changed();
         change_ended |= resp.drag_stopped() || resp.lost_focus();
         ui.end_row();
