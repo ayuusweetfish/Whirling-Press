@@ -459,6 +459,8 @@ fn process_and_write<P: AsRef<Path>, Q: AsRef<Path>>(pack_root: P, layout: Optio
     },
     ArgsFormat::PdfSeq => {
       let seq = process_pack(pack_root.as_ref(), layout, render::to_pdf_seq)?;
+      let p = output.as_ref().to_path_buf();
+      std::fs::create_dir_all(&p).map_err(|e| ProcessError::Io(p, e))?;
       let width = (seq.len().ilog10() + 1).max(3) as usize;
       for (i, bytes) in seq.into_iter().enumerate() {
         let mut p = output.as_ref().to_path_buf();
@@ -470,6 +472,8 @@ fn process_and_write<P: AsRef<Path>, Q: AsRef<Path>>(pack_root: P, layout: Optio
     ArgsFormat::PngSeq => {
       // XXX: DRY?
       let seq = process_pack(pack_root.as_ref(), layout, render::to_png_seq)?;
+      let p = output.as_ref().to_path_buf();
+      std::fs::create_dir_all(&p).map_err(|e| ProcessError::Io(p, e))?;
       let width = (seq.len().ilog10() + 1).max(3) as usize;
       for (i, bytes) in seq.into_iter().enumerate() {
         let mut p = output.as_ref().to_path_buf();
