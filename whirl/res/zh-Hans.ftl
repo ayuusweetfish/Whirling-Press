@@ -59,6 +59,7 @@ attr-text-size = 字号
 attr-text-weight = 字重
 attr-text-italic = 斜体
 attr-text-tracking = 字间距
+attr-text-tint = 颜色
 
 anchor-tl = 左上
 anchor-tc = 正上

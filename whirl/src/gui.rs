@@ -686,6 +686,7 @@ impl WhirlApp {
                       weight: model::Weight::Regular,
                       italic: false,
                       tracking: 0.0,
+                      tint: (0., 0., 0., 1.),
                       text: "".to_string(),
                     })
                   });
@@ -1286,7 +1287,7 @@ impl WhirlApp {
         changed_tex |= a; change_ended |= b;
         ui.end_row();
       },
-      model::Content::Text { family, size, weight, italic, tracking, text } => {
+      model::Content::Text { family, size, weight, italic, tracking, tint, text } => {
         ui.label(f!("attr-text-text"));
         let edit_output = egui::TextEdit::multiline(text).desired_width(ui.available_width()).show(ui);
         let range = if let Some(c) = edit_output.state.cursor.char_range() {
@@ -1343,6 +1344,19 @@ impl WhirlApp {
         ui.end_row();
         ui.label(f!("attr-text-tracking"));
         let resp = ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(tracking).speed(0.1));
+        changed_tex |= resp.changed();
+        change_ended |= resp.drag_stopped() || resp.lost_focus();
+        ui.end_row();
+        ui.label(f!("attr-text-tint"));
+        let mut t = egui::Color32::from_rgba_unmultiplied(
+          (tint.0 * 255.).round() as u8,
+          (tint.1 * 255.).round() as u8,
+          (tint.2 * 255.).round() as u8,
+          (tint.3 * 255.).round() as u8,
+        );
+        let resp = egui::widgets::color_picker::color_edit_button_srgba(
+          ui, &mut t, egui::widgets::color_picker::Alpha::OnlyBlend);
+        *tint = t.to_srgba_unmultiplied().map(|x| x as f32 / 255.).into();
         changed_tex |= resp.changed();
         change_ended |= resp.drag_stopped() || resp.lost_focus();
         ui.end_row();

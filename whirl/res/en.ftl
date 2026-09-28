@@ -62,6 +62,7 @@ attr-text-size = Size
 attr-text-weight = Weight
 attr-text-italic = Italic
 attr-text-tracking = Tracking
+attr-text-tint = Tint
 
 anchor-tl = Top Left
 anchor-tc = Top Center

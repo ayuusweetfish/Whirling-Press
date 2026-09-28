@@ -90,6 +90,8 @@ pub enum Content {
     italic: bool,
     #[serde(default, skip_serializing_if = "is_default")]
     tracking: f32,
+    #[serde(default = "default_tint", skip_serializing_if = "is_default_tint")]
+    tint: (f32, f32, f32, f32),
     text: String,
   },
 }
@@ -142,6 +144,8 @@ impl Into<i32> for Weight {
 
 pub fn default_scale() -> (f32, f32) { (1.0, 1.0) }
 fn is_default_scale(v: &(f32, f32)) -> bool { *v == default_scale() }
+pub fn default_tint() -> (f32, f32, f32, f32) { (0., 0., 0., 1.) }
+fn is_default_tint(v: &(f32, f32, f32, f32)) -> bool { *v == default_tint() }
 
 fn is_default<T: Default + PartialEq>(v: &T) -> bool {
   *v == T::default()

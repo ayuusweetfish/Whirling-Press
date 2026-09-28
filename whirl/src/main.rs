@@ -124,7 +124,7 @@ impl model::Element {
           format!("#image({})", expand_expr(src, fields)?)
         }
       }
-      model::Content::Text { family, size, weight, italic, tracking, text } => {
+      model::Content::Text { family, size, weight, italic, tracking, tint, text } => {
         let mut args = Vec::new();
         let families = family.iter().map(|s| format!("\"{}\"", s)).collect::<Vec<_>>().join(", ");
         args.push(format!("font: ({})", families));
@@ -137,6 +137,10 @@ impl model::Element {
         }
         if *tracking != 0.0 {
           args.push(format!("tracking: {}pt", tracking));
+        }
+        if *tint != Default::default() {
+          args.push(format!("fill: rgb({}%, {}%, {}%, {}%)",
+            tint.0 * 100., tint.1 * 100., tint.2 * 100., tint.3 * 100.));
         }
         format!("#text({}, {})", args.join(", "),
           if is_preview { format!("\"{}\"", escape(text)) }
