@@ -38,6 +38,7 @@ status-open-error = 无法打开：{$message}
 
 status-button-theme = 切换颜色主题
 status-button-language = 语言 / Language
+status-button-about = 版本 & 关于
 status-button-menu = 菜单
 
 elements = 元素列表
@@ -86,3 +87,11 @@ picker-hue = 色相
 modal-close-confirmation-message = 编辑的排版尚未保存。确认关闭吗？
 modal-close-confirmation-close = 不保存，关闭
 modal-close-confirmation-cancel = 取消
+
+modal-about-close = 关闭
+modal-about-description =
+  蒹葭苍苍　白露为霜
+  所谓伊人　在水一方
+  溯洄从之　道阻且长
+  溯游从之　宛在水中央
+modal-about-homepage = 主页：

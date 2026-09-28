@@ -48,6 +48,7 @@ struct WhirlApp {
   undo_stack: std::collections::VecDeque<Operation>,
   redo_stack: std::collections::VecDeque<Operation>,
   undo_start_state: UndoStartState,
+  showing_about: bool,
 }
 
 struct CanvasState {
@@ -378,6 +379,7 @@ impl WhirlApp {
       undo_stack: Default::default(),
       redo_stack: Default::default(),
       undo_start_state: Default::default(),
+      showing_about: false,
     };
 
     if let Some(root_path) = root_path {
@@ -1630,12 +1632,41 @@ impl eframe::App for WhirlApp {
                 ui.label(s.to_string());
               }
             } else {
-              let label = egui::Label::new(
-                <String as Into<egui::widget_text::WidgetText>>::into(crate::version()).color(ui.style().visuals.weak_text_color()))
+              let resp = ui.add(egui::Label::new(
+                egui::widget_text::WidgetText::from(crate::version()).color(ui.style().visuals.weak_text_color()))
                 .selectable(false)
-                .sense(egui::Sense::HOVER | egui::Sense::CLICK | egui::Sense::FOCUSABLE);
-              if ui.add(label).clicked() {
-                println!("a");
+                .sense(egui::Sense::HOVER | egui::Sense::CLICK | egui::Sense::FOCUSABLE)
+              ).on_hover_text(f!("status-button-about"));
+              if resp.hovered() {
+                ui.set_cursor_icon(egui::CursorIcon::PointingHand);
+              }
+              if resp.clicked() {
+                self.showing_about = true;
+              }
+              if self.showing_about {
+                let modal_resp = egui::Modal::new(egui::Id::new(format!("about_modal_{}", localize::current_language()))).show(ui.ctx(), |ui| {
+                  ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
+                    ui.spacing_mut().button_padding = (12., 6.).into();
+                    ui.heading("Whirling Press");
+                    ui.label(format!("{}　{}", crate::version(), crate::commit_date()));
+                    ui.separator();
+                    ui.add_space(12.0);
+                    ui.label(f!("modal-about-description"));
+                    ui.add_space(12.0);
+                    if ui.hyperlink_to("ayu.land/whirl", "https://ayu.land/whirl").clicked() {
+                      let _ = opener::open("https://ayu.land/whirl");
+                    }
+                    ui.add_space(12.0);
+                    if ui.button(f!("modal-about-close")).clicked() ||
+                      ui.input_mut(|i| i.consume_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::NONE, egui::Key::Enter)))
+                    {
+                      self.showing_about = false;
+                    }
+                  });
+                });
+                if modal_resp.should_close() {
+                  self.showing_about = false;
+                }
               }
             }
           });

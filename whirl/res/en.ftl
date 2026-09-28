@@ -41,6 +41,7 @@ status-open-error = Failed to open: {$message}
 
 status-button-theme = Switch colour theme
 status-button-language = Language / 语言
+status-button-about = Version & about
 status-button-menu = Menu
 
 elements = Elements
@@ -89,3 +90,11 @@ picker-hue = Hue
 modal-close-confirmation-message = Edited layout is not saved. Really close?
 modal-close-confirmation-close = Close without saving
 modal-close-confirmation-cancel = Cancel
+
+modal-about-close = Close
+modal-about-description =
+  Shall I compare thee to a summer’s day?
+  Thou art more lovely and more temperate:
+  Rough winds do shake the darling buds of May,
+  And summer’s lease hath all too short a date;
+modal-about-homepage = Homepage:

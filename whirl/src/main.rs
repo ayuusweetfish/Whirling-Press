@@ -502,6 +502,10 @@ pub fn version() -> String {
   format!("{}-{}", env!("CARGO_PKG_VERSION"), option_env!("REV_TAG").unwrap_or("dev"))
 }
 
+pub fn commit_date() -> String {
+  option_env!("REV_DATE").unwrap_or("2026-09").to_string()
+}
+
 fn main() {
   let args: Args = argh::from_env();
 
