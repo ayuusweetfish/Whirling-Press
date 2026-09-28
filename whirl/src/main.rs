@@ -467,7 +467,16 @@ fn process_and_write<P: AsRef<Path>, Q: AsRef<Path>>(pack_root: P, layout: Optio
         std::fs::write(&p, bytes).map_err(|e| ProcessError::Io(p, e))?;
       }
     },
-    _ => (),
+    ArgsFormat::PngSeq => {
+      // XXX: DRY?
+      let seq = process_pack(pack_root.as_ref(), layout, render::to_png_seq)?;
+      let width = (seq.len().ilog10() + 1).max(3) as usize;
+      for (i, bytes) in seq.into_iter().enumerate() {
+        let mut p = output.as_ref().to_path_buf();
+        p.push(format!("{:0width$}.png", i + 1));
+        std::fs::write(&p, bytes).map_err(|e| ProcessError::Io(p, e))?;
+      }
+    },
   }
   Ok(())
 }

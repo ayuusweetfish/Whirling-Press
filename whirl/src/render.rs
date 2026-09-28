@@ -240,3 +240,19 @@ pub(crate) fn to_rgba<P: AsRef<std::path::Path>>(root: P, source: &str, pixel_pe
     pixels: pixmap.data().to_vec(),
   })
 }
+
+pub(crate) fn to_png_seq<P: AsRef<std::path::Path>>(root: P, source: &str) -> Result<Vec<Vec<u8>>, RenderError> {
+  let world = SimpleWorld::new(root.as_ref(), source);
+  let doc = typst::compile::<PagedDocument>(&world).output
+    .map_err(|e| dispatch_errors(&world, e.to_vec()))?;
+  let png_seq_bytes = doc.pages().iter().map(|p| {
+    let pixmap = typst_render::render(
+      p,
+      &typst_render::RenderOptions {
+        pixel_per_pt: 1.0.into(),
+        render_bleed: false,
+      });
+    pixmap.encode_png().unwrap()
+  }).collect();
+  Ok(png_seq_bytes)
+}

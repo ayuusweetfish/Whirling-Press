@@ -6265,6 +6265,7 @@ dependencies = [
  "lopdf",
  "notify",
  "opener",
+ "png",
  "rfd",
  "serde",
  "serde-saphyr",
