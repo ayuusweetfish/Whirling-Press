@@ -78,6 +78,13 @@ list-move-up = Move up
 list-remove = Remove
 list-add = Add
 
+picker-selected = Selected tint
+picker-red = Red
+picker-green = Green
+picker-blue = Blue
+picker-alpha = Opacity
+picker-hue = Hue
+
 modal-close-confirmation-message = Edited layout is not saved. Really close?
 modal-close-confirmation-close = Close without saving
 modal-close-confirmation-cancel = Cancel

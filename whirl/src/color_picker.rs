@@ -3,6 +3,8 @@
 
 //! Color picker widgets.
 
+use crate::f;
+
 use egui::{
     Context, DragValue, Id, Painter, Popup, PopupCloseBehavior, Response, Sense, Ui,
     WidgetInfo, WidgetType, epaint, lerp, remap_clamp,
@@ -305,7 +307,7 @@ fn color_picker_hsvag_2d(ui: &mut Ui, hsvag: &mut HsvaGamma, alpha: Alpha) -> (b
         Hsva::from(*hsvag).to_srgba_unmultiplied(),
         current_color_size,
     )
-    .on_hover_text("Selected color");
+    .on_hover_text(f!("picker-selected"));
 
     if alpha == Alpha::BlendOrAdditive {
         let a = &mut hsvag.a;
@@ -349,7 +351,7 @@ fn color_picker_hsvag_2d(ui: &mut Ui, hsvag: &mut HsvaGamma, alpha: Alpha) -> (b
         }
         .into()
     });
-    slider_response.on_hover_text("Hue");
+    slider_response.on_hover_text(f!("picker-hue"));
     change_ended |= slider_change_ended;
 
     let additive = is_additive_alpha(hsvag.a);
@@ -365,12 +367,12 @@ fn color_picker_hsvag_2d(ui: &mut Ui, hsvag: &mut HsvaGamma, alpha: Alpha) -> (b
             }
             let (slider_response, slider_change_ended) =
                 color_slider_1d(ui, a, |a| HsvaGamma { a, ..opaque }.into());
-            slider_response.on_hover_text("Alpha");
+            slider_response.on_hover_text(f!("picker-alpha"));
             change_ended |= slider_change_ended;
         } else if !additive {
             let (slider_response, slider_change_ended) =
                 color_slider_1d(ui, a, |a| HsvaGamma { a, ..opaque }.into());
-            slider_response.on_hover_text("Alpha");
+            slider_response.on_hover_text(f!("picker-alpha"));
             change_ended |= slider_change_ended;
         }
     }
@@ -384,22 +386,23 @@ fn color_picker_hsvag_2d(ui: &mut Ui, hsvag: &mut HsvaGamma, alpha: Alpha) -> (b
 ///
 /// Returns `true` on change.
 fn rgba_edit_ui(ui: &mut Ui, [r, g, b, a]: &mut [f32; 4], alpha: Alpha) -> (bool, bool) {
-    fn drag_value(ui: &mut Ui, prefix: &str, value: &mut f32) -> (bool, bool) {
+    fn drag_value(ui: &mut Ui, prefix: &str, tooltip: &str, value: &mut f32) -> (bool, bool) {
         let widget = DragValue::new(value)
             .speed(0.003)
             .prefix(prefix)
             .range(0.0..=1.0)
             .custom_formatter(|n, _| format!("{n:.03}"));
-        let response = ui.add_sized([74.0, ui.spacing().interact_size.y], widget);
+        let response = ui.add_sized([74.0, ui.spacing().interact_size.y], widget)
+            .on_hover_text(tooltip);
         (response.changed(), response.drag_stopped() || response.lost_focus())
     }
 
     ui.horizontal(|ui| {
-        let r_change = drag_value(ui, "R ", r);
-        let g_change = drag_value(ui, "G ", g);
-        let b_change = drag_value(ui, "B ", b);
+        let r_change = drag_value(ui, "R ", &f!("picker-red"), r);
+        let g_change = drag_value(ui, "G ", &f!("picker-green"), g);
+        let b_change = drag_value(ui, "B ", &f!("picker-blue"), b);
         let a_change = if alpha != Alpha::Opaque {
-            drag_value(ui, "A ", a)
+            drag_value(ui, "A ", &f!("picker-alpha"), a)
         } else {
             (false, false)
         };

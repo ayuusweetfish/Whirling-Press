@@ -75,6 +75,13 @@ list-move-up = 上移
 list-remove = 移除
 list-add = 新增
 
+picker-selected = 选中的颜色
+picker-red = 红
+picker-green = 绿
+picker-blue = 蓝
+picker-alpha = 不透明度
+picker-hue = 色相
+
 modal-close-confirmation-message = 编辑的排版尚未保存。确认关闭吗？
 modal-close-confirmation-close = 不保存，关闭
 modal-close-confirmation-cancel = 取消
