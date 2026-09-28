@@ -1568,6 +1568,12 @@ impl eframe::App for WhirlApp {
                   }
                   egui::Popup::close_id(ui.ctx(), popup_id);
                 }
+                if ui.add(egui::Button::new(format!("🖨 {}", f!("menu-export-png-seq")))).clicked() {
+                  if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                    self.export(&path, crate::ArgsFormat::PngSeq);
+                  }
+                  egui::Popup::close_id(ui.ctx(), popup_id);
+                }
                 ui.separator();
                 if ui.add(egui::Button::new(format!("⬅️ {}", f!("menu-close"))).shortcut_text(ui.ctx().format_shortcut(&close_shortcut))).clicked() {
                   to_close = true;
