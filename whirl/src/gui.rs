@@ -1564,18 +1564,27 @@ impl eframe::App for WhirlApp {
                   to_export_p = true;
                   egui::Popup::close_id(ui.ctx(), popup_id);
                 }
-                if ui.add(egui::Button::new(format!("🖨 {}", f!("menu-export-pdf-seq")))).clicked() {
-                  if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                    self.export(&path, crate::ArgsFormat::PdfSeq);
+                ui.menu_button(format!("🖨 {}", f!("menu-export-other")), |ui| {
+                  ui.spacing_mut().button_padding = (2., 3.).into();
+                  if ui.add(egui::Button::new(f!("menu-export-pdf-seq"))).clicked() {
+                    if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                      self.export(&path, crate::ArgsFormat::PdfSeq);
+                    }
+                    egui::Popup::close_id(ui.ctx(), popup_id);
                   }
-                  egui::Popup::close_id(ui.ctx(), popup_id);
-                }
-                if ui.add(egui::Button::new(format!("🖨 {}", f!("menu-export-png-seq")))).clicked() {
-                  if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                    self.export(&path, crate::ArgsFormat::PngSeq);
+                  if ui.add(egui::Button::new(f!("menu-export-png-seq"))).clicked() {
+                    if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                      self.export(&path, crate::ArgsFormat::PngSeq);
+                    }
+                    egui::Popup::close_id(ui.ctx(), popup_id);
                   }
-                  egui::Popup::close_id(ui.ctx(), popup_id);
-                }
+                  if ui.add(egui::Button::new(f!("menu-export-typst"))).clicked() {
+                    if let Some(path) = rfd::FileDialog::new().add_filter("Typst", &["typ"]).save_file() {
+                      self.export(&path, crate::ArgsFormat::Typst);
+                    }
+                    egui::Popup::close_id(ui.ctx(), popup_id);
+                  }
+                });
                 ui.separator();
                 if ui.add(egui::Button::new(format!("⬅️ {}", f!("menu-close"))).shortcut_text(ui.ctx().format_shortcut(&close_shortcut))).clicked() {
                   to_close = true;
