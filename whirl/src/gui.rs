@@ -1297,20 +1297,39 @@ impl WhirlApp {
         let n = segments.len();
         let mut to_prioritize = None;
         let mut to_remove = None;
+        let base_id = ui.id();
+        let collapse_id = |j| base_id.with(("text_segment_collapse", j));
         for (j, model::TextSegment { family, size, weight, italic, tracking, tint, text }) in segments.iter_mut().enumerate() {
+          let is_collapsed = ui.ctx().memory_mut(|mem| mem.data.get_temp::<bool>(collapse_id(j)).unwrap_or(false));
           let resp = ui.add(
-            egui::Label::new(egui::RichText::new(format!("▾ #{}", j + 1)).weak())
+            egui::Label::new(egui::RichText::new(format!("{} #{}", if is_collapsed { "▸" } else { "▾" }, j + 1)).weak())
               .sense(egui::Sense::HOVER | egui::Sense::CLICK | egui::Sense::FOCUSABLE));
           if resp.hovered() {
             ui.set_cursor_icon(egui::CursorIcon::PointingHand);
+          }
+          if resp.clicked() {
+            ui.ctx().memory_mut(|mem| mem.data.insert_temp(collapse_id(j), !is_collapsed));
           }
           ui.horizontal(|ui| {
             let h = ui.style().spacing.interact_size.y;
             ui.allocate_ui_with_layout(
               [ui.available_width() - (h + ui.style().spacing.item_spacing.x) *
                 if n > 1 { if j > 0 { 2. } else { 1. } } else { 0. }, h].into(),
-              egui::Layout::top_down_justified(egui::Align::Center),
-              |ui| { ui.add_space(h / 2. - 1.); ui.separator(); },
+              egui::Layout::top_down_justified(egui::Align::Min),
+              |ui| if is_collapsed {
+                let resp = ui.add(egui::Label::new(egui::RichText::new(text.clone()).weak())
+                  .wrap_mode(egui::TextWrapMode::Truncate)
+                  .sense(egui::Sense::HOVER | egui::Sense::CLICK | egui::Sense::FOCUSABLE)
+                );
+                if resp.hovered() {
+                  ui.set_cursor_icon(egui::CursorIcon::PointingHand);
+                }
+                if resp.clicked() {
+                  ui.ctx().memory_mut(|mem| mem.data.insert_temp(collapse_id(j), !is_collapsed));
+                }
+              } else {
+                ui.add_space(h / 2. - 1.); ui.separator();
+              },
             );
             if n > 1 {
               if j > 0 {
@@ -1324,6 +1343,7 @@ impl WhirlApp {
             }
           });
           ui.end_row();
+          if is_collapsed { continue; }
           ui.label(f!("attr-text-text"));
           let edit_output = egui::TextEdit::multiline(text).desired_width(ui.available_width()).show(ui);
           let range = if let Some(c) = edit_output.state.cursor.char_range() {
@@ -1415,11 +1435,24 @@ impl WhirlApp {
         ui.end_row();
         if let Some(i) = to_prioritize {
           segments.swap(i, i - 1);
+          ui.ctx().memory_mut(|mem| {
+            let val_i = mem.data.get_temp::<bool>(collapse_id(i)).unwrap_or(false);
+            let val_j = mem.data.get_temp::<bool>(collapse_id(i - 1)).unwrap_or(false);
+            mem.data.insert_temp(collapse_id(i), val_i);
+            mem.data.insert_temp(collapse_id(i - 1), val_j);
+          });
           changed_tex = true;
           change_ended = true;
         }
         if let Some(i) = to_remove {
           segments.remove(i);
+          ui.ctx().memory_mut(|mem| {
+            for j in i..n - 1 {
+              let val_j = mem.data.get_temp::<bool>(collapse_id(j + 1)).unwrap_or(false);
+              mem.data.insert_temp(collapse_id(j), val_j);
+            }
+            mem.data.remove_temp::<bool>(collapse_id(n - 1));
+          });
           changed_tex = true;
           change_ended = true;
         }
