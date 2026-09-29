@@ -1294,12 +1294,36 @@ impl WhirlApp {
         ui.end_row();
       },
       model::Content::Text(segments) => {
+        let n = segments.len();
+        let mut to_prioritize = None;
+        let mut to_remove = None;
         for (j, model::TextSegment { family, size, weight, italic, tracking, tint, text }) in segments.iter_mut().enumerate() {
-          if j != 0 {
-            ui.weak(format!("#{}", j + 1));
-            ui.separator();
-            ui.end_row();
+          let resp = ui.add(
+            egui::Label::new(egui::RichText::new(format!("▾ #{}", j + 1)).weak())
+              .sense(egui::Sense::HOVER | egui::Sense::CLICK | egui::Sense::FOCUSABLE));
+          if resp.hovered() {
+            ui.set_cursor_icon(egui::CursorIcon::PointingHand);
           }
+          ui.horizontal(|ui| {
+            let h = ui.style().spacing.interact_size.y;
+            ui.allocate_ui_with_layout(
+              [ui.available_width() - (h + ui.style().spacing.item_spacing.x) *
+                if n > 1 { if j > 0 { 2. } else { 1. } } else { 0. }, h].into(),
+              egui::Layout::top_down_justified(egui::Align::Center),
+              |ui| { ui.add_space(h / 2. - 1.); ui.separator(); },
+            );
+            if n > 1 {
+              if j > 0 {
+                if ui.add_sized([h, h], egui::Button::new("⌃")).on_hover_text(f!("list-move-up")).clicked() {
+                  to_prioritize = Some(j);
+                }
+              }
+              if ui.add_sized([h, h], egui::Button::new("×")).on_hover_text(f!("list-remove")).clicked() {
+                to_remove = Some(j);
+              }
+            }
+          });
+          ui.end_row();
           ui.label(f!("attr-text-text"));
           let edit_output = egui::TextEdit::multiline(text).desired_width(ui.available_width()).show(ui);
           let range = if let Some(c) = edit_output.state.cursor.char_range() {
@@ -1335,7 +1359,7 @@ impl WhirlApp {
             (model::Weight::ExtraBold, "Extra Bold (800)"),
             (model::Weight::Black, "Black (900)"),
           ];
-          ComboBox::from_id_salt("font_weight")
+          ComboBox::from_id_salt(("font_weight", j))
             .width(150.0)
             .selected_text(weights_and_names.iter()
               .find(|(a, _)| *a == *weight)
@@ -1368,18 +1392,37 @@ impl WhirlApp {
           change_ended |= picker_change_ended;
           ui.end_row();
         }
-        if ui.add_sized([ui.style().spacing.interact_size.y, ui.style().spacing.interact_size.y],
-          egui::Button::new("+")).on_hover_text(f!("list-add-segment")).clicked()
-        {
-          segments.push(model::TextSegment {
-            text: "".to_string(),
-            ..segments.last().unwrap().clone()
-          });
-          changed_any = true;
-          change_ended = true;
-          // No need to re-render, as the text is empty
-        }
+        ui.label("");
+        ui.horizontal(|ui| {
+          let h = ui.style().spacing.interact_size.y;
+          ui.allocate_ui_with_layout(
+            [ui.available_width() - (h + ui.style().spacing.item_spacing.x), h].into(),
+            egui::Layout::top_down_justified(egui::Align::Center),
+            |ui| { ui.add_space(h / 2. - 1.); ui.separator(); },
+          );
+          if ui.add_sized([ui.style().spacing.interact_size.y, ui.style().spacing.interact_size.y],
+            egui::Button::new("+")).on_hover_text(f!("list-add-segment")).clicked()
+          {
+            segments.push(model::TextSegment {
+              text: "".to_string(),
+              ..segments.last().unwrap().clone()
+            });
+            changed_any = true;
+            change_ended = true;
+            // No need to re-render, as the text is empty
+          }
+        });
         ui.end_row();
+        if let Some(i) = to_prioritize {
+          segments.swap(i, i - 1);
+          changed_tex = true;
+          change_ended = true;
+        }
+        if let Some(i) = to_remove {
+          segments.remove(i);
+          changed_tex = true;
+          change_ended = true;
+        }
       },
     }
     (changed_any || changed_tex, changed_tex, change_ended)
