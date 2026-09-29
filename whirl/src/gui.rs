@@ -577,7 +577,8 @@ impl WhirlApp {
       .resizable(true).default_size(320.0).size_range(80.0..=800.0)
       .show_collapsible(ui, &mut attr_panel_expanded, |ui| {
         let panel_avail_h = ui.available_height();
-        egui::ScrollArea::vertical().id_salt(self.sel_element).max_height(self.attrs_panel_h - 6.).show(ui, |ui| {
+        let id = self.sel_element.map_or(0_usize.wrapping_sub(1), |i| self.elements_uid[i]);
+        egui::ScrollArea::vertical().id_salt(id).max_height(self.attrs_panel_h - 6.).show(ui, |ui| {
           ui.with_layout(Layout::top_down_justified(Align::Min), |ui| {
             if let Some(i) = self.sel_element {
               let el = &mut self.layout.as_mut().unwrap().elements[i];
@@ -588,7 +589,7 @@ impl WhirlApp {
               ui.push_id(
                 self.elements_uid[i],
                 |ui| {
-                  Grid::new(("attr_grid", i))
+                  Grid::new(("attr_grid", self.elements_uid[i]))
                     .num_columns(2)
                     .spacing([20.0, 4.0])
                     .striped(true)
@@ -1452,8 +1453,8 @@ impl WhirlApp {
           ui.ctx().memory_mut(|mem| {
             let val_i = mem.data.get_temp::<bool>(collapse_id(i)).unwrap_or(false);
             let val_j = mem.data.get_temp::<bool>(collapse_id(i - 1)).unwrap_or(false);
-            mem.data.insert_temp(collapse_id(i), val_i);
-            mem.data.insert_temp(collapse_id(i - 1), val_j);
+            mem.data.insert_temp(collapse_id(i), val_j);
+            mem.data.insert_temp(collapse_id(i - 1), val_i);
           });
           changed_tex = true;
           change_ended = true;
