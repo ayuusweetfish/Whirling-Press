@@ -1368,6 +1368,18 @@ impl WhirlApp {
           change_ended |= picker_change_ended;
           ui.end_row();
         }
+        if ui.add_sized([ui.style().spacing.interact_size.y, ui.style().spacing.interact_size.y],
+          egui::Button::new("+")).on_hover_text(f!("list-add-segment")).clicked()
+        {
+          segments.push(model::TextSegment {
+            text: "".to_string(),
+            ..segments.last().unwrap().clone()
+          });
+          changed_any = true;
+          change_ended = true;
+          // No need to re-render, as the text is empty
+        }
+        ui.end_row();
       },
     }
     (changed_any || changed_tex, changed_tex, change_ended)

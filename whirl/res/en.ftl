@@ -81,6 +81,7 @@ anchor-br = Bottom Right
 list-move-up = Move up
 list-remove = Remove
 list-add = Add
+list-add-segment = Add segment
 
 picker-selected = Selected tint
 picker-red = Red

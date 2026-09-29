@@ -78,6 +78,7 @@ anchor-br = 右下
 list-move-up = 上移
 list-remove = 移除
 list-add = 新增
+list-add-segment = 新增片段
 
 picker-selected = 选中的颜色
 picker-red = 红
