@@ -434,7 +434,7 @@ struct Args {
     argh(option, short = 'o', description = "output file")
   )]
   output: Option<String>,
-  #[argh(option, short = 'f', description = "output format (pdf, pdf_seq, png_seq)", default = "Default::default()")]
+  #[argh(option, short = 'f', description = "output format (pdf, pdf_seq, png_seq, typst)", default = "Default::default()")]
   format: ArgsFormat,
   #[argh(switch, short = 'c', description = "compress output harder")]
   compress: bool,
@@ -447,6 +447,7 @@ enum ArgsFormat {
   Pdf,
   PdfSeq,
   PngSeq,
+  Typst,
 }
 
 fn process_and_write<P: AsRef<Path>, Q: AsRef<Path>>(pack_root: P, layout: Option<&model::Layout>, output: Q, format: ArgsFormat, compress: bool) -> Result<(), ProcessError> {
@@ -480,6 +481,11 @@ fn process_and_write<P: AsRef<Path>, Q: AsRef<Path>>(pack_root: P, layout: Optio
         p.push(format!("{:0width$}.png", i + 1));
         std::fs::write(&p, bytes).map_err(|e| ProcessError::Io(p, e))?;
       }
+    },
+    ArgsFormat::Typst => {
+      let bytes = process_pack(pack_root.as_ref(), layout, |_, source| Ok(source.as_bytes().to_vec()))?;
+      let p = output.as_ref();
+      std::fs::write(&p, bytes).map_err(|e| ProcessError::Io(p.to_path_buf(), e))?;
     },
   }
   Ok(())
