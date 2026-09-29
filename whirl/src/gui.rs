@@ -413,7 +413,7 @@ impl WhirlApp {
         self.status_msg = None;
       }
       Err(e) => {
-        self.status_msg = Some((true, std::time::Instant::now(), e.message()));
+        self.status_msg = Some((true, std::time::Instant::now(), e.message().replace(&['\r', '\n'], " ")));
       }
     }
   }
@@ -528,7 +528,7 @@ impl WhirlApp {
           }
         }
         Err(e) => {
-          self.status_msg = Some((true, std::time::Instant::now(), e.message()));
+          self.status_msg = Some((true, std::time::Instant::now(), e.message().replace(&['\r', '\n'], " ")));
         }
       }
     }
