@@ -81,19 +81,21 @@ pub enum Content {
     src: String,
   },
   #[serde(rename = "text")]
-  Text {
-    family: Vec<String>,
-    size: f32,
-    #[serde(default, skip_serializing_if = "is_default")]
-    weight: Weight,
-    #[serde(default, skip_serializing_if = "is_default")]
-    italic: bool,
-    #[serde(default, skip_serializing_if = "is_default")]
-    tracking: f32,
-    #[serde(default = "default_tint", skip_serializing_if = "is_default_tint")]
-    tint: (f32, f32, f32, f32),
-    text: String,
-  },
+  Text(Vec<TextSegment>),
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct TextSegment {
+  pub family: Vec<String>,
+  pub size: f32,
+  #[serde(default, skip_serializing_if = "is_default")]
+  pub weight: Weight,
+  #[serde(default, skip_serializing_if = "is_default")]
+  pub italic: bool,
+  #[serde(default, skip_serializing_if = "is_default")]
+  pub tracking: f32,
+  #[serde(default = "default_tint", skip_serializing_if = "is_default_tint")]
+  pub tint: (f32, f32, f32, f32),
+  pub text: String,
 }
 #[derive(Debug, Clone, Deserialize, Serialize, Default, PartialEq, Copy)]
 #[serde(try_from = "f32", into = "i32")]

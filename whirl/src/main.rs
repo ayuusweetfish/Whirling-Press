@@ -123,27 +123,31 @@ impl model::Element {
           format!("#image({})", expand_expr(src, fields)?)
         }
       }
-      model::Content::Text { family, size, weight, italic, tracking, tint, text } => {
-        let mut args = Vec::new();
-        let families = family.iter().map(|s| format!("\"{}\"", s)).collect::<Vec<_>>().join(", ");
-        args.push(format!("font: ({})", families));
-        args.push(format!("size: {}pt", size));
-        if *weight != model::Weight::default() {
-          args.push(format!("weight: {}", Into::<i32>::into(*weight)));
+      model::Content::Text(segments) => {
+        let mut src = String::new();
+        for model::TextSegment { family, size, weight, italic, tracking, tint, text } in segments {
+          let mut args = Vec::new();
+          let families = family.iter().map(|s| format!("\"{}\"", s)).collect::<Vec<_>>().join(", ");
+          args.push(format!("font: ({})", families));
+          args.push(format!("size: {}pt", size));
+          if *weight != model::Weight::default() {
+            args.push(format!("weight: {}", Into::<i32>::into(*weight)));
+          }
+          if *italic {
+            args.push(format!("style: \"italic\""));
+          }
+          if *tracking != 0.0 {
+            args.push(format!("tracking: {}pt", tracking));
+          }
+          if *tint != model::default_tint() {
+            args.push(format!("fill: rgb({}%, {}%, {}%, {}%)",
+              tint.0 * 100., tint.1 * 100., tint.2 * 100., tint.3 * 100.));
+          }
+          src.push_str(&format!("#text({}, {})", args.join(", "),
+            if is_preview { format!("\"{}\"", escape(text)) }
+            else { expand_expr(text, fields)? }))
         }
-        if *italic {
-          args.push(format!("style: \"italic\""));
-        }
-        if *tracking != 0.0 {
-          args.push(format!("tracking: {}pt", tracking));
-        }
-        if *tint != model::default_tint() {
-          args.push(format!("fill: rgb({}%, {}%, {}%, {}%)",
-            tint.0 * 100., tint.1 * 100., tint.2 * 100., tint.3 * 100.));
-        }
-        format!("#text({}, {})", args.join(", "),
-          if is_preview { format!("\"{}\"", escape(text)) }
-          else { expand_expr(text, fields)? })
+        src
       }
     };
 

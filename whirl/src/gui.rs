@@ -569,7 +569,7 @@ impl WhirlApp {
               let el = &mut self.layout.as_mut().unwrap().elements[i];
               ui.heading(match &el.content {
                 model::Content::Image { .. } => f!("attr-heading-image"),
-                model::Content::Text { .. } => f!("attr-heading-text"),
+                model::Content::Text(_) => f!("attr-heading-text"),
               });
               ui.push_id(
                 i,
@@ -685,7 +685,7 @@ impl WhirlApp {
                   let n = layout.elements.len();
                   let page_size = layout.page;
                   self.op(ui.ctx(), Operation::AddElement { i: n, element:
-                    new_element(page_size, self.canvas.origin, model::Content::Text {
+                    new_element(page_size, self.canvas.origin, model::Content::Text(vec![model::TextSegment {
                       family: vec![self.font_families[0].clone()],
                       size: 16.0,
                       weight: model::Weight::Regular,
@@ -693,7 +693,7 @@ impl WhirlApp {
                       tracking: 0.0,
                       tint: (0., 0., 0., 1.),
                       text: "".to_string(),
-                    })
+                    }]))
                   });
                   self.sel_element = Some(n);
                 }
@@ -710,7 +710,8 @@ impl WhirlApp {
                   egui::Button::selectable(sel, "").left_text(
                     match &el.content {
                       model::Content::Image { src, .. } => format!("🖼️ {}", src),
-                      model::Content::Text { text, .. } => format!("💬 {}", text),
+                      model::Content::Text(segments) => format!("💬 {}",
+                        segments.iter().map(|s| s.text.clone()).collect::<Vec<_>>().join("")),
                     },
                   ).truncate(),
                 );
@@ -1292,74 +1293,81 @@ impl WhirlApp {
         changed_tex |= a; change_ended |= b;
         ui.end_row();
       },
-      model::Content::Text { family, size, weight, italic, tracking, tint, text } => {
-        ui.label(f!("attr-text-text"));
-        let edit_output = egui::TextEdit::multiline(text).desired_width(ui.available_width()).show(ui);
-        let range = if let Some(c) = edit_output.state.cursor.char_range() {
-          field_range(text, c.primary.index.into())
-        } else { None };
-        if range.is_some() {
-          let (a, b) = show_autocomplete(ui, edit_output, text, text_sel_range, range, csv_fields, &[]);
-          changed_tex |= a; change_ended |= b;
-        } else {
-          changed_tex |= edit_output.response.changed();
-          change_ended |= edit_output.response.lost_focus();
-        }
-        ui.end_row();
-        ui.label(f!("attr-text-family"));
-        let fonts_changed = Self::font_list_editor(ui, &font_families, family);
-        changed_tex |= fonts_changed;
-        change_ended |= fonts_changed;
-        ui.end_row();
-        ui.label(f!("attr-text-size"));
-        let resp = ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(size).range(0.0..=f32::INFINITY).speed(1.0));
-        changed_tex |= resp.changed();
-        change_ended |= resp.drag_stopped() || resp.lost_focus();
-        ui.end_row();
-        ui.label(f!("attr-text-weight"));
-        let weights_and_names = [
-          (model::Weight::Thin, "Thin (100)"),
-          (model::Weight::ExtraLight, "Extra Light (200)"),
-          (model::Weight::Light, "Light (300)"),
-          (model::Weight::Regular, "Regular (400)"),
-          (model::Weight::Medium, "Medium (500)"),
-          (model::Weight::SemiBold, "Semi Bold (600)"),
-          (model::Weight::Bold, "Bold (700)"),
-          (model::Weight::ExtraBold, "Extra Bold (800)"),
-          (model::Weight::Black, "Black (900)"),
-        ];
-        ComboBox::from_id_salt("font_weight")
-          .width(150.0)
-          .selected_text(weights_and_names.iter()
-            .find(|(a, _)| *a == *weight)
-            .map(|(_, name)| *name).unwrap())
-          .show_ui(ui, |ui| {
-            for (value, name) in weights_and_names {
-              if ui.selectable_value(weight, value, name).clicked() {
-                changed_tex = true;
-                change_ended = true;
+      model::Content::Text(segments) => {
+        for (j, model::TextSegment { family, size, weight, italic, tracking, tint, text }) in segments.iter_mut().enumerate() {
+          if j != 0 {
+            ui.weak(format!("#{}", j + 1));
+            ui.separator();
+            ui.end_row();
+          }
+          ui.label(f!("attr-text-text"));
+          let edit_output = egui::TextEdit::multiline(text).desired_width(ui.available_width()).show(ui);
+          let range = if let Some(c) = edit_output.state.cursor.char_range() {
+            field_range(text, c.primary.index.into())
+          } else { None };
+          if range.is_some() {
+            let (a, b) = show_autocomplete(ui, edit_output, text, text_sel_range, range, csv_fields, &[]);
+            changed_tex |= a; change_ended |= b;
+          } else {
+            changed_tex |= edit_output.response.changed();
+            change_ended |= edit_output.response.lost_focus();
+          }
+          ui.end_row();
+          ui.label(f!("attr-text-family"));
+          let fonts_changed = Self::font_list_editor(ui, &font_families, family);
+          changed_tex |= fonts_changed;
+          change_ended |= fonts_changed;
+          ui.end_row();
+          ui.label(f!("attr-text-size"));
+          let resp = ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(size).range(0.0..=f32::INFINITY).speed(1.0));
+          changed_tex |= resp.changed();
+          change_ended |= resp.drag_stopped() || resp.lost_focus();
+          ui.end_row();
+          ui.label(f!("attr-text-weight"));
+          let weights_and_names = [
+            (model::Weight::Thin, "Thin (100)"),
+            (model::Weight::ExtraLight, "Extra Light (200)"),
+            (model::Weight::Light, "Light (300)"),
+            (model::Weight::Regular, "Regular (400)"),
+            (model::Weight::Medium, "Medium (500)"),
+            (model::Weight::SemiBold, "Semi Bold (600)"),
+            (model::Weight::Bold, "Bold (700)"),
+            (model::Weight::ExtraBold, "Extra Bold (800)"),
+            (model::Weight::Black, "Black (900)"),
+          ];
+          ComboBox::from_id_salt("font_weight")
+            .width(150.0)
+            .selected_text(weights_and_names.iter()
+              .find(|(a, _)| *a == *weight)
+              .map(|(_, name)| *name).unwrap())
+            .show_ui(ui, |ui| {
+              for (value, name) in weights_and_names {
+                if ui.selectable_value(weight, value, name).clicked() {
+                  changed_tex = true;
+                  change_ended = true;
+                }
               }
-            }
-          });
-        ui.end_row();
-        ui.label(f!("attr-text-italic"));
-        let resp = ui.checkbox(italic, "");
-        changed_tex |= resp.changed();
-        change_ended |= resp.changed();
-        ui.end_row();
-        ui.label(f!("attr-text-tracking"));
-        let resp = ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(tracking).speed(0.1));
-        changed_tex |= resp.changed();
-        change_ended |= resp.drag_stopped() || resp.lost_focus();
-        ui.end_row();
-        ui.label(f!("attr-text-tint"));
-        let (picker_changed, picker_change_ended) = color_picker::color_edit_button_srgba(
-          ui, tint, color_picker::Alpha::OnlyBlend);
-        fn round_dec(x: f32) -> f32 { (x * 1000.).round_ties_even() / 1000. }
-        *tint = (round_dec(tint.0), round_dec(tint.1), round_dec(tint.2), round_dec(tint.3));
-        changed_tex |= picker_changed;
-        change_ended |= picker_change_ended;
-        ui.end_row();
+            });
+          ui.end_row();
+          ui.label(f!("attr-text-italic"));
+          let resp = ui.checkbox(italic, "");
+          changed_tex |= resp.changed();
+          change_ended |= resp.changed();
+          ui.end_row();
+          ui.label(f!("attr-text-tracking"));
+          let resp = ui.add_sized([80.0, ui.style().spacing.interact_size.y], DragValue::new(tracking).speed(0.1));
+          changed_tex |= resp.changed();
+          change_ended |= resp.drag_stopped() || resp.lost_focus();
+          ui.end_row();
+          ui.label(f!("attr-text-tint"));
+          let (picker_changed, picker_change_ended) = color_picker::color_edit_button_srgba(
+            ui, tint, color_picker::Alpha::OnlyBlend);
+          fn round_dec(x: f32) -> f32 { (x * 1000.).round_ties_even() / 1000. }
+          *tint = (round_dec(tint.0), round_dec(tint.1), round_dec(tint.2), round_dec(tint.3));
+          changed_tex |= picker_changed;
+          change_ended |= picker_change_ended;
+          ui.end_row();
+        }
       },
     }
     (changed_any || changed_tex, changed_tex, change_ended)
