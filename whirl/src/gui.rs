@@ -1316,37 +1316,37 @@ impl WhirlApp {
         let collapse_id = |j| base_id.with(("text_segment_collapse", j));
         for (j, model::TextSegment { family, size, weight, italic, tracking, tint, text }) in segments.iter_mut().enumerate() {
           let is_collapsed = ui.ctx().memory_mut(|mem| mem.data.get_temp::<bool>(collapse_id(j)).unwrap_or(false));
-          let resp = ui.add(
-            egui::Label::new(egui::RichText::new(format!("{} #{}", if is_collapsed { "▸" } else { "▾" }, j + 1)).weak())
-              .sense(egui::Sense::HOVER | egui::Sense::CLICK | egui::Sense::FOCUSABLE));
-          if resp.hovered() {
-            ui.set_cursor_icon(egui::CursorIcon::PointingHand);
-          }
-          if resp.clicked() {
-            ui.ctx().memory_mut(|mem| mem.data.insert_temp(collapse_id(j), !is_collapsed));
-          }
-          ui.horizontal(|ui| {
-            let h = ui.style().spacing.interact_size.y;
-            ui.allocate_ui_with_layout(
-              [ui.available_width() - (h + ui.style().spacing.item_spacing.x) *
-                if n > 1 { if j > 0 { 2. } else { 1. } } else { 0. }, h].into(),
-              egui::Layout::top_down_justified(egui::Align::Min),
-              |ui| if is_collapsed {
-                let resp = ui.add(egui::Label::new(egui::RichText::new(text.clone()).weak())
-                  .wrap_mode(egui::TextWrapMode::Truncate)
-                  .sense(egui::Sense::HOVER | egui::Sense::CLICK | egui::Sense::FOCUSABLE)
-                );
-                if resp.hovered() {
-                  ui.set_cursor_icon(egui::CursorIcon::PointingHand);
-                }
-                if resp.clicked() {
-                  ui.ctx().memory_mut(|mem| mem.data.insert_temp(collapse_id(j), !is_collapsed));
-                }
-              } else {
-                ui.add_space(h / 2. - 1.); ui.separator();
-              },
-            );
-            if n > 1 {
+          if n > 1 {
+            let resp = ui.add(
+              egui::Label::new(egui::RichText::new(format!("{} #{}", if is_collapsed { "▸" } else { "▾" }, j + 1)).weak())
+                .sense(egui::Sense::HOVER | egui::Sense::CLICK | egui::Sense::FOCUSABLE));
+            if resp.hovered() {
+              ui.set_cursor_icon(egui::CursorIcon::PointingHand);
+            }
+            if resp.clicked() {
+              ui.ctx().memory_mut(|mem| mem.data.insert_temp(collapse_id(j), !is_collapsed));
+            }
+            ui.horizontal(|ui| {
+              let h = ui.style().spacing.interact_size.y;
+              ui.allocate_ui_with_layout(
+                [ui.available_width() - (h + ui.style().spacing.item_spacing.x) *
+                  if j > 0 { 2. } else { 1. }, h].into(),
+                egui::Layout::top_down_justified(egui::Align::Min),
+                |ui| if is_collapsed && n > 1 {
+                  let resp = ui.add(egui::Label::new(egui::RichText::new(text.clone()).weak())
+                    .wrap_mode(egui::TextWrapMode::Truncate)
+                    .sense(egui::Sense::HOVER | egui::Sense::CLICK | egui::Sense::FOCUSABLE)
+                  );
+                  if resp.hovered() {
+                    ui.set_cursor_icon(egui::CursorIcon::PointingHand);
+                  }
+                  if resp.clicked() {
+                    ui.ctx().memory_mut(|mem| mem.data.insert_temp(collapse_id(j), !is_collapsed));
+                  }
+                } else {
+                  ui.add_space(h / 2. - 1.); ui.separator();
+                },
+              );
               if j > 0 {
                 if ui.add_sized([h, h], egui::Button::new("⌃")).on_hover_text(f!("list-move-up")).clicked() {
                   to_prioritize = Some(j);
@@ -1355,10 +1355,10 @@ impl WhirlApp {
               if ui.add_sized([h, h], egui::Button::new("×")).on_hover_text(f!("list-remove")).clicked() {
                 to_remove = Some(j);
               }
-            }
-          });
-          ui.end_row();
-          if is_collapsed { continue; }
+            });
+            ui.end_row();
+          }
+          if is_collapsed && n > 1 { continue; }
           ui.label(f!("attr-text-text"));
           let edit_output = egui::TextEdit::multiline(text).desired_width(ui.available_width()).show(ui);
           let range = if let Some(c) = edit_output.state.cursor.char_range() {
@@ -1445,6 +1445,8 @@ impl WhirlApp {
             changed_any = true;
             change_ended = true;
             // No need to re-render, as the text is empty
+            ui.scroll_with_delta_animation([0., -ui.style().spacing.interact_size.y * 10.].into(),
+              egui::style::ScrollAnimation::new(1500., egui::Rangef::new(0.1, 0.15)));
           }
         });
         ui.end_row();
