@@ -6,10 +6,6 @@ mod opt_pdf;
 mod localize;
 #[cfg(feature = "gui")]
 mod gui;
-#[cfg(feature = "gui")]
-mod dir_watcher;
-#[cfg(feature = "gui")]
-mod color_picker;
 
 #[derive(Debug)]
 enum ExprError {

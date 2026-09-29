@@ -1,5 +1,8 @@
 use eframe::egui;
 
+mod dir_watcher;
+mod color_picker;
+
 pub(crate) fn start(root_path: Option<&str>) {
   let result = eframe::run_native(
     "Whirling Press",
@@ -15,8 +18,6 @@ use crate::model;
 use crate::render;
 use crate::localize;
 use crate::f;   // Fluent localization; src/localize.rs
-use crate::dir_watcher;
-use crate::color_picker;
 
 const UNDO_LIMIT: usize = 10000;
 
