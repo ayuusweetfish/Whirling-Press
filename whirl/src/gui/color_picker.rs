@@ -1,6 +1,9 @@
 // Copied and edited from egui-0.36.2: egui/widgets/color_picker.rs
 // Copyright (c) 2018-2021 Emil Ernerfeldt <emil.ernerfeldt@gmail.com>
 
+// Changes from the original: this implementation one operates entirely in sRGB space;
+// Sliders and numeric fields are all in gamma-encoded floating-point sRGB components.
+
 //! Color picker widgets.
 
 use crate::f;
@@ -11,9 +14,45 @@ use egui::{
 };
 use egui::epaint::{
     Mesh, Rect, Shape, Stroke, StrokeKind, Vec2,
-    ecolor::{Color32, Hsva, HsvaGamma, Rgba},
+    ecolor::{Color32, Rgba, hsv_from_rgb, rgb_from_hsv},
     pos2, vec2,
 };
+
+// Like `ecolor::Hsva`, but with gamma-encoded components
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct HsvaSrgb {
+    h: f32,
+    s: f32,
+    v: f32,
+    a: f32,
+}
+
+impl HsvaSrgb {
+    fn from_rgba_unmultiplied([r, g, b, a]: [f32; 4]) -> Self {
+        let (h, s, v) = hsv_from_rgb([r, g, b]);
+        Self { h, s, v, a }
+    }
+
+    fn to_rgba_unmultiplied(self) -> [f32; 4] {
+        let [r, g, b] = rgb_from_hsv((self.h, self.s, self.v));
+        [r, g, b, self.a]
+    }
+}
+
+impl From<HsvaSrgb> for Color32 {
+    fn from(hsva: HsvaSrgb) -> Self {
+        let [r, g, b] = rgb_from_hsv((hsva.h, hsva.s, hsva.v));
+        fn quant_u8(x: f32) -> u8 {
+            (x.clamp(0.0, 1.0) * 255.0 + 0.5) as u8
+        }
+        Color32::from_rgba_unmultiplied(
+            quant_u8(r),
+            quant_u8(g),
+            quant_u8(b),
+            quant_u8(hsva.a.abs()),
+        )
+    }
+}
 
 fn contrast_color(color: impl Into<Rgba>) -> Color32 {
     if color.into().intensity() < 0.5 {
@@ -175,7 +214,7 @@ fn color_slider_1d(ui: &mut Ui, value: &mut f32, color_at: impl Fn(f32) -> Color
 /// * `y_value` - Y axis, either saturation or value (0.0-1.0).
 /// * `color_at` - A function that dictates how the mix of saturation and value will be displayed in the 2d slider.
 ///
-/// e.g.: `|x_value, y_value| HsvaGamma { h: 1.0, s: x_value, v: y_value, a: 1.0 }.into()` displays the colors as follows:
+/// e.g.: `|x_value, y_value| HsvaSrgb { h: 1.0, s: x_value, v: y_value, a: 1.0 }.into()` displays the colors as follows:
 /// * top-left: white `[s: 0.0, v: 1.0]`
 /// * top-right: fully saturated color `[s: 1.0, v: 1.0]`
 /// * bottom-right: black `[s: 0.0, v: 1.0].`
@@ -263,54 +302,41 @@ pub enum Alpha {
     BlendOrAdditive,
 }
 
-fn color_picker_hsvag_2d(ui: &mut Ui, hsvag: &mut HsvaGamma, alpha: Alpha) -> (bool, bool) {
-    let hsvag_start = *hsvag;
+fn color_picker_hsvas_2d(ui: &mut Ui, hsvas: &mut HsvaSrgb, alpha: Alpha) -> (bool, bool) {
+    let hsvas_start = *hsvas;
     let mut change_ended = false;
 
-    let alpha_control = if is_additive_alpha(hsvag.a) {
+    let alpha_control = if is_additive_alpha(hsvas.a) {
         Alpha::Opaque // no alpha control for additive colors
     } else {
         alpha
     };
 
-    let mut rgba_unmultiplied = Hsva::from(*hsvag).to_rgba_unmultiplied();
+    let mut rgba_unmultiplied = hsvas.to_rgba_unmultiplied();
     // Only update if changed to avoid rounding issues.
     let (edit_changed, edit_change_ended) =
         rgba_edit_ui(ui, &mut rgba_unmultiplied, alpha_control);
     if edit_changed {
-        if is_additive_alpha(hsvag.a) {
-            let alpha = hsvag.a;
+        if is_additive_alpha(hsvas.a) {
+            let alpha = hsvas.a;
 
-            *hsvag = HsvaGamma::from(Hsva::from_rgb([
-                rgba_unmultiplied[0],
-                rgba_unmultiplied[1],
-                rgba_unmultiplied[2],
-            ]));
+            *hsvas = HsvaSrgb::from_rgba_unmultiplied(rgba_unmultiplied);
 
             // Don't edit the alpha:
-            hsvag.a = alpha;
+            hsvas.a = alpha;
         } else {
             // Normal blending.
-            *hsvag = HsvaGamma::from(Hsva::from_rgba_unmultiplied(
-                rgba_unmultiplied[0],
-                rgba_unmultiplied[1],
-                rgba_unmultiplied[2],
-                rgba_unmultiplied[3],
-            ));
+            *hsvas = HsvaSrgb::from_rgba_unmultiplied(rgba_unmultiplied);
         }
     }
     change_ended |= edit_change_ended;
 
     let current_color_size = vec2(ui.spacing().slider_width, ui.spacing().interact_size.y);
-    show_srgba_unmultiplied(
-        ui,
-        Hsva::from(*hsvag).to_srgba_unmultiplied(),
-        current_color_size,
-    )
-    .on_hover_text(f!("picker-selected"));
+    show_srgba_unmultiplied(ui, Color32::from(*hsvas).to_array(), current_color_size)
+        .on_hover_text(f!("picker-selected"));
 
     if alpha == Alpha::BlendOrAdditive {
-        let a = &mut hsvag.a;
+        let a = &mut hsvas.a;
         let mut additive = is_additive_alpha(*a);
         ui.horizontal(|ui| {
             ui.label("Blending:");
@@ -327,23 +353,23 @@ fn color_picker_hsvag_2d(ui: &mut Ui, hsvag: &mut HsvaGamma, alpha: Alpha) -> (b
         });
     }
 
-    let opaque = HsvaGamma { a: 1.0, ..*hsvag };
+    let opaque = HsvaSrgb { a: 1.0, ..*hsvas };
 
-    let HsvaGamma { h, s, v, a: _ } = hsvag;
+    let HsvaSrgb { h, s, v, a: _ } = hsvas;
 
     if false {
-        color_slider_1d(ui, s, |s| HsvaGamma { s, ..opaque }.into()).0.on_hover_text("Saturation");
+        color_slider_1d(ui, s, |s| HsvaSrgb { s, ..opaque }.into()).0.on_hover_text("Saturation");
     }
 
     if false {
-        color_slider_1d(ui, v, |v| HsvaGamma { v, ..opaque }.into()).0.on_hover_text("Value");
+        color_slider_1d(ui, v, |v| HsvaSrgb { v, ..opaque }.into()).0.on_hover_text("Value");
     }
 
-    let (_, slider_change_ended) = color_slider_2d(ui, s, v, |s, v| HsvaGamma { s, v, ..opaque }.into());
+    let (_, slider_change_ended) = color_slider_2d(ui, s, v, |s, v| HsvaSrgb { s, v, ..opaque }.into());
     change_ended |= slider_change_ended;
 
     let (slider_response, slider_change_ended) = color_slider_1d(ui, h, |h| {
-        HsvaGamma {
+        HsvaSrgb {
             h,
             s: 1.0,
             v: 1.0,
@@ -354,30 +380,30 @@ fn color_picker_hsvag_2d(ui: &mut Ui, hsvag: &mut HsvaGamma, alpha: Alpha) -> (b
     slider_response.on_hover_text(f!("picker-hue"));
     change_ended |= slider_change_ended;
 
-    let additive = is_additive_alpha(hsvag.a);
+    let additive = is_additive_alpha(hsvas.a);
 
     if alpha == Alpha::Opaque {
-        hsvag.a = 1.0;
+        hsvas.a = 1.0;
     } else {
-        let a = &mut hsvag.a;
+        let a = &mut hsvas.a;
 
         if alpha == Alpha::OnlyBlend {
             if is_additive_alpha(*a) {
                 *a = 0.5; // was additive, but isn't allowed to be
             }
             let (slider_response, slider_change_ended) =
-                color_slider_1d(ui, a, |a| HsvaGamma { a, ..opaque }.into());
+                color_slider_1d(ui, a, |a| HsvaSrgb { a, ..opaque }.into());
             slider_response.on_hover_text(f!("picker-alpha"));
             change_ended |= slider_change_ended;
         } else if !additive {
             let (slider_response, slider_change_ended) =
-                color_slider_1d(ui, a, |a| HsvaGamma { a, ..opaque }.into());
+                color_slider_1d(ui, a, |a| HsvaSrgb { a, ..opaque }.into());
             slider_response.on_hover_text(f!("picker-alpha"));
             change_ended |= slider_change_ended;
         }
     }
 
-    let changed = hsvag_start != *hsvag;
+    let changed = hsvas_start != *hsvas;
     (changed, change_ended)
 }
 
@@ -411,13 +437,13 @@ fn rgba_edit_ui(ui: &mut Ui, [r, g, b, a]: &mut [f32; 4], alpha: Alpha) -> (bool
     }).inner
 }
 
-/// Shows a color picker where the user can change the given [`Hsva`] color.
+/// Shows a color picker where the user can change the given [`HsvaSrgb`] color.
 ///
 /// Returns `true` on change.
-pub fn color_edit_button_hsvag(ui: &mut Ui, hsvag: &mut HsvaGamma, alpha: Alpha) -> (bool, bool) {
+pub fn color_edit_button_hsvas(ui: &mut Ui, hsvas: &mut HsvaSrgb, alpha: Alpha) -> (bool, bool) {
     let popup_id = ui.auto_id_with("popup");
     let open = Popup::is_id_open(ui.ctx(), popup_id);
-    let mut button_response = color_button(ui, Hsva::from(*hsvag).to_srgba_unmultiplied(), open);
+    let mut button_response = color_button(ui, Color32::from(*hsvas).to_array(), open);
     if ui.style().explanation_tooltips {
         button_response = button_response.on_hover_text("Click to edit color");
     }
@@ -429,37 +455,49 @@ pub fn color_edit_button_hsvag(ui: &mut Ui, hsvag: &mut HsvaGamma, alpha: Alpha)
         .close_behavior(PopupCloseBehavior::CloseOnClickOutside)
         .show(|ui| {
             ui.spacing_mut().slider_width = COLOR_SLIDER_WIDTH;
-            color_picker_hsvag_2d(ui, hsvag, alpha)
+            color_picker_hsvas_2d(ui, hsvas, alpha)
         })
         .map_or((false, false), |r| r.inner)
 }
 
 /// Shows a button with the given color.
 /// If the user clicks the button, a full color picker is shown.
-pub fn color_edit_button_rgba(ui: &mut Ui, tint: &mut (f32, f32, f32, f32), alpha: Alpha) -> (bool, bool) {
-    let mut rgba = egui::Rgba::from_rgba_unmultiplied(tint.0, tint.1, tint.2, tint.3);
-    let mut hsvag = color_cache_get(ui.ctx(), rgba);
-    let response = color_edit_button_hsvag(ui, &mut hsvag, alpha);
-    rgba = Rgba::from(hsvag);
-    color_cache_set(ui.ctx(), rgba, hsvag);
-    *tint = Hsva::from(hsvag).to_rgba_unmultiplied().into();
+pub fn color_edit_button_srgba(ui: &mut Ui, tint: &mut (f32, f32, f32, f32), alpha: Alpha) -> (bool, bool) {
+    let rgba = [tint.0, tint.1, tint.2, tint.3];
+    let mut hsvas = color_cache_get(ui.ctx(), rgba);
+    let response = color_edit_button_hsvas(ui, &mut hsvas, alpha);
+    let rgba = hsvas.to_rgba_unmultiplied();
+    color_cache_set(ui.ctx(), rgba, hsvas);
+    *tint = rgba.into();
     response
 }
 
-// To ensure we keep hue slider when `srgba` is gray we store the full [`Hsva`] in a cache:
-fn color_cache_get(ctx: &Context, rgba: impl Into<Rgba>) -> HsvaGamma {
-    let rgba = rgba.into();
-    use_color_cache(ctx, |cc| cc.get(&rgba).copied()).unwrap_or_else(|| HsvaGamma::from(rgba))
+// [f32; 4] as a hashable cache key
+#[derive(Clone, Copy, PartialEq)]
+struct SrgbaKey([f32; 4]);
+
+impl core::hash::Hash for SrgbaKey {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        for &c in &self.0 {
+            let bits = if c == 0.0 { 0 } else { c.to_bits() };
+            core::hash::Hash::hash(&bits, state);
+        }
+    }
 }
 
-// To ensure we keep hue slider when `srgba` is gray we store the full [`Hsva`] in a cache:
-fn color_cache_set(ctx: &Context, rgba: impl Into<Rgba>, hsvag: HsvaGamma) {
-    let rgba = rgba.into();
-    use_color_cache(ctx, |cc| cc.set(rgba, hsvag));
+// To ensure we keep hue slider when `srgba` is gray we store the full [`HsvaSrgb`] in a cache:
+fn color_cache_get(ctx: &Context, srgba: [f32; 4]) -> HsvaSrgb {
+    use_color_cache(ctx, |cc| cc.get(&SrgbaKey(srgba)).copied())
+        .unwrap_or_else(|| HsvaSrgb::from_rgba_unmultiplied(srgba))
 }
 
-// To ensure we keep hue slider when `srgba` is gray we store the full [`Hsva`] in a cache:
-fn use_color_cache<R>(ctx: &Context, f: impl FnOnce(&mut FixedCache<Rgba, HsvaGamma>) -> R) -> R {
+// To ensure we keep hue slider when `srgba` is gray we store the full [`HsvaSrgb`] in a cache:
+fn color_cache_set(ctx: &Context, srgba: [f32; 4], hsvas: HsvaSrgb) {
+    use_color_cache(ctx, |cc| cc.set(SrgbaKey(srgba), hsvas));
+}
+
+// To ensure we keep hue slider when `srgba` is gray we store the full [`HsvaSrgb`] in a cache:
+fn use_color_cache<R>(ctx: &Context, f: impl FnOnce(&mut FixedCache<SrgbaKey, HsvaSrgb>) -> R) -> R {
     ctx.data_mut(|d| f(d.get_temp_mut_or_default(Id::NULL)))
 }
 

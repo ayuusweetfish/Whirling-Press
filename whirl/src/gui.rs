@@ -1353,8 +1353,7 @@ impl WhirlApp {
         change_ended |= resp.drag_stopped() || resp.lost_focus();
         ui.end_row();
         ui.label(f!("attr-text-tint"));
-        // Convert to linear for operations, as `egui` does not support `f32` picker in sRGB space
-        let (picker_changed, picker_change_ended) = color_picker::color_edit_button_rgba(
+        let (picker_changed, picker_change_ended) = color_picker::color_edit_button_srgba(
           ui, tint, color_picker::Alpha::OnlyBlend);
         fn round_dec(x: f32) -> f32 { (x * 1000.).round_ties_even() / 1000. }
         *tint = (round_dec(tint.0), round_dec(tint.1), round_dec(tint.2), round_dec(tint.3));
