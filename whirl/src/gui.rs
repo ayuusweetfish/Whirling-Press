@@ -50,6 +50,8 @@ struct WhirlApp {
   redo_stack: std::collections::VecDeque<Operation>,
   undo_start_state: UndoStartState,
   showing_about: bool,
+  elements_uid: Vec<usize>,
+  elements_seq: usize,
 }
 
 struct CanvasState {
@@ -91,6 +93,8 @@ impl WhirlApp {
         self.element_texs.insert(i,
           load_texture(ctx, element_to_image(self.root_path.as_ref().unwrap(), &element)));
         self.layout.as_mut().unwrap().elements.insert(i, element);
+        self.elements_uid.push(self.elements_seq);
+        self.elements_seq = self.elements_seq.wrapping_add(1);
         match self.sel_element {
           Some(j) if j >= i => self.sel_element = Some(j + 1),
           _ => (),
@@ -100,6 +104,7 @@ impl WhirlApp {
       RemoveElement { i } => {
         let element = self.layout.as_mut().unwrap().elements.remove(i);
         self.element_texs.remove(i);
+        self.elements_uid.remove(i);
         match self.sel_element {
           Some(j) if j == i => self.sel_element = None,
           Some(j) if j > i => self.sel_element = Some(j - 1),
@@ -110,6 +115,7 @@ impl WhirlApp {
       SwapElements { i, j } => {
         self.layout.as_mut().unwrap().elements.swap(i, j);
         self.element_texs.swap(i, j);
+        self.elements_uid.swap(i, j);
         match self.sel_element {
           Some(k) if k == i => self.sel_element = Some(j),
           Some(k) if k == j => self.sel_element = Some(i),
@@ -381,6 +387,8 @@ impl WhirlApp {
       redo_stack: Default::default(),
       undo_start_state: Default::default(),
       showing_about: false,
+      elements_uid: vec![],
+      elements_seq: 0,
     };
 
     if let Some(root_path) = root_path {
@@ -406,6 +414,12 @@ impl WhirlApp {
 
         (self.font_families, self.font_families_tag) =
           crate::render::font_families(Some(root_path));
+
+        self.elements_uid.clear();
+        for i in 0..layout.elements.len() {
+          self.elements_uid.push(i);
+        }
+        self.elements_seq = layout.elements.len();
 
         self.layout = Some(layout);
         self.watcher = dir_watcher::DirWatcher::new(root_path).ok();
@@ -572,7 +586,7 @@ impl WhirlApp {
                 model::Content::Text(_) => f!("attr-heading-text"),
               });
               ui.push_id(
-                i,
+                self.elements_uid[i],
                 |ui| {
                   Grid::new(("attr_grid", i))
                     .num_columns(2)
@@ -1828,6 +1842,8 @@ impl eframe::App for WhirlApp {
             self.undo_stack.clear();
             self.redo_stack.clear();
             self.undo_start_state = Default::default();
+            self.elements_uid.clear();
+            self.elements_seq = 0;
           }
         }
       });
