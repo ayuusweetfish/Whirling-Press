@@ -706,7 +706,7 @@ impl WhirlApp {
                       weight: model::Weight::Regular,
                       italic: false,
                       tracking: 0.0,
-                      tint: (0., 0., 0., 1.),
+                      tint: (0., 0., 0., 1.).into(),
                       text: "".to_string(),
                     }]))
                   });
@@ -1419,12 +1419,14 @@ impl WhirlApp {
           change_ended |= resp.drag_stopped() || resp.lost_focus();
           ui.end_row();
           ui.label(f!("attr-text-tint"));
-          let (picker_changed, picker_change_ended) = color_picker::color_edit_button_srgba(
-            ui, tint, color_picker::Alpha::OnlyBlend);
-          fn round_dec(x: f32) -> f32 { (x * 1000.).round_ties_even() / 1000. }
-          *tint = (round_dec(tint.0), round_dec(tint.1), round_dec(tint.2), round_dec(tint.3));
-          changed_tex |= picker_changed;
-          change_ended |= picker_change_ended;
+          if let model::FieldOrLiteral::Literal(tint) = tint {
+            let (picker_changed, picker_change_ended) = color_picker::color_edit_button_srgba(
+              ui, tint, color_picker::Alpha::OnlyBlend);
+            fn round_dec(x: f32) -> f32 { (x * 1000.).round_ties_even() / 1000. }
+            *tint = (round_dec(tint.0), round_dec(tint.1), round_dec(tint.2), round_dec(tint.3)).into();
+            changed_tex |= picker_changed;
+            change_ended |= picker_change_ended;
+          }
           ui.end_row();
         }
         ui.label("");

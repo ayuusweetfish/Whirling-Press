@@ -74,6 +74,18 @@ impl From<Anchor> for (f32, f32) {
   }
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum FieldOrLiteral<T> {
+  Field(String),
+  Literal(T),
+}
+impl<T> From<T> for FieldOrLiteral<T> {
+  fn from(t: T) -> Self {
+    FieldOrLiteral::Literal(t)
+  }
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum Content {
   #[serde(rename = "image")]
@@ -94,7 +106,7 @@ pub struct TextSegment {
   #[serde(default, skip_serializing_if = "is_default")]
   pub tracking: f32,
   #[serde(default = "default_tint", skip_serializing_if = "is_default_tint")]
-  pub tint: (f32, f32, f32, f32),
+  pub tint: FieldOrLiteral<(f32, f32, f32, f32)>,
   pub text: String,
 }
 #[derive(Debug, Clone, Deserialize, Serialize, Default, PartialEq, Copy)]
@@ -146,8 +158,8 @@ impl Into<i32> for Weight {
 
 pub fn default_scale() -> (f32, f32) { (1.0, 1.0) }
 fn is_default_scale(v: &(f32, f32)) -> bool { *v == default_scale() }
-pub fn default_tint() -> (f32, f32, f32, f32) { (0., 0., 0., 1.) }
-fn is_default_tint(v: &(f32, f32, f32, f32)) -> bool { *v == default_tint() }
+pub fn default_tint() -> FieldOrLiteral<(f32, f32, f32, f32)> { FieldOrLiteral::Literal((0., 0., 0., 1.)) }
+fn is_default_tint(v: &FieldOrLiteral<(f32, f32, f32, f32)>) -> bool { *v == default_tint() }
 
 fn is_default<T: Default + PartialEq>(v: &T) -> bool {
   *v == T::default()

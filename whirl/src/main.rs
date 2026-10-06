@@ -140,8 +140,20 @@ impl model::Element {
             args.push(format!("tracking: {}pt", tracking));
           }
           if *tint != model::default_tint() {
-            args.push(format!("fill: rgb({}%, {}%, {}%, {}%)",
-              tint.0 * 100., tint.1 * 100., tint.2 * 100., tint.3 * 100.));
+            match tint {
+              model::FieldOrLiteral::Literal(tint) => {
+                args.push(format!("fill: rgb({}%, {}%, {}%, {}%)",
+                  tint.0 * 100., tint.1 * 100., tint.2 * 100., tint.3 * 100.));
+              }
+              model::FieldOrLiteral::Field(field) => {
+                if is_preview {
+                  args.push(format!("fill: black"));
+                } else {
+                  let expr = expand_expr(field, fields)?;
+                  args.push(format!("fill: rgb({})", expr));
+                }
+              }
+            }
           }
           src.push_str(&format!("#text({}, {})", args.join(", "),
             if is_preview { format!("\"{}\"", escape(text)) }

@@ -21,8 +21,8 @@ elements:
 - { x: 250, y: 1977.4, anchor: [1, 1], content: !text [{ family: [Instrument Sans, Noto Sans CJK SC], size: 16, italic: true, tracking: -0.5, text: Address }] }
 - { x: 252, y: 1976.9, anchor: [0, 1], content: !text [{ family: [Instrument Sans, Noto Sans CJK SC], size: 16, text: ":" }] }
 - { x: 271, y: 1977.4, anchor: [0, 1], content: !text [{ family: [Instrument Sans, Noto Sans CJK SC], size: 16, text: "{addr}" }] }
-- { x: 250, y: 1998.38, anchor: [1, 1], content: !text [{ family: [Instrument Sans, Noto Sans CJK SC], size: 16, italic: true, tracking: -0.5, text: SN }] }
+- { x: 250, y: 1998.38, anchor: [1, 1], content: !text [{ family: [Instrument Sans, Noto Sans CJK SC], size: 16, italic: true, tint: [0.8, 0.2, 0, 1], tracking: -0.5, text: SN }] }
 - { x: 252, y: 1997.88, anchor: [0, 1], content: !text [{ family: [Instrument Sans, Noto Sans CJK SC], size: 16, text: ":" }] }
-- { x: 271, y: 1998.38, anchor: [0, 1], content: !text [{ family: [Instrument Sans, Noto Sans CJK SC], size: 16, text: "SN is " }, { family: [Instrument Sans, Noto Sans CJK SC], size: 24, tint: [0.8, 0.2, 0, 1], text: "{sn}" }, { family: [Instrument Sans, Noto Sans CJK SC], size: 16, text: "!!!" }] }
+- { x: 271, y: 1998.38, anchor: [0, 1], content: !text [{ family: [Instrument Sans, Noto Sans CJK SC], size: 16, text: "SN is " }, { family: [Instrument Sans, Noto Sans CJK SC], size: 24, tint: "{key}", text: "{sn}" }, { family: [Instrument Sans, Noto Sans CJK SC], size: 16, text: "!!!" }] }
 - { x: 700, y: 1800, anchor: [1, 1], skew: [40, -10], scale: [2, 1], rotation: 25, width: 25, content: !text [{ family: [Instrument Sans, Noto Sans CJK SC], size: 16, text: "Aa a a i i i i i aa aa aa" }] }
 - { x: 545, y: 1842, width: 136, height: 207, content: !image { src: "{img_b}" } }
