@@ -1328,32 +1328,39 @@ impl WhirlApp {
             }
             ui.horizontal(|ui| {
               let h = ui.style().spacing.interact_size.y;
-              ui.allocate_ui_with_layout(
+              let (rect, resp) = ui.allocate_exact_size(
                 [ui.available_width() - (h + ui.style().spacing.item_spacing.x) *
-                  if j > 0 { 2. } else { 1. }, h].into(),
-                egui::Layout::top_down_justified(egui::Align::Min),
+                  if !is_collapsed { 0. } else if j > 0 { 2. } else { 1. }, h].into(),
+                egui::Sense::HOVER | egui::Sense::CLICK | egui::Sense::FOCUSABLE);
+              ui.scope_builder(
+                egui::UiBuilder::new().max_rect(rect)
+                  .layout(egui::Layout::top_down_justified(egui::Align::Min)),
                 |ui| if is_collapsed && n > 1 {
-                  let resp = ui.add(egui::Label::new(egui::RichText::new(text.clone()).weak())
+                  ui.add(egui::Label::new(egui::RichText::new(text.clone()).weak())
                     .wrap_mode(egui::TextWrapMode::Truncate)
-                    .sense(egui::Sense::HOVER | egui::Sense::CLICK | egui::Sense::FOCUSABLE)
+                    .selectable(false)
                   );
-                  if resp.hovered() {
-                    ui.set_cursor_icon(egui::CursorIcon::PointingHand);
-                  }
-                  if resp.clicked() {
-                    ui.ctx().memory_mut(|mem| mem.data.insert_temp(collapse_id(j), !is_collapsed));
-                  }
                 } else {
                   ui.add_space(h / 2. - 1.); ui.separator();
                 },
               );
-              if j > 0 {
-                if ui.add_sized([h, h], egui::Button::new("⌃")).on_hover_text(f!("list-move-up")).clicked() {
-                  to_prioritize = Some(j);
+              if n > 1 {
+                if resp.hovered() {
+                  ui.set_cursor_icon(egui::CursorIcon::PointingHand);
+                }
+                if resp.clicked() {
+                  ui.ctx().memory_mut(|mem| mem.data.insert_temp(collapse_id(j), !is_collapsed));
                 }
               }
-              if ui.add_sized([h, h], egui::Button::new("×")).on_hover_text(f!("list-remove")).clicked() {
-                to_remove = Some(j);
+              if is_collapsed {
+                if j > 0 {
+                  if ui.add_sized([h, h], egui::Button::new("⌃")).on_hover_text(f!("list-move-up")).clicked() {
+                    to_prioritize = Some(j);
+                  }
+                }
+                if ui.add_sized([h, h], egui::Button::new("×")).on_hover_text(f!("list-remove")).clicked() {
+                  to_remove = Some(j);
+                }
               }
             });
             ui.end_row();
