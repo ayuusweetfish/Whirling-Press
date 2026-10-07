@@ -598,7 +598,7 @@ impl WhirlApp {
                       let el_start = el.clone();
                       let (changed_any, changed_tex, change_ended) = Self::show_attrs(
                         ui, &self.font_families, &self.csv_fields, &self.asset_files,
-                        el, self.canvas.zoom, &mut self.text_sel_range,
+                        el, self.elements_uid[i], self.canvas.zoom, &mut self.text_sel_range,
                       );
                       self.undo_start_state.changed_tex |= changed_tex;
                       if changed_tex {
@@ -1078,7 +1078,7 @@ impl WhirlApp {
       });
   }
 
-  fn show_attrs(ui: &mut egui::Ui, font_families: &[String], csv_fields: &[String], asset_files: &[String], el: &mut model::Element, zoom: f32, text_sel_range: &mut Option<(usize, usize)>) -> (bool, bool, bool) {
+  fn show_attrs(ui: &mut egui::Ui, font_families: &[String], csv_fields: &[String], asset_files: &[String], el: &mut model::Element, el_uid: usize, zoom: f32, text_sel_range: &mut Option<(usize, usize)>) -> (bool, bool, bool) {
     let mut changed_any = false;
     let mut changed_tex = false;
     let mut change_ended = false;
@@ -1419,14 +1419,53 @@ impl WhirlApp {
           change_ended |= resp.drag_stopped() || resp.lost_focus();
           ui.end_row();
           ui.label(f!("attr-text-tint"));
-          if let model::FieldOrLiteral::Literal(tint) = tint {
-            let (picker_changed, picker_change_ended) = color_picker::color_edit_button_srgba(
-              ui, tint, color_picker::Alpha::OnlyBlend);
-            fn round_dec(x: f32) -> f32 { (x * 1000.).round_ties_even() / 1000. }
-            *tint = (round_dec(tint.0), round_dec(tint.1), round_dec(tint.2), round_dec(tint.3)).into();
-            changed_tex |= picker_changed;
-            change_ended |= picker_change_ended;
-          }
+          ui.horizontal(|ui| {
+            let h = ui.style().spacing.interact_size.y;
+            let spacing = ui.style().spacing.item_spacing.x;
+            let is_field = matches!(tint, model::FieldOrLiteral::Field(_));
+            match tint {
+              model::FieldOrLiteral::Field(field) => {
+                let edit_output = egui::TextEdit::singleline(field)
+                  .desired_width((ui.available_width() - (h + spacing)).max(80.)).show(ui);
+                let range = edit_output.state.cursor.char_range()
+                  .and_then(|c| field_range(field, c.primary.index.into()));
+                let (a, b) = show_autocomplete(ui, edit_output, field, text_sel_range, range, csv_fields, &[]);
+                changed_tex |= a; change_ended |= b;
+              },
+              model::FieldOrLiteral::Literal(color) => {
+                let (a, b) = color_picker::color_edit_button_srgba(ui, color, color_picker::Alpha::OnlyBlend);
+                fn round_dec(x: f32) -> f32 { (x * 1000.).round_ties_even() / 1000. }
+                *color = (round_dec(color.0), round_dec(color.1), round_dec(color.2), round_dec(color.3));
+                changed_tex |= a; change_ended |= b;
+              },
+            }
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+              if ui.add_sized([h, h], egui::Button::new("↔")).on_hover_text(
+                if is_field { f!("attr-text-tint-switch-to-fixed") }
+                else { f!("attr-text-tint-switch-to-field") }
+              ).clicked() {
+                let field_id = egui::Id::new(("tint_field", el_uid, j));
+                let fixed_id = egui::Id::new(("tint_fixed", el_uid, j));
+                *tint = if is_field {
+                  if let model::FieldOrLiteral::Field(field) = tint {
+                    ui.ctx().memory_mut(|mem| mem.data.insert_temp(field_id, field.clone()));
+                  }
+                  let value_fixed = ui.ctx().memory_mut(|mem|
+                    mem.data.get_temp::<(f32, f32, f32, f32)>(fixed_id)).unwrap_or((0., 0., 0., 1.));
+                  model::FieldOrLiteral::Literal(value_fixed)
+                } else {
+                  if let model::FieldOrLiteral::Literal(tint) = tint {
+                    ui.ctx().memory_mut(|mem| mem.data.insert_temp(fixed_id, *tint));
+                  }
+                  let field = ui.ctx().memory_mut(|mem|
+                    mem.data.get_temp::<String>(field_id)).unwrap_or_default();
+                  model::FieldOrLiteral::Field(field)
+                };
+                changed_tex = true;
+                change_ended = true;
+              }
+            });
+          });
           ui.end_row();
         }
         ui.label("");

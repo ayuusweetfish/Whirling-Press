@@ -64,6 +64,8 @@ attr-text-weight = 字重
 attr-text-italic = 斜体
 attr-text-tracking = 字间距
 attr-text-tint = 颜色
+attr-text-tint-switch-to-field = 切换到数据列
+attr-text-tint-switch-to-fixed = 切换到固定值
 
 anchor-tl = 左上
 anchor-tc = 正上

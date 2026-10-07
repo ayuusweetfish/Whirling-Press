@@ -67,6 +67,8 @@ attr-text-weight = Weight
 attr-text-italic = Italic
 attr-text-tracking = Tracking
 attr-text-tint = Tint
+attr-text-tint-switch-to-field = Switch to a field
+attr-text-tint-switch-to-fixed = Switch to a fixed value
 
 anchor-tl = Top Left
 anchor-tc = Top Center
