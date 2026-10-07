@@ -147,7 +147,7 @@ impl model::Element {
               }
               model::FieldOrLiteral::Field(field) => {
                 if is_preview {
-                  args.push(format!("fill: black"));
+                  args.push(format!("fill: gradient.linear(..color.map.rainbow), stroke: black + 0.5pt"));
                 } else {
                   let expr = expand_expr(field, fields)?;
                   args.push(format!("fill: rgb({})", expr));
