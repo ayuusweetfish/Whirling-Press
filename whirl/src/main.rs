@@ -439,14 +439,14 @@ struct Args {
   pack_root: Option<String>,
   #[cfg_attr(
     feature = "gui",
-    argh(option, short = 'o', description = "output file; GUI is started if not given")
+    argh(option, short = 'o', description = "output file or directory; GUI is started if not given")
   )]
   #[cfg_attr(
     not(feature = "gui"),
-    argh(option, short = 'o', description = "output file")
+    argh(option, short = 'o', description = "output file or directory")
   )]
   output: Option<String>,
-  #[argh(option, short = 'f', description = "output format (pdf, pdf_seq, png_seq, typst)", default = "Default::default()")]
+  #[argh(option, short = 'f', description = "output format (pdf, pdf_seq, png_seq, typst, auto)", default = "Default::default()")]
   format: ArgsFormat,
   #[argh(switch, short = 'c', description = "compress output harder")]
   compress: bool,
@@ -456,7 +456,7 @@ struct Args {
 #[derive(Debug, Clone, Default, FromArgValue, PartialEq, Eq)]
 enum ArgsFormat {
   #[default]
-  AutoDetect,
+  Auto,
   Pdf,
   PdfSeq,
   PngSeq,
@@ -464,7 +464,7 @@ enum ArgsFormat {
 }
 
 fn process_and_write<P: AsRef<Path>, Q: AsRef<Path>>(pack_root: P, layout: Option<&model::Layout>, output: Q, format: ArgsFormat, compress: bool) -> Result<(), ProcessError> {
-  let format = if format == ArgsFormat::AutoDetect {
+  let format = if format == ArgsFormat::Auto {
     match output.as_ref().extension().and_then(|s| s.to_str()).map(|s| s.to_lowercase()) {
       Some(s) if s == "pdf" => ArgsFormat::Pdf,
       Some(s) if s == "typ" => ArgsFormat::Typst,
@@ -479,7 +479,7 @@ fn process_and_write<P: AsRef<Path>, Q: AsRef<Path>>(pack_root: P, layout: Optio
     }
   } else { format };
   match format {
-    ArgsFormat::AutoDetect => unreachable!(),
+    ArgsFormat::Auto => unreachable!(),
     ArgsFormat::Pdf => {
       let bytes = process_pack(pack_root.as_ref(), layout, render::to_pdf)?;
       let p = output.as_ref();
