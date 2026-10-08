@@ -503,11 +503,11 @@ fn process_and_write<P: AsRef<Path>, Q: AsRef<Path>>(pack_root: P, layout: Optio
   Ok(())
 }
 
-fn start_gui(root_path: Option<&str>) {
+fn start_gui(_root_path: Option<&str>) {
   #[cfg(feature = "gui")]
   {
     localize::set_language(&sys_locale::get_locale().unwrap_or_else(|| "en".to_string()));
-    gui::start(root_path);
+    gui::start(_root_path);
   }
   #[cfg(not(feature = "gui"))]
   {
@@ -532,6 +532,7 @@ fn main() {
 
   } else if let Some(pack_root) = args.pack_root {
     if let Some(output) = args.output {
+      localize::set_language("en");
       match process_and_write(&pack_root, None, &output, args.format, args.compress) {
         Err(e) => eprintln!("Error: {}", e.message()),
         Ok(_) => (),

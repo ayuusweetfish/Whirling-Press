@@ -1,5 +1,7 @@
 // Based on https://github.com/tfachmann/typst-as-library/blob/7710cc1/src/lib.rs
 
+#![cfg_attr(not(feature = "gui"), allow(dead_code, unused_imports))]
+
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
