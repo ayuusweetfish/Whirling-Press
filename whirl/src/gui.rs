@@ -608,7 +608,9 @@ impl WhirlApp {
                       if changed_any {
                         self.undo_start_state.elements.entry(i).or_insert(el_start);
                       }
-                      if change_ended && let Some(el_start) = self.undo_start_state.elements.remove(&i) {
+                      if change_ended && !ui.ctx().text_edit_focused()
+                        && let Some(el_start) = self.undo_start_state.elements.remove(&i)
+                      {
                         let el_after_change = std::mem::replace(el, el_start);
                         let retex = std::mem::replace(&mut self.undo_start_state.changed_tex, false);
                         self.op(ui.ctx(), Operation::ChangeElement {
@@ -1054,7 +1056,9 @@ impl WhirlApp {
         }
 
         if !resp.is_pointer_button_down_on() && let Some((i, _, _)) = self.dragged_element.take() {
-          if let Some(el_start) = self.undo_start_state.elements.remove(&i) {
+          if !ui.ctx().text_edit_focused()
+            && let Some(el_start) = self.undo_start_state.elements.remove(&i)
+          {
             let el = &mut self.layout.as_mut().unwrap().elements[i];
             let el_after_change = std::mem::replace(el, el_start);
             self.op(ui.ctx(), Operation::ChangeElement {
@@ -1673,6 +1677,7 @@ impl eframe::App for WhirlApp {
                   let resp_y = ui.add_sized([80.0, ui.style().spacing.interact_size.y], egui::DragValue::new(&mut self.layout.as_mut().unwrap().page.1).speed(1).range(1.0..=f32::INFINITY));
                   if (resp_x.drag_stopped() || resp_x.lost_focus() ||
                       resp_y.drag_stopped() || resp_y.lost_focus())
+                    && !ui.ctx().text_edit_focused()
                     && let Some(p) = self.undo_start_state.page_size.take()
                     && p != self.layout.as_ref().unwrap().page
                   {
