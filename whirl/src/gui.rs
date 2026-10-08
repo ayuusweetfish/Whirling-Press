@@ -1131,6 +1131,9 @@ impl WhirlApp {
                 *current_value = selected_value;
                 response.mark_changed();
                 changed_any = true;
+                if matches!(el.content, model::Content::Text { .. }) {
+                  changed_tex = true;
+                }
                 change_ended = true;
               }
             }
