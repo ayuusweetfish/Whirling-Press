@@ -1,24 +1,104 @@
-use lopdf::{Document, Object, ObjectId};
+use lopdf::{Dictionary, Document, Object, ObjectId, StringFormat};
 
 use std::collections::HashMap;
+use std::collections::hash_map::{DefaultHasher, Entry};
+use std::hash::{Hash, Hasher};
+
+// Byte content and dictionary, with order-independent hash
+struct StreamKey<'a> {
+  content: &'a [u8],
+  dict: &'a Dictionary,
+}
+impl PartialEq for StreamKey<'_> {
+  fn eq(&self, other: &Self) -> bool {
+    self.content == other.content && self.dict == other.dict
+  }
+}
+impl Eq for StreamKey<'_> {}
+impl Hash for StreamKey<'_> {
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.content.hash(state);
+    hash_dict(self.dict, state);
+  }
+}
+fn hash_dict<H: Hasher>(dict: &Dictionary, state: &mut H) {
+  let mut combined = dict.len() as u64;
+  for (key, value) in dict.iter() {
+    let mut entry = DefaultHasher::new();
+    key.hash(&mut entry);
+    hash_object(value, &mut entry);
+    combined ^= entry.finish();
+  }
+  combined.hash(state);
+}
+fn hash_object<H: Hasher>(object: &Object, state: &mut H) {
+  match object {
+    Object::Null => {
+      state.write_u8(0);
+    }
+    Object::Boolean(value) => {
+      state.write_u8(1);
+      value.hash(state);
+    }
+    Object::Integer(value) => {
+      state.write_u8(2);
+      value.hash(state);
+    }
+    Object::Real(value) => {
+      state.write_u8(3);
+      // Normalize; see f32::total_cmp
+      let x = value.to_bits();
+      let x = x ^ (((x as i32 >> 31) as u32) >> 1);
+      x.hash(state);
+    }
+    Object::Name(name) => {
+      state.write_u8(4);
+      name.hash(state);
+    }
+    Object::String(bytes, format) => {
+      state.write_u8(5);
+      bytes.hash(state);
+      state.write_u8(match format {
+        StringFormat::Literal => 0,
+        StringFormat::Hexadecimal => 1,
+      });
+    }
+    Object::Array(array) => {
+      state.write_u8(6);
+      array.len().hash(state);
+      for element in array {
+        hash_object(element, state);
+      }
+    }
+    Object::Dictionary(dict) => {
+      state.write_u8(7);
+      hash_dict(dict, state);
+    }
+    Object::Stream(stream) => {
+      state.write_u8(8);
+      hash_dict(&stream.dict, state);
+      stream.content.hash(state);
+    }
+    Object::Reference(id) => {
+      state.write_u8(9);
+      id.hash(state);
+    }
+  }
+}
 
 pub(crate) fn try_optimize(bytes: &[u8], recompress: bool) -> Option<Vec<u8>> {
   let mut doc = Document::load_mem(bytes).ok()?;
-  let mut stream_map: HashMap<&[u8], Vec<ObjectId>> = HashMap::new();
+
+  let mut canonical: HashMap<StreamKey, ObjectId> = HashMap::new();
+  // Replacement map: duplicate -> canonical
+  let mut replacements: HashMap<ObjectId, ObjectId> = HashMap::new();
 
   for (object_id, object) in &doc.objects {
     if let Object::Stream(stream) = object {
-      stream_map.entry(&stream.content[..]).or_default().push(*object_id);
-    }
-  }
-
-  // Replacement map: duplicate -> canonical
-  let mut replacements = HashMap::new();
-  for group in stream_map.values() {
-    if group.len() > 1 {
-      let canon = group[0];
-      for &dup in group.iter().skip(1) {
-        replacements.insert(dup, canon);
+      let key = StreamKey { content: &stream.content, dict: &stream.dict };
+      match canonical.entry(key) {
+        Entry::Occupied(slot) => { replacements.insert(*object_id, *slot.get()); }
+        Entry::Vacant(slot) => { slot.insert(*object_id); }
       }
     }
   }
