@@ -453,9 +453,10 @@ struct Args {
   #[argh(switch, short = 'v', long = "version", description = "version")]
   version: bool,
 }
-#[derive(Debug, Clone, Default, FromArgValue)]
+#[derive(Debug, Clone, Default, FromArgValue, PartialEq, Eq)]
 enum ArgsFormat {
   #[default]
+  AutoDetect,
   Pdf,
   PdfSeq,
   PngSeq,
@@ -463,7 +464,22 @@ enum ArgsFormat {
 }
 
 fn process_and_write<P: AsRef<Path>, Q: AsRef<Path>>(pack_root: P, layout: Option<&model::Layout>, output: Q, format: ArgsFormat, compress: bool) -> Result<(), ProcessError> {
+  let format = if format == ArgsFormat::AutoDetect {
+    match output.as_ref().extension().and_then(|s| s.to_str()).map(|s| s.to_lowercase()) {
+      Some(s) if s == "pdf" => ArgsFormat::Pdf,
+      Some(s) if s == "typ" => ArgsFormat::Typst,
+      Some(s) if s == "png" => {
+        eprintln!("For PNG sequence, use -f png_seq and specify a directory. Falling back to PDF format.");
+        ArgsFormat::Pdf
+      }
+      _ => {
+        eprintln!("Unsupported single-file extension. Falling back to PDF format.");
+        ArgsFormat::Pdf
+      }
+    }
+  } else { format };
   match format {
+    ArgsFormat::AutoDetect => unreachable!(),
     ArgsFormat::Pdf => {
       let bytes = process_pack(pack_root.as_ref(), layout, render::to_pdf)?;
       let p = output.as_ref();
