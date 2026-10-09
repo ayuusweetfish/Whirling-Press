@@ -40,6 +40,7 @@ jobs:
       run: |
         echo "REV_TAG=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
         echo "REV_DATE=$(git show --no-patch --format=%ci HEAD | head -c 10)" >> $GITHUB_ENV
+        echo "REV_DATE_COMPACT=$(echo ${REV_DATE#??} | tr -d '-')" >> $GITHUB_ENV
 
     - name: Install Rust toolchain
       uses: actions-rust-lang/setup-rust-toolchain@v2
@@ -78,5 +79,5 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v7
       with:
-        name: whirl-${{ env.REV_TAG }}-${{ matrix.artifactname }}
+        name: whirl-${{ env.REV_DATE_COMPACT }}-${{ env.REV_TAG }}-${{ matrix.artifactname }}
         path: whirl/target/${{ matrix.target }}/release/${{ contains(matrix.target, 'windows') && 'whirl.exe' || 'whirl' }}
