@@ -380,7 +380,7 @@ impl WhirlApp {
       close_confirming: false,
       quit_after_close: false,
       text_sel_range: None,
-      attrs_panel_h: 400.,
+      attrs_panel_h: 0.6,
       attrs_panel_drag_offs: 0.,
       watcher: None,
       undo_stack: Default::default(),
@@ -576,9 +576,14 @@ impl WhirlApp {
     egui::Panel::right("attr_panel")
       .resizable(true).default_size(320.0).size_range(80.0..=800.0)
       .show_collapsible(ui, &mut attr_panel_expanded, |ui| {
-        let panel_avail_h = ui.available_height();
+        let h = ui.available_height();
+        let attrs_panel_h = if h < 240. {
+          h * 0.5
+        } else {
+          (self.attrs_panel_h * h).clamp(120., h - 120.)
+        };
         let id = self.sel_element.map_or(0_usize.wrapping_sub(1), |i| self.elements_uid[i]);
-        egui::ScrollArea::vertical().id_salt(id).max_height(self.attrs_panel_h - 6.).show(ui, |ui| {
+        egui::ScrollArea::vertical().id_salt(id).max_height(attrs_panel_h - 6.).show(ui, |ui| {
           ui.with_layout(Layout::top_down_justified(Align::Min), |ui| {
             if let Some(i) = self.sel_element {
               let el = &mut self.layout.as_mut().unwrap().elements[i];
@@ -624,7 +629,7 @@ impl WhirlApp {
             }
           });
         });
-        ui.add_space(self.attrs_panel_h - ui.cursor().top());
+        ui.add_space(attrs_panel_h - ui.cursor().top());
         // Draggable separator
         // Ref: egui_extras-0.36.2 src/egui_extras/table.rs
         let margin = ui.spacing().item_spacing.y;
@@ -640,14 +645,14 @@ impl WhirlApp {
           ui.set_cursor_icon(egui::CursorIcon::ResizeRow);
         }
         if resize_response.drag_started() {
-          self.attrs_panel_drag_offs = self.attrs_panel_h
+          self.attrs_panel_drag_offs = attrs_panel_h
             - ui.input(|i| i.pointer.interact_pos().unwrap().y);
         }
         if resize_response.dragged() {
-          self.attrs_panel_h = self.attrs_panel_drag_offs
+          let target_h = self.attrs_panel_drag_offs
             + ui.input(|i| i.pointer.interact_pos().unwrap().y);
+          self.attrs_panel_h = target_h / h;
         }
-        self.attrs_panel_h = self.attrs_panel_h.max(120.).min(panel_avail_h - 120.);
         let stroke = if resize_response.dragged() {
           ui.style().visuals.widgets.active.bg_stroke
         } else if resize_hover {
