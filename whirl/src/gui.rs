@@ -1325,9 +1325,23 @@ impl WhirlApp {
         let mut to_prioritize = None;
         let mut to_remove = None;
         let base_id = ui.id();
-        let collapse_id = |j| base_id.with(("text_segment_collapse", j));
+        let segment_uids_id = egui::Id::new(("text_segment_uids", el_uid));
+        let mut segment_uids = ui.ctx().memory_mut(|mem|
+          mem.data.get_temp::<Vec<usize>>(segment_uids_id)).unwrap_or_default();
+        if segment_uids.len() != n {
+          segment_uids = (0..n).collect();
+        }
+        let layout_dirty_id = egui::Id::new(("text_segment_layout_dirty", el_uid));
+        if ui.ctx().memory_mut(|mem| mem.data.remove_temp::<bool>(layout_dirty_id)).unwrap_or(false) {
+          ui.ctx().request_discard("text segment layout changed");
+        }
+        let mark_layout_dirty = |ui: &egui::Ui| {
+          ui.ctx().memory_mut(|mem| mem.data.insert_temp(layout_dirty_id, true));
+        };
         for (j, model::TextSegment { family, size, weight, italic, tracking, tint, text }) in segments.iter_mut().enumerate() {
-          let is_collapsed = ui.ctx().memory_mut(|mem| mem.data.get_temp::<bool>(collapse_id(j)).unwrap_or(false));
+          let seg_id = base_id.with(("text_segment", segment_uids[j]));
+          let collapse_id = seg_id.with("collapse");
+          let is_collapsed = ui.ctx().memory_mut(|mem| mem.data.get_temp::<bool>(collapse_id).unwrap_or(false));
           if n > 1 {
             let resp = ui.add(
               egui::Label::new(egui::RichText::new(format!("{} #{}", if is_collapsed { "▸" } else { "▾" }, j + 1)).weak())
@@ -1336,7 +1350,8 @@ impl WhirlApp {
               ui.set_cursor_icon(egui::CursorIcon::PointingHand);
             }
             if resp.clicked() {
-              ui.ctx().memory_mut(|mem| mem.data.insert_temp(collapse_id(j), !is_collapsed));
+              ui.ctx().memory_mut(|mem| mem.data.insert_temp(collapse_id, !is_collapsed));
+              mark_layout_dirty(ui);
             }
             ui.horizontal(|ui| {
               let h = ui.style().spacing.interact_size.y;
@@ -1361,7 +1376,8 @@ impl WhirlApp {
                   ui.set_cursor_icon(egui::CursorIcon::PointingHand);
                 }
                 if resp.clicked() {
-                  ui.ctx().memory_mut(|mem| mem.data.insert_temp(collapse_id(j), !is_collapsed));
+                  ui.ctx().memory_mut(|mem| mem.data.insert_temp(collapse_id, !is_collapsed));
+                  mark_layout_dirty(ui);
                 }
               }
               if j > 0 {
@@ -1377,7 +1393,8 @@ impl WhirlApp {
           }
           if is_collapsed && n > 1 { continue; }
           ui.label(f!("attr-text-text"));
-          let edit_output = egui::TextEdit::multiline(text).desired_width(ui.available_width()).show(ui);
+          let edit_output = egui::TextEdit::multiline(text)
+            .desired_width(ui.available_width()).id(seg_id.with("text")).show(ui);
           let range = if let Some(c) = edit_output.state.cursor.char_range() {
             field_range(text, c.primary.index.into())
           } else { None };
@@ -1390,7 +1407,13 @@ impl WhirlApp {
           }
           ui.end_row();
           ui.label(f!("attr-text-family"));
-          let fonts_changed = Self::font_list_editor(ui, &font_families, family);
+          let fonts_changed = ui.scope_builder(
+            egui::UiBuilder::new().id(seg_id.with("family")),
+            |ui| Self::font_list_editor(ui, &font_families, family)
+          ).inner;
+          if fonts_changed {
+            mark_layout_dirty(ui);
+          }
           changed_tex |= fonts_changed;
           change_ended |= fonts_changed;
           ui.end_row();
@@ -1411,7 +1434,7 @@ impl WhirlApp {
             (model::Weight::ExtraBold, "Extra Bold (800)"),
             (model::Weight::Black, "Black (900)"),
           ];
-          ComboBox::from_id_salt(("font_weight", j))
+          ComboBox::from_id_salt(seg_id.with("weight"))
             .width(150.0)
             .selected_text(weights_and_names.iter()
               .find(|(a, _)| *a == *weight)
@@ -1426,7 +1449,7 @@ impl WhirlApp {
             });
           ui.end_row();
           ui.label(f!("attr-text-italic"));
-          let resp = ui.checkbox(italic, "");
+          let resp = ui.scope_builder(egui::UiBuilder::new().id(seg_id.with("italic")), |ui| ui.checkbox(italic, "")).inner;
           changed_tex |= resp.changed();
           change_ended |= resp.changed();
           ui.end_row();
@@ -1461,8 +1484,8 @@ impl WhirlApp {
                 if is_field { f!("attr-text-tint-switch-to-fixed") }
                 else { f!("attr-text-tint-switch-to-field") }
               ).clicked() {
-                let field_id = egui::Id::new(("tint_field", el_uid, j));
-                let fixed_id = egui::Id::new(("tint_fixed", el_uid, j));
+                let field_id = seg_id.with("tint_field");
+                let fixed_id = seg_id.with("tint_fixed");
                 *tint = if is_field {
                   if let model::FieldOrLiteral::Field(field) = tint {
                     ui.ctx().memory_mut(|mem| mem.data.insert_temp(field_id, field.clone()));
@@ -1480,6 +1503,7 @@ impl WhirlApp {
                 };
                 changed_tex = true;
                 change_ended = true;
+                mark_layout_dirty(ui);
               }
             });
           });
@@ -1500,6 +1524,9 @@ impl WhirlApp {
               text: "".to_string(),
               ..segments.last().unwrap().clone()
             });
+            let new_uid = segment_uids.iter().max().map_or(0, |m| m + 1);
+            segment_uids.push(new_uid);
+            mark_layout_dirty(ui);
             changed_any = true;
             change_ended = true;
             // No need to re-render, as the text is empty
@@ -1510,27 +1537,19 @@ impl WhirlApp {
         ui.end_row();
         if let Some(i) = to_prioritize {
           segments.swap(i, i - 1);
-          ui.ctx().memory_mut(|mem| {
-            let val_i = mem.data.get_temp::<bool>(collapse_id(i)).unwrap_or(false);
-            let val_j = mem.data.get_temp::<bool>(collapse_id(i - 1)).unwrap_or(false);
-            mem.data.insert_temp(collapse_id(i), val_j);
-            mem.data.insert_temp(collapse_id(i - 1), val_i);
-          });
+          segment_uids.swap(i, i - 1);
+          mark_layout_dirty(ui);
           changed_tex = true;
           change_ended = true;
         }
         if let Some(i) = to_remove {
           segments.remove(i);
-          ui.ctx().memory_mut(|mem| {
-            for j in i..n - 1 {
-              let val_j = mem.data.get_temp::<bool>(collapse_id(j + 1)).unwrap_or(false);
-              mem.data.insert_temp(collapse_id(j), val_j);
-            }
-            mem.data.remove_temp::<bool>(collapse_id(n - 1));
-          });
+          segment_uids.remove(i);
+          mark_layout_dirty(ui);
           changed_tex = true;
           change_ended = true;
         }
+        ui.ctx().memory_mut(|mem| mem.data.insert_temp(segment_uids_id, segment_uids));
       },
     }
     (changed_any || changed_tex, changed_tex, change_ended)
