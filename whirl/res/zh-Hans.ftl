@@ -99,4 +99,4 @@ modal-about-description =
   所谓伊人　在水一方
   溯洄从之　道阻且长
   溯游从之　宛在水中央
-modal-about-homepage = 主页：
+modal-about-homepage = 主页

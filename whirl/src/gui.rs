@@ -1853,7 +1853,9 @@ impl eframe::App for WhirlApp {
                     ui.add_space(12.0);
                     ui.label(f!("modal-about-description"));
                     ui.add_space(12.0);
-                    if ui.hyperlink_to("ayu.land/whirl", "https://ayu.land/whirl").clicked() {
+                    if ui.hyperlink_to("ayu.land/whirl", "https://ayu.land/whirl")
+                      .on_hover_text(f!("modal-about-homepage")).clicked()
+                    {
                       let _ = opener::open("https://ayu.land/whirl");
                     }
                     ui.add_space(12.0);
