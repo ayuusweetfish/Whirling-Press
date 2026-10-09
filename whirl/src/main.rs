@@ -64,11 +64,18 @@ fn expand_expr(s: &str, fields: &[String]) -> Result<String, ExprError> {
   })
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SourceMode {
+  ExportDocument,
+  ExportSource,
+  Preview,
+}
+
 impl model::Element {
-  fn typst_source(&self, fields: &[String], is_preview: bool) -> Result<String, ExprError> {
+  fn typst_source(&self, fields: &[String], mode: SourceMode) -> Result<String, ExprError> {
     let mut args = Vec::new();
 
-    if !is_preview {
+    if mode != SourceMode::Preview {
       args.push(format!("{}pt, {}pt", self.x, self.y));
       if self.scale.0 != 1.0 {
         args.push(format!("scale-x: {}%", self.scale.0 * 100.));
@@ -112,7 +119,7 @@ impl model::Element {
     // Content
     let content = match &self.content {
       model::Content::Image { src } => {
-        if is_preview {
+        if mode == SourceMode::Preview {
           if let Ok(s) = expand_expr(src, &[]) {
             format!("#image({})", s)
           } else {
@@ -128,7 +135,10 @@ impl model::Element {
         for model::TextSegment { family, size, weight, italic, tracking, tint, text } in segments {
           let mut args = Vec::new();
           let families = family.iter().map(|s| format!("\"{}\"", s)).collect::<Vec<_>>().join(", ");
-          args.push(format!("font: (\"{}\", {}), fallback: false", render::TOFU_FAMILY, families));
+          let tofu_fill =
+            if mode == SourceMode::ExportSource { "".to_string() }
+            else { format!("\"{}\", ", render::TOFU_FAMILY) };
+          args.push(format!("font: ({}{}), fallback: false", tofu_fill, families));
           args.push(format!("size: {}pt", size));
           if *weight != model::Weight::default() {
             args.push(format!("weight: {}", Into::<i32>::into(*weight)));
@@ -146,7 +156,7 @@ impl model::Element {
                   tint.0 * 100., tint.1 * 100., tint.2 * 100., tint.3 * 100.));
               }
               model::FieldOrLiteral::Field(field) => {
-                if is_preview {
+                if mode == SourceMode::Preview {
                   args.push(format!("fill: gradient.linear(..color.map.rainbow), stroke: black + 0.5pt"));
                 } else {
                   let expr = expand_expr(field, fields)?;
@@ -156,7 +166,7 @@ impl model::Element {
             }
           }
           src.push_str(&format!("#text({}, {})", args.join(", "),
-            if is_preview { format!("\"{}\"", escape(text)) }
+            if mode == SourceMode::Preview { format!("\"{}\"", escape(text)) }
             else { expand_expr(text, fields)? }))
         }
         src
@@ -168,12 +178,12 @@ impl model::Element {
 }
 
 impl model::Layout {
-  fn typst_source(&self, csv_path: &str, fields: &[String]) -> Result<(String, Vec<usize>), (usize, ExprError)> {
+  fn typst_source(&self, csv_path: &str, fields: &[String], mode: SourceMode) -> Result<(String, Vec<usize>), (usize, ExprError)> {
     let (page_width, page_height) = self.page;
 
     let elements_typst = self.elements.iter()
       .enumerate()
-      .map(|(i, el)| el.typst_source(fields, false).map_err(|e| (i, e)))
+      .map(|(i, el)| el.typst_source(fields, mode).map_err(|e| (i, e)))
       .collect::<Result<Vec<_>, _>>()?;
 
     let prefix = include_str!("support.typ").to_string() + &format!(r#"
@@ -333,7 +343,7 @@ fn process_pack_metadata<P: AsRef<Path>>(path: P, allow_empty_yaml: bool, parse_
   Ok((yaml_file_name, layout, csv_file_name, list_fields))
 }
 
-fn process_pack<P: AsRef<Path>, R, F: FnOnce(P, &str) -> Result<R, render::RenderError>>(path: P, layout: Option<&model::Layout>, render: F) -> Result<R, ProcessError> {
+fn process_pack<P: AsRef<Path>, R, F: FnOnce(P, &str) -> Result<R, render::RenderError>>(path: P, layout: Option<&model::Layout>, mode: SourceMode, render: F) -> Result<R, ProcessError> {
   let owned_layout;
   let (layout, csv_file_name, list_fields) =
     if let Some(layout) = layout {
@@ -350,7 +360,7 @@ fn process_pack<P: AsRef<Path>, R, F: FnOnce(P, &str) -> Result<R, render::Rende
       .replace('\\', "\\\\").replace('"', "\\\""))
   }
 
-  let (typst_source, offsets) = layout.typst_source(&escape_path(csv_file_name)?, &list_fields)
+  let (typst_source, offsets) = layout.typst_source(&escape_path(csv_file_name)?, &list_fields, mode)
     .map_err(|(i, e)| ProcessError::Expr(i, e))?;
 
   let output = render(path, &typst_source)
@@ -481,13 +491,13 @@ fn process_and_write<P: AsRef<Path>, Q: AsRef<Path>>(pack_root: P, layout: Optio
   match format {
     ArgsFormat::Auto => unreachable!(),
     ArgsFormat::Pdf => {
-      let bytes = process_pack(pack_root.as_ref(), layout, render::to_pdf)?;
+      let bytes = process_pack(pack_root.as_ref(), layout, SourceMode::ExportDocument, render::to_pdf)?;
       let p = output.as_ref();
       let bytes = opt_pdf::optimize(&bytes, compress);
       std::fs::write(&p, bytes).map_err(|e| ProcessError::Io(p.to_path_buf(), e))?;
     },
     ArgsFormat::PdfSeq => {
-      let seq = process_pack(pack_root.as_ref(), layout, render::to_pdf_seq)?;
+      let seq = process_pack(pack_root.as_ref(), layout, SourceMode::ExportDocument, render::to_pdf_seq)?;
       let p = output.as_ref().to_path_buf();
       std::fs::create_dir_all(&p).map_err(|e| ProcessError::Io(p, e))?;
       let width = (seq.len().ilog10() + 1).max(3) as usize;
@@ -500,7 +510,7 @@ fn process_and_write<P: AsRef<Path>, Q: AsRef<Path>>(pack_root: P, layout: Optio
     },
     ArgsFormat::PngSeq => {
       // XXX: DRY?
-      let seq = process_pack(pack_root.as_ref(), layout, render::to_png_seq)?;
+      let seq = process_pack(pack_root.as_ref(), layout, SourceMode::ExportDocument, render::to_png_seq)?;
       let p = output.as_ref().to_path_buf();
       std::fs::create_dir_all(&p).map_err(|e| ProcessError::Io(p, e))?;
       let width = (seq.len().ilog10() + 1).max(3) as usize;
@@ -511,7 +521,7 @@ fn process_and_write<P: AsRef<Path>, Q: AsRef<Path>>(pack_root: P, layout: Optio
       }
     },
     ArgsFormat::Typst => {
-      let bytes = process_pack(pack_root.as_ref(), layout, |_, source| Ok(source.as_bytes().to_vec()))?;
+      let bytes = process_pack(pack_root.as_ref(), layout, SourceMode::ExportSource, |_, source| Ok(source.as_bytes().to_vec()))?;
       let p = output.as_ref();
       std::fs::write(&p, bytes).map_err(|e| ProcessError::Io(p.to_path_buf(), e))?;
     },

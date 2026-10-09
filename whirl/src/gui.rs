@@ -297,7 +297,7 @@ fn element_to_image<P: AsRef<std::path::Path>>(root_path: P, el: &model::Element
   }
   match try_to_image(
     &root_path,
-    &el.typst_source(&[], true).unwrap(),
+    &el.typst_source(&[], crate::SourceMode::Preview).unwrap(),
   ) {
     Ok(buf) => buf,
     Err(e) => {
