@@ -128,7 +128,7 @@ impl model::Element {
         for model::TextSegment { family, size, weight, italic, tracking, tint, text } in segments {
           let mut args = Vec::new();
           let families = family.iter().map(|s| format!("\"{}\"", s)).collect::<Vec<_>>().join(", ");
-          args.push(format!("font: ({})", families));
+          args.push(format!("font: (\"{}\", {}), fallback: false", render::TOFU_FAMILY, families));
           args.push(format!("size: {}pt", size));
           if *weight != model::Weight::default() {
             args.push(format!("weight: {}", Into::<i32>::into(*weight)));

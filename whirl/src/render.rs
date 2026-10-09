@@ -33,6 +33,8 @@ pub struct SimpleWorld {
 use std::sync::{Mutex, OnceLock};
 static FONT_CACHE: OnceLock<Mutex<HashMap<PathBuf, Arc<FontStore>>>> = OnceLock::new();
 
+pub(crate) const TOFU_FAMILY: &str = "_tofu";
+
 fn cached_font_store(root: &PathBuf) -> Arc<FontStore> {
   let cache = FONT_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
   if let Some(fonts) = cache.lock().unwrap().get(root).cloned() {
@@ -42,6 +44,12 @@ fn cached_font_store(root: &PathBuf) -> Arc<FontStore> {
   let mut fonts = FontStore::new();
   fonts.extend(typst_kit::fonts::scan(root));
   fonts.extend(typst_kit::fonts::system());
+  fonts.push({
+    let f = include_bytes!("../res/notdef-tofu.ttf");
+    let mut font_info = FontInfo::new(f, 0).unwrap();
+    font_info.family = TOFU_FAMILY.to_string();
+    (Font::new(Bytes::new(f), 0).unwrap(), font_info)
+  });
   #[cfg(feature = "gui")]
   {
     // Add fonts for in-document messages rendering
