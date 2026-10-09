@@ -749,11 +749,11 @@ impl WhirlApp {
                 if i + 1 == n {
                   ui.add_space(h + ui.style().spacing.item_spacing.x);
                 } else {
-                  if ui.add_sized([h, h], egui::Button::new("⌃")).on_hover_text(f!("list-move-up")).clicked() {
+                  if ui.add_sized([h, h], egui::Button::selectable(false, "⌃")).on_hover_text(f!("list-move-up")).clicked() {
                     to_prioritize = Some(i);
                   }
                 }
-                if ui.add_sized([h, h], egui::Button::new("×")).on_hover_text(f!("list-remove")).clicked() {
+                if ui.add_sized([h, h], egui::Button::selectable(false, "×")).on_hover_text(f!("list-remove")).clicked() {
                   to_remove = Some(i);
                 }
               });
@@ -1342,7 +1342,7 @@ impl WhirlApp {
               let h = ui.style().spacing.interact_size.y;
               let (rect, resp) = ui.allocate_exact_size(
                 [ui.available_width() - (h + ui.style().spacing.item_spacing.x) *
-                  if !is_collapsed { 0. } else if j > 0 { 2. } else { 1. }, h].into(),
+                  if j > 0 { 2. } else { 1. }, h].into(),
                 egui::Sense::HOVER | egui::Sense::CLICK | egui::Sense::FOCUSABLE);
               ui.scope_builder(
                 egui::UiBuilder::new().max_rect(rect)
@@ -1364,15 +1364,13 @@ impl WhirlApp {
                   ui.ctx().memory_mut(|mem| mem.data.insert_temp(collapse_id(j), !is_collapsed));
                 }
               }
-              if is_collapsed {
-                if j > 0 {
-                  if ui.add_sized([h, h], egui::Button::new("⌃")).on_hover_text(f!("list-move-up")).clicked() {
-                    to_prioritize = Some(j);
-                  }
+              if j > 0 {
+                if ui.add_sized([h, h], egui::Button::selectable(false, "⌃")).on_hover_text(f!("list-move-up")).clicked() {
+                  to_prioritize = Some(j);
                 }
-                if ui.add_sized([h, h], egui::Button::new("×")).on_hover_text(f!("list-remove")).clicked() {
-                  to_remove = Some(j);
-                }
+              }
+              if ui.add_sized([h, h], egui::Button::selectable(false, "×")).on_hover_text(f!("list-remove")).clicked() {
+                to_remove = Some(j);
               }
             });
             ui.end_row();
@@ -1496,7 +1494,7 @@ impl WhirlApp {
             |ui| { ui.add_space(h / 2. - 1.); ui.separator(); },
           );
           if ui.add_sized([ui.style().spacing.interact_size.y, ui.style().spacing.interact_size.y],
-            egui::Button::new("+")).on_hover_text(f!("list-add-segment")).clicked()
+            egui::Button::selectable(false, "+")).on_hover_text(f!("list-add-segment")).clicked()
           {
             segments.push(model::TextSegment {
               text: "".to_string(),
@@ -1576,11 +1574,11 @@ impl WhirlApp {
             if i == 0 {
               ui.add_space(h + ui.style().spacing.item_spacing.x);
             } else {
-              if ui.add_sized([h, h], egui::Button::new("⌃")).on_hover_text(f!("list-move-up")).clicked() {
+              if ui.add_sized([h, h], egui::Button::selectable(false, "⌃")).on_hover_text(f!("list-move-up")).clicked() {
                 to_prioritize = Some(i);
               }
             }
-            if ui.add_sized([h, h], egui::Button::new("×")).on_hover_text(f!("list-remove")).clicked() {
+            if ui.add_sized([h, h], egui::Button::selectable(false, "×")).on_hover_text(f!("list-remove")).clicked() {
               to_remove = Some(i);
             }
           }
