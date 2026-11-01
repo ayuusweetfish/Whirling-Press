@@ -315,6 +315,14 @@ fn element_to_image<P: AsRef<std::path::Path>>(root_path: P, el: &model::Element
   }
 }
 
+fn icon_button(ui: &mut egui::Ui, text: &str) -> egui::Response {
+  ui.scope(|ui| {
+    ui.spacing_mut().button_padding.x = 2.0;
+    let size = ui.style().spacing.interact_size.y;
+    ui.add_sized([size, size], egui::Button::selectable(false, text))
+  }).inner
+}
+
 impl WhirlApp {
   fn new(cc: &eframe::CreationContext<'_>, root_path: Option<&str>) -> Self {
     let ctx = &cc.egui_ctx;
@@ -664,7 +672,6 @@ impl WhirlApp {
         ui.add_space(margin * 2.);
         // Element list
         let h = ui.style().spacing.interact_size.y;
-        let w = ui.available_size().x;
         ui.allocate_ui(ui.available_size(), |ui| {
           egui::ScrollArea::vertical().show(ui, |ui| {
             ui.heading(f!("elements"));
@@ -727,6 +734,9 @@ impl WhirlApp {
             for (i, el) in self.layout.as_ref().unwrap().elements.iter().enumerate().rev() {
               let sel = self.sel_element.map_or(false, |j| j == i);
               ui.horizontal(|ui| {
+                // Use the scroll area's actual content width: if the row overflows,
+                // the panel's persisted outer width grows on every frame.
+                let w = ui.available_width();
                 let resp = ui.add_sized(
                   egui::vec2(w - (h + ui.style().spacing.item_spacing.x) * 2.0, ui.style().spacing.interact_size.y),
                   egui::Button::selectable(sel, "").left_text(
@@ -749,11 +759,11 @@ impl WhirlApp {
                 if i + 1 == n {
                   ui.add_space(h + ui.style().spacing.item_spacing.x);
                 } else {
-                  if ui.add_sized([h, h], egui::Button::selectable(false, "⌃")).on_hover_text(f!("list-move-up")).clicked() {
+                  if icon_button(ui, "⌃").on_hover_text(f!("list-move-up")).clicked() {
                     to_prioritize = Some(i);
                   }
                 }
-                if ui.add_sized([h, h], egui::Button::selectable(false, "×")).on_hover_text(f!("list-remove")).clicked() {
+                if icon_button(ui, "×").on_hover_text(f!("list-remove")).clicked() {
                   to_remove = Some(i);
                 }
               });
@@ -1381,11 +1391,11 @@ impl WhirlApp {
                 }
               }
               if j > 0 {
-                if ui.add_sized([h, h], egui::Button::selectable(false, "⌃")).on_hover_text(f!("list-move-up")).clicked() {
+                if icon_button(ui, "⌃").on_hover_text(f!("list-move-up")).clicked() {
                   to_prioritize = Some(j);
                 }
               }
-              if ui.add_sized([h, h], egui::Button::selectable(false, "×")).on_hover_text(f!("list-remove")).clicked() {
+              if icon_button(ui, "×").on_hover_text(f!("list-remove")).clicked() {
                 to_remove = Some(j);
               }
             });
@@ -1480,7 +1490,7 @@ impl WhirlApp {
               },
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-              if ui.add_sized([h, h], egui::Button::new("↔")).on_hover_text(
+              if icon_button(ui, "↔").on_hover_text(
                 if is_field { f!("attr-text-tint-switch-to-fixed") }
                 else { f!("attr-text-tint-switch-to-field") }
               ).clicked() {
@@ -1517,9 +1527,7 @@ impl WhirlApp {
             egui::Layout::top_down_justified(egui::Align::Center),
             |ui| { ui.add_space(h / 2. - 1.); ui.separator(); },
           );
-          if ui.add_sized([ui.style().spacing.interact_size.y, ui.style().spacing.interact_size.y],
-            egui::Button::selectable(false, "+")).on_hover_text(f!("list-add-segment")).clicked()
-          {
+          if icon_button(ui, "+").on_hover_text(f!("list-add-segment")).clicked() {
             segments.push(model::TextSegment {
               text: "".to_string(),
               ..segments.last().unwrap().clone()
@@ -1593,11 +1601,11 @@ impl WhirlApp {
             if i == 0 {
               ui.add_space(h + ui.style().spacing.item_spacing.x);
             } else {
-              if ui.add_sized([h, h], egui::Button::selectable(false, "⌃")).on_hover_text(f!("list-move-up")).clicked() {
+              if icon_button(ui, "⌃").on_hover_text(f!("list-move-up")).clicked() {
                 to_prioritize = Some(i);
               }
             }
-            if ui.add_sized([h, h], egui::Button::selectable(false, "×")).on_hover_text(f!("list-remove")).clicked() {
+            if icon_button(ui, "×").on_hover_text(f!("list-remove")).clicked() {
               to_remove = Some(i);
             }
           }
