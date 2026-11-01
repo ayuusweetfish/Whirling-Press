@@ -1259,7 +1259,7 @@ impl WhirlApp {
         )
       );
       let replace_text = (if let Some(r) = replace_range { r.slice_str(src) } else { "" }).to_owned();
-      egui::Popup::from_response(&resp).id(ui.scope_id().with("completion_src"))
+      egui::Popup::from_response(&resp)
         .open_memory(resp.has_focus().then_some(egui::containers::SetOpenCommand::Bool(true)))
         .kind(egui::PopupKind::Menu)
         .layout(egui::Layout::top_down_justified(egui::Align::Min))
