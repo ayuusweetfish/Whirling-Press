@@ -10,7 +10,7 @@ use crate::f;
 
 use egui::{
     Context, DragValue, Id, Painter, Popup, PopupCloseBehavior, Response, Sense, Ui,
-    WidgetInfo, WidgetType, epaint, lerp, remap_clamp,
+    WidgetInfo, Role, epaint, lerp, remap_clamp,
 };
 use egui::epaint::{
     Mesh, Rect, Shape, Stroke, StrokeKind, Vec2,
@@ -121,7 +121,7 @@ fn show_srgba_unmultiplied_at(painter: &Painter, [r, g, b, a]: [u8; 4], rect: Re
 fn color_button(ui: &mut Ui, srgba: [u8; 4], open: bool) -> Response {
     let size = ui.spacing().interact_size;
     let (rect, response) = ui.allocate_exact_size(size, Sense::click());
-    response.widget_info(|| WidgetInfo::new(WidgetType::ColorButton));
+    response.widget_info(|| WidgetInfo::new(Role::ColorWell));
 
     if ui.is_rect_visible(rect) {
         let visuals = if open {

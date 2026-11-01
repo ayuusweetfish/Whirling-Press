@@ -24,11 +24,11 @@ fluent = "0.17"
 fluent-langneg = "0.14"
 sys-locale = "0.3.2"
 
-egui = { version = "0.36", default-features = false, features = [], optional = true }
-eframe = { version = "0.36", default-features = false, features = ["accesskit", "wayland", "web_screen_reader", "wgpu", "x11"], optional = true }
+egui = { version = "0.37", default-features = false, features = [], optional = true }
+eframe = { version = "0.37", default-features = false, features = ["accesskit", "wayland", "web_screen_reader", "wgpu", "x11"], optional = true }
 rfd = { version = "0.17", optional = true }
-notify = { version = "9.0.0-rc.5", optional = true }
-opener = { version = "0.8.5", features = ["reveal"], optional = true }
+notify = { version = "9.0.0-rc.7", optional = true }
+opener = { version = "0.9.0", features = ["reveal"], optional = true }
 
 [features]
 gui = ["dep:egui", "dep:eframe", "dep:rfd", "dep:notify", "dep:opener"]

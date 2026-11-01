@@ -638,7 +638,7 @@ impl WhirlApp {
         let p0 = (x, y).into();
         let p1 = (x + w, y).into();
         let line_rect = egui::Rect::from_min_max(p0, p1).expand(ui.style().interaction.resize_grab_radius_side);
-        let resize_response = ui.interact(line_rect, "panel_resize".into(), egui::Sense::click_and_drag());
+        let resize_response = ui.interact(line_rect, egui::Id::unique("panel_resize"), egui::Sense::click_and_drag());
         let resize_hover = resize_response.hovered() &&
           !ui.input(|i| i.pointer.any_down() || i.pointer.any_pressed());
         if resize_hover || resize_response.dragged() {
@@ -673,7 +673,7 @@ impl WhirlApp {
               [ui.available_width(), ui.style().spacing.interact_size.y],
               egui::Button::selectable(false, "+")
             ).on_hover_text(f!("list-add"));
-            egui::Popup::menu(&add_resp).id(ui.id().with("add_element_popup"))
+            egui::Popup::menu(&add_resp).id(ui.scope_id().with("add_element_popup"))
               .show(|ui| {
                 ui.set_min_width(add_resp.rect.width() -
                   ui.style().spacing.menu_margin.left as f32 -
@@ -1073,7 +1073,7 @@ impl WhirlApp {
         }
 
         // Panel toggle
-        egui::Area::new(ui.id().with("attr_panel_toggle"))
+        egui::Area::new(ui.scope_id().with("attr_panel_toggle"))
           .fixed_pos(egui::pos2(c_width, c_height / 2.0))
           .pivot(egui::Align2::RIGHT_CENTER)
           .show(ui.ctx(), |ui| {
@@ -1249,7 +1249,7 @@ impl WhirlApp {
         )
       );
       let replace_text = (if let Some(r) = replace_range { r.slice_str(src) } else { "" }).to_owned();
-      egui::Popup::from_response(&resp).id(ui.id().with("completion_src"))
+      egui::Popup::from_response(&resp).id(ui.scope_id().with("completion_src"))
         .open_memory(resp.has_focus().then_some(egui::containers::SetOpenCommand::Bool(true)))
         .kind(egui::PopupKind::Menu)
         .layout(egui::Layout::top_down_justified(egui::Align::Min))
@@ -1324,14 +1324,14 @@ impl WhirlApp {
         let n = segments.len();
         let mut to_prioritize = None;
         let mut to_remove = None;
-        let base_id = ui.id();
-        let segment_uids_id = egui::Id::new(("text_segment_uids", el_uid));
+        let base_id = ui.scope_id();
+        let segment_uids_id = egui::Id::unique(("text_segment_uids", el_uid));
         let mut segment_uids = ui.ctx().memory_mut(|mem|
           mem.data.get_temp::<Vec<usize>>(segment_uids_id)).unwrap_or_default();
         if segment_uids.len() != n {
           segment_uids = (0..n).collect();
         }
-        let layout_dirty_id = egui::Id::new(("text_segment_layout_dirty", el_uid));
+        let layout_dirty_id = egui::Id::unique(("text_segment_layout_dirty", el_uid));
         if ui.ctx().memory_mut(|mem| mem.data.remove_temp::<bool>(layout_dirty_id)).unwrap_or(false) {
           ui.ctx().request_discard("text segment layout changed");
         }
@@ -1408,7 +1408,7 @@ impl WhirlApp {
           ui.end_row();
           ui.label(f!("attr-text-family"));
           let fonts_changed = ui.scope_builder(
-            egui::UiBuilder::new().id(seg_id.with("family")),
+            egui::UiBuilder::new().scope_id(seg_id.with("family")),
             |ui| Self::font_list_editor(ui, &font_families, family)
           ).inner;
           if fonts_changed {
@@ -1449,7 +1449,7 @@ impl WhirlApp {
             });
           ui.end_row();
           ui.label(f!("attr-text-italic"));
-          let resp = ui.scope_builder(egui::UiBuilder::new().id(seg_id.with("italic")), |ui| ui.checkbox(italic, "")).inner;
+          let resp = ui.scope_builder(egui::UiBuilder::new().scope_id(seg_id.with("italic")), |ui| ui.checkbox(italic, "")).inner;
           changed_tex |= resp.changed();
           change_ended |= resp.changed();
           ui.end_row();
@@ -1562,7 +1562,7 @@ impl WhirlApp {
       let mut to_remove = None;
       let n = el.len();
       for (i, s) in el.iter_mut().enumerate() {
-        // ui.dnd_drag_source(ui.id().with(("font_list", i)), i, |ui| {
+        // ui.dnd_drag_source(ui.scope_id().with(("font_list", i)), i, |ui| {
         ui.horizontal(|ui| {
           let h = ui.available_height();
           let button_w = if n > 1 {
@@ -1572,7 +1572,7 @@ impl WhirlApp {
           };
           let resp = ui.add_sized([button_w, h],
             egui::Button::selectable(false, &*s).wrap_mode(egui::TextWrapMode::Truncate));
-          egui::Popup::menu(&resp).id(ui.id().with(("font_family_popup", i)))
+          egui::Popup::menu(&resp).id(ui.scope_id().with(("font_family_popup", i)))
             .show(|ui| {
               ui.set_min_width(resp.rect.width() -
                 ui.style().spacing.menu_margin.left as f32 -
@@ -1844,7 +1844,7 @@ impl eframe::App for WhirlApp {
                 self.showing_about = true;
               }
               if self.showing_about {
-                let modal_resp = egui::Modal::new(egui::Id::new(format!("about_modal_{}", localize::current_language()))).show(ui.ctx(), |ui| {
+                let modal_resp = egui::Modal::new(egui::Id::unique(format!("about_modal_{}", localize::current_language()))).show(ui.ctx(), |ui| {
                   ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
                     ui.spacing_mut().button_padding = (12., 6.).into();
                     ui.heading("Whirling Press");
@@ -1889,7 +1889,7 @@ impl eframe::App for WhirlApp {
           ui.send_viewport_cmd(egui::ViewportCommand::CancelClose);
         }
         if self.close_confirming {
-          egui::Modal::new(egui::Id::new("close_confirmation_modal")).show(ui.ctx(), |ui| {
+          egui::Modal::new(egui::Id::unique("close_confirmation_modal")).show(ui.ctx(), |ui| {
             ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
               ui.label(f!("modal-close-confirmation-message"));
               ui.add_space(12.0);
