@@ -13,18 +13,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        # Linux x86-64 gnu
-        - target: x86_64-unknown-linux-gnu
-          os: ubuntu-26.04
-          artifactname: linux-gnu-x86_64
-        # Linux AArch64 gnu
-        - target: aarch64-unknown-linux-gnu
-          os: ubuntu-24.04-arm
-          artifactname: linux-gnu-aarch64
-        # Linux AArch64 musl
-        - target: aarch64-unknown-linux-musl
-          os: ubuntu-24.04-arm
-          artifactname: linux-musl-aarch64
         # Windows x86-64
         - target: x86_64-pc-windows-gnu
           os: ubuntu-26.04
@@ -74,7 +62,7 @@ jobs:
 
     - name: Build
       working-directory: whirl
-      run: CARGO_PROFILE_RELEASE_STRIP=symbols CARGO_PROFILE_RELEASE_LTO=fat cargo build --release --target ${{ matrix.target }}
+      run: cargo build --release --target ${{ matrix.target }}
 
     - name: Upload artifact
       uses: actions/upload-artifact@v7

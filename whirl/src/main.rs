@@ -1,5 +1,3 @@
-#![windows_subsystem = "windows"]
-
 mod model;
 mod render;
 mod opt_pdf;
