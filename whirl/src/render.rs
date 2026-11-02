@@ -137,6 +137,15 @@ pub(crate) fn font_families(root: Option<impl Into<PathBuf>>) -> (Vec<String>, u
   (user_fonts, hasher.finish())
 }
 
+fn file_error(path: &std::path::Path, error: std::io::Error) -> FileError {
+  match error.kind() {
+    // The `NotFound` variant carries the path, but other variants do not,
+    // so include the path in the message with an `Other` variant
+    std::io::ErrorKind::NotFound => FileError::NotFound(path.to_path_buf()),
+    _ => FileError::Other(Some(format!("{}: {}", path.display(), error).into())),
+  }
+}
+
 impl SimpleWorld {
   pub fn new(root: impl Into<PathBuf>, source: &str) -> Self {
     let root = root.into();
@@ -176,8 +185,14 @@ impl typst::World for SimpleWorld {
     if let Some(bytes) = self.files.read().unwrap().get(&id) {
       return Ok(bytes.clone());
     }
-    let path = id.vpath().realize(&self.root).or(Err(FileError::AccessDenied))?;
-    let mut bytes_u8 = std::fs::read(&path).map_err(|e| FileError::from_io(e, &path))?;
+    let path = id.vpath().realize(&self.root).map_err(|e| {
+      FileError::Other(Some(format!("{}: {}", id.vpath().get_without_slash(), e).into()))
+    })?;
+    // Directories may be reported as "access denied"; avoid the confusion
+    if std::fs::metadata(&path).map_err(|e| file_error(&path, e))?.is_dir() {
+      return Err(file_error(&path, std::io::Error::from(std::io::ErrorKind::IsADirectory)));
+    }
+    let mut bytes_u8 = std::fs::read(&path).map_err(|e| file_error(&path, e))?;
     if id.vpath().extension() == Some("csv") && bytes_u8.starts_with(b"\xef\xbb\xbf") {
       bytes_u8.drain(..3);
     }
