@@ -582,7 +582,7 @@ pub fn version() -> String {
 }
 
 pub fn commit_date() -> String {
-  option_env!("REV_DATE").unwrap_or("2026-10").to_string()
+  option_env!("REV_DATE").unwrap_or("2026-11").to_string()
 }
 
 fn main() {
