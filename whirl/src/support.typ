@@ -1,6 +1,7 @@
 #let place-element(
   x, y, width: auto, height: auto, anchor: top + left,
   rotate: 0deg, scale-x: 100%, scale-y: 100%, skew-x: 0deg, skew-y: 0deg,
+  image-fit: none,
   debug: false,
   in_flow: false,
   body,
@@ -23,7 +24,18 @@
       #skew(ax: skew-x, ay: skew-y, origin: anchor)[
         #std.scale(x: scale-x, y: scale-y, origin: anchor)[
           #box(width: width, height: height)[
-            #align(anchor, body)
+            #if image-fit == "cover" {
+              let natural = measure(body)
+              let factor = calc.max(width / natural.width, height / natural.height)
+              box(width: width, height: height, clip: true)[
+                #place(anchor, box(
+                  width: natural.width * factor,
+                  height: natural.height * factor,
+                )[#body])
+              ]
+            } else {
+              align(anchor, body)
+            }
             #if debug {
               place(top + left, dx: 0pt, dy: 0pt, rect(width: 100%, height: 100%))
             }

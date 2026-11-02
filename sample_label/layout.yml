@@ -3,6 +3,7 @@ elements:
 - { x: 0, y: 174, width: 759, height: 1156, content: !image { src: "{img_a}" } }
 - { x: 0, y: 0, content: !image { src: frame.pdf } }
 - { x: 740, y: 2631, anchor: [1, 1], width: 110, content: !image { src: qr.svg } }
+- { x: 590, y: 2631, anchor: [1, 1], width: 80, height: 40, content: !image { src: qr.svg, fit: cover } }
 - { x: 250, y: 1872.5, anchor: [1, 1], content: !text [{ family: [Instrument Sans, Noto Sans CJK SC], size: 16, italic: true, tracking: -0.5, text: Order ID }] }
 - { x: 252, y: 1872, anchor: [0, 1], content: !text [{ family: [Instrument Sans, Noto Sans CJK SC], size: 16, text: ":" }] }
 - { x: 271, y: 1872.5, anchor: [0, 1], content: !text [{ family: [Instrument Sans, Noto Sans CJK SC], size: 16, text: "{order_id}" }] }

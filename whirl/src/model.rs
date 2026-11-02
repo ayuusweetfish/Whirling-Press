@@ -91,9 +91,19 @@ pub enum Content {
   #[serde(rename = "image")]
   Image {
     src: String,
+    #[serde(default, skip_serializing_if = "is_default")]
+    fit: ImageFit,
   },
   #[serde(rename = "text")]
   Text(Vec<TextSegment>),
+}
+#[derive(Debug, Clone, Deserialize, Serialize, Default, PartialEq, Copy)]
+#[serde(rename_all = "snake_case")]
+pub enum ImageFit {
+  #[default]
+  Contain,
+  Cover,
+  Stretch,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct TextSegment {

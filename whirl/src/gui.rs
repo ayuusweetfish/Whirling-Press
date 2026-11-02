@@ -705,6 +705,7 @@ impl WhirlApp {
                   self.op(ui.ctx(), Operation::AddElement { i: n, element:
                     new_element(page_size, self.canvas.origin, model::Content::Image {
                       src: "".to_string(),
+                      fit: Default::default(),
                     })
                   });
                   self.sel_element = Some(n);
@@ -1149,6 +1150,11 @@ impl WhirlApp {
                 if matches!(el.content, model::Content::Text { .. }) {
                   changed_tex = true;
                 }
+                if let model::Content::Image{ fit, .. } = el.content &&
+                  fit != model::ImageFit::Stretch
+                {
+                  changed_tex = true;
+                }
                 change_ended = true;
               }
             }
@@ -1320,7 +1326,7 @@ impl WhirlApp {
       (edit_output.response.changed(), edit_output.response.lost_focus())
     }
     match &mut el.content {
-      model::Content::Image { src } => {
+      model::Content::Image { src, fit } => {
         ui.label(f!("attr-image-source"));
         let edit_output = egui::TextEdit::singleline(src).show(ui);
         let range = if let Some(c) = edit_output.state.cursor.char_range() {
@@ -1328,6 +1334,26 @@ impl WhirlApp {
         } else { None };
         let (a, b) = show_autocomplete(ui, edit_output, src, text_sel_range, range, csv_fields, &asset_files);
         changed_tex |= a; change_ended |= b;
+        ui.end_row();
+        ui.label(f!("attr-image-fit"));
+        let fits_and_names = [
+          (model::ImageFit::Contain, f!("attr-image-fit-contain")),
+          (model::ImageFit::Cover, f!("attr-image-fit-cover")),
+          (model::ImageFit::Stretch, f!("attr-image-fit-stretch")),
+        ];
+        ComboBox::from_id_salt("fit")
+          .width(150.0)
+          .selected_text(fits_and_names.iter()
+            .find(|(a, _)| *a == *fit)
+            .map(|(_, name)| name.clone()).unwrap())
+          .show_ui(ui, |ui| {
+            for (value, name) in fits_and_names {
+              if ui.selectable_value(fit, value, name).clicked() {
+                changed_tex = true;
+                change_ended = true;
+              }
+            }
+          });
         ui.end_row();
       },
       model::Content::Text(segments) => {

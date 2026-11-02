@@ -118,16 +118,51 @@ impl model::Element {
 
     // Content
     let content = match &self.content {
-      model::Content::Image { src } => {
+      model::Content::Image { src, fit } => {
+        let is_anchored_cover = *fit == model::ImageFit::Cover &&
+          self.width.is_some() && self.height.is_some();
+        let fit_arg = match fit {
+          model::ImageFit::Contain => None,
+          model::ImageFit::Cover => Some("cover"),
+          model::ImageFit::Stretch => Some("stretch"),
+        };
+        let fill_args = if is_anchored_cover {
+          String::new()
+        } else if let Some(fit_arg) = fit_arg {
+          let mut image_args = Vec::new();
+          if self.width.is_some() {
+            image_args.push("width: 100%".to_string());
+          }
+          if self.height.is_some() {
+            image_args.push("height: 100%".to_string());
+          }
+          if args.is_empty() {
+            // If width and height are both unset, fitting the image is meaningless
+            "".to_string()
+          } else {
+            image_args.push(format!("fit: \"{}\"", fit_arg));
+            format!(", {}", image_args.join(", "))
+          }
+        } else {
+          "".to_string()
+        };
         if mode == SourceMode::Preview {
           if let Ok(s) = expand_expr(src, &[]) {
-            format!("#image({})", s)
+            if is_anchored_cover {
+              // For our own Typst function
+              args.push("image-fit: \"cover\"".to_string());
+            }
+            format!("#image({}{})", s, fill_args)
           } else {
             let s = format!("🖼️ {}", escape(src));
             format!("#show raw: set text(16pt, font: (\"_1\", \"_2\", \"_3\"), stroke: 2pt + white)\n#raw(\"{s}\")\n#show raw: set text(stroke: none)\n#place(top + start)[#raw(\"{s}\")]")
           }
         } else {
-          format!("#image({})", expand_expr(src, fields)?)
+          let s = expand_expr(src, fields)?;
+          if is_anchored_cover {
+            args.push("image-fit: \"cover\"".to_string());
+          }
+          format!("#image({}{})", s, fill_args)
         }
       }
       model::Content::Text(segments) => {
