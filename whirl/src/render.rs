@@ -209,15 +209,35 @@ impl typst::World for SimpleWorld {
 }
 
 #[derive(Debug)]
+pub(crate) enum TypstFileRange {
+  Source(std::ops::Range<usize>),
+  Asset(String, std::ops::Range<usize>),
+  Detached,
+}
+
+#[derive(Debug)]
 pub(crate) enum RenderError {
-  TypstCompilation(Vec<(std::ops::Range<usize>, String)>),
+  TypstCompilation(Vec<(TypstFileRange, String)>),
 }
 
 fn dispatch_errors(world: &SimpleWorld, diags: Vec<typst::diag::SourceDiagnostic>) -> RenderError {
-  use typst::WorldExt;
-  RenderError::TypstCompilation(diags.into_iter().map(|d|
-    (world.range(d.span).unwrap_or(0..0), d.message.to_string())
-  ).collect())
+  use typst::{World, WorldExt};
+  use typst::syntax::DiagSpanKind;
+
+  RenderError::TypstCompilation(diags.into_iter().map(|d| {
+    let file_range = match d.span.get() {
+      DiagSpanKind::Detached => TypstFileRange::Detached,
+      DiagSpanKind::Number { id, .. } | DiagSpanKind::Range { id, .. } => {
+        let range = world.range(d.span).unwrap_or(0..0);
+        if id == world.main() {
+          TypstFileRange::Source(range)
+        } else {
+          TypstFileRange::Asset(id.vpath().get_without_slash().to_string(), range)
+        }
+      }
+    };
+    (file_range, d.message.to_string())
+  }).collect())
 }
 
 pub(crate) fn to_pdf<P: AsRef<std::path::Path>>(root: P, source: &str) -> Result<Vec<u8>, RenderError> {

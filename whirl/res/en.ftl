@@ -13,6 +13,8 @@ process-expr-nonexistent-field =
   Element {$index}, expression at characters {$start}-{$end} references nonexistent field `{$name}`
 process-render-typst-compilation =
   Element {$index}, compilation failed: {$message}
+process-render-typst-compilation-detached =
+  Compilation failed: {$message}
 
 open-content-folder = Open content folder
 or-drag-and-drop = or drag-and-drop

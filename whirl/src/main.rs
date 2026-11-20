@@ -213,7 +213,7 @@ impl model::Element {
 }
 
 impl model::Layout {
-  fn typst_source(&self, csv_path: &str, fields: &[String], mode: SourceMode) -> Result<(String, Vec<usize>), (usize, ExprError)> {
+  fn typst_source(&self, csv_path: &str, fields: &[String], mode: SourceMode) -> Result<(String, Vec<std::ops::Range<usize>>), (usize, ExprError)> {
     let (page_width, page_height) = self.page;
 
     let elements_typst = self.elements.iter()
@@ -232,16 +232,16 @@ impl model::Layout {
 "#;
     let sep = "\n  ";
 
-    let (_, offsets) = elements_typst.iter().fold(
+    let (_, ranges) = elements_typst.iter().fold(
       (prefix.len(), Vec::with_capacity(elements_typst.len())),
-      |(cur_offs, mut offsets), s| {
-        offsets.push(cur_offs);
-        (cur_offs + s.len() + sep.len(), offsets)
+      |(cur_offs, mut ranges), s| {
+        ranges.push(cur_offs..cur_offs + s.len());
+        (cur_offs + s.len() + sep.len(), ranges)
       },
     );
     let full_source = prefix + &elements_typst.join(sep) + suffix;
 
-    Ok((full_source, offsets))
+    Ok((full_source, ranges))
   }
 }
 
@@ -325,6 +325,32 @@ fn get_csv_fields<P: AsRef<Path>>(path: P) -> Result<Vec<String>, ProcessError> 
 }
 
 #[derive(Debug)]
+enum RenderErrorLocation {
+  Element(usize),
+  Detached,
+}
+
+impl RenderErrorLocation {
+  fn element(&self) -> Option<usize> {
+    match self {
+      RenderErrorLocation::Element(i) => Some(*i),
+      _ => None,
+    }
+  }
+
+  fn describe(&self, message: &str) -> String {
+    match self {
+      RenderErrorLocation::Element(index) => {
+        f!("process-render-typst-compilation", index => *index, message => message)
+      }
+      RenderErrorLocation::Detached => {
+        f!("process-render-typst-compilation-detached", message => message)
+      }
+    }
+  }
+}
+
+#[derive(Debug)]
 enum ProcessError {
   FindYaml(FindSingleError),
   ParseYaml(serde_saphyr::Error),
@@ -334,7 +360,7 @@ enum ProcessError {
   CsvFieldsDuplicate(String),
   Io(std::path::PathBuf, std::io::Error),
   Expr(usize, ExprError),
-  Render(usize, String),
+  Render(RenderErrorLocation, String),
 }
 
 fn process_pack_metadata<P: AsRef<Path>>(path: P, allow_empty_yaml: bool, parse_yaml: bool) -> Result<
@@ -378,6 +404,23 @@ fn process_pack_metadata<P: AsRef<Path>>(path: P, allow_empty_yaml: bool, parse_
   Ok((yaml_file_name, layout, csv_file_name, list_fields))
 }
 
+fn classify_diagnostic(
+  diag: &(render::TypstFileRange, String),
+  ranges: &[std::ops::Range<usize>],
+) -> RenderErrorLocation {
+  match &diag.0 {
+    render::TypstFileRange::Source(range) => {
+      if let Some(i) = ranges.iter().position(|r| r.contains(&range.start)) {
+        RenderErrorLocation::Element(i)
+      } else {
+        RenderErrorLocation::Detached
+      }
+    },
+    render::TypstFileRange::Asset(_file, _range) => RenderErrorLocation::Detached,
+    render::TypstFileRange::Detached => RenderErrorLocation::Detached,
+  }
+}
+
 fn process_pack<P: AsRef<Path>, R, F: FnOnce(P, &str) -> Result<R, render::RenderError>>(path: P, layout: Option<&model::Layout>, mode: SourceMode, render: F) -> Result<R, ProcessError> {
   let owned_layout;
   let (layout, csv_file_name, list_fields) =
@@ -395,17 +438,16 @@ fn process_pack<P: AsRef<Path>, R, F: FnOnce(P, &str) -> Result<R, render::Rende
       .replace('\\', "\\\\").replace('"', "\\\""))
   }
 
-  let (typst_source, offsets) = layout.typst_source(&escape_path(csv_file_name)?, &list_fields, mode)
+  let (typst_source, ranges) = layout.typst_source(&escape_path(csv_file_name)?, &list_fields, mode)
     .map_err(|(i, e)| ProcessError::Expr(i, e))?;
 
   let output = render(path, &typst_source)
     .map_err(|e| {
       let crate::render::RenderError::TypstCompilation(diags) = e;
-      let el_index = match offsets.binary_search(&diags[0].0.start) {
-        Ok(i) => i,
-        Err(i) => if i == 0 { 0 } else { i - 1 },
+      let Some(diag) = diags.first() else {
+        return ProcessError::Render(RenderErrorLocation::Detached, "compilation failed without diagnostics".to_string());
       };
-      ProcessError::Render(el_index, diags[0].1.clone())
+      ProcessError::Render(classify_diagnostic(diag, &ranges), diag.1.clone())
     })?;
   Ok(output)
 }
@@ -463,11 +505,8 @@ impl ProcessError {
           name => name.replace(&['\r', '\n'], " "),
         )
       }
-      ProcessError::Render(index, message) => {
-        f!("process-render-typst-compilation",
-          index => index,
-          message => message.replace(&['\r', '\n'], " "),
-        )
+      ProcessError::Render(location, message) => {
+        location.describe(&message.replace(&['\r', '\n'], " "))
       }
     }
   }

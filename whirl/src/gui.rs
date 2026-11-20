@@ -291,7 +291,7 @@ fn element_to_image<P: AsRef<std::path::Path>>(root_path: P, el: &model::Element
     let buf = render::to_rgba(root_path, &src, RENDER_TEX_SCALE)
       .map_err(|e| {
         let crate::render::RenderError::TypstCompilation(diags) = e;
-        ProcessError::Render(0, diags[0].1.clone())
+        ProcessError::Render(crate::RenderErrorLocation::Element(0), diags[0].1.clone())
       })?;
     Ok(buf)
   }
@@ -1672,10 +1672,13 @@ impl WhirlApp {
         self.status_msg = Some((true, std::time::Instant::now(), f!("status-nonexistent-field", name => name.replace(&['\r', '\n'], " "))));
         self.text_sel_range = Some((start, end));
       },
-      Err(crate::ProcessError::Render(index, msg)) => {
-        self.sel_element = Some(index);
-        self.sel_element_scroll = true;
-        self.status_msg = Some((true, std::time::Instant::now(), f!("status-compilation-error", message => msg)));
+      Err(crate::ProcessError::Render(location, msg)) => {
+        if let Some(index) = location.element() {
+          self.sel_element = Some(index);
+          self.sel_element_scroll = true;
+        }
+        let msg = msg.replace(&['\r', '\n'], " ");
+        self.status_msg = Some((true, std::time::Instant::now(), location.describe(&msg)));
       },
       Err(e) => self.status_msg = Some((true, std::time::Instant::now(), format!("{}", e.message()))),
     }

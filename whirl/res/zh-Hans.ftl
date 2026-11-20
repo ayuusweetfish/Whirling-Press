@@ -13,6 +13,8 @@ process-expr-nonexistent-field =
   元素 {$index}，表达式字符位置 {$start}-{$end} 引用的列名 `{$name}` 不存在
 process-render-typst-compilation =
   元素 {$index}，编译错误：{$message}
+process-render-typst-compilation-detached =
+  编译错误：{$message}
 
 open-content-folder = 打开文件夹
 or-drag-and-drop = 或拖放到此处
