@@ -841,6 +841,7 @@ impl WhirlApp {
         } else if resp.dragged() {
           if let Some((i, p0, delta)) = self.dragged_element {
             let layout = self.layout.as_mut().unwrap();
+            self.undo_start_state.elements.entry(i).or_insert(layout.elements[i].clone());
             let new_delta = (
               delta.0 + resp.drag_delta().x / self.canvas.zoom,
               delta.1 + resp.drag_delta().y / self.canvas.zoom,
@@ -968,6 +969,9 @@ impl WhirlApp {
         let mut last_sel: Option<usize> = None;
         let mut first_above_sel: Option<usize> = None;
         let mut prev_sel_repeated = false;
+        let clicked_any = resp.clicked()
+          || resp.clicked_by(egui::PointerButton::Secondary)
+          || resp.clicked_by(egui::PointerButton::Middle);
 
         for (i, el) in self.layout.as_ref().unwrap().elements.iter().enumerate() {
           // XXX: DRY
@@ -978,7 +982,7 @@ impl WhirlApp {
             doc_to_canvas(element_tex_pos_content(&el, tex.size(), (1., 1.))),
             doc_to_canvas(element_tex_pos_content(&el, tex.size(), (0., 1.))),
           ];
-          if resp.clicked() && self.dragged_element.is_none() {
+          if clicked_any {
             if let Some(p) = resp.interact_pointer_pos()
               && point_in_simple_polygon(p.into(), &corners_content)
             {
@@ -1005,7 +1009,7 @@ impl WhirlApp {
           self.sel_element_scroll = true;
         }
 
-        if resp.clicked() && self.dragged_element.is_none() && first_sel.is_none() {
+        if clicked_any && first_sel.is_none() {
           self.sel_element = None;
         }
 
@@ -1046,23 +1050,19 @@ impl WhirlApp {
           // Anchor display
           if self.sel_element == Some(i) {
             let anchor_canvas = doc_to_canvas((el.x, el.y));
-            let pointer_near_anchor = if let Some(p) = hover_pos {
-              (anchor_canvas.0 - p.0).powi(2) +
-              (anchor_canvas.1 - p.1).powi(2) <= (r + 3.) * (r + 3.)
-            } else { false };
-            if pointer_near_anchor && resp.is_pointer_button_down_on()
-              && self.dragged_element.is_none() // Unlikely, but to prevent glitch
+            if self.dragged_element.is_none()
+              && resp.is_pointer_button_down_on()
+              && ui.input(|i| i.pointer.primary_pressed())
+              && let Some(p) = ui.input(|i| i.pointer.press_origin())
+              && point_in_simple_polygon(p.into(), &corners_content)
             {
               self.dragged_element = Some((i, (el.x, el.y), (0., 0.)));
-              self.undo_start_state.elements.entry(i).or_insert(el.clone());
             }
             painter.add(egui::Shape::Circle(egui::epaint::CircleShape {
               center: anchor_canvas.into(),
               radius: r,
               fill: if let Some((j, _, _)) = self.dragged_element && j == i {
                 egui::Color32::from_rgba_premultiplied(128, 120, 96, 255)
-              } else if pointer_near_anchor {
-                egui::Color32::from_rgba_premultiplied(255, 240, 192, 255)
               } else {
                 egui::Color32::from_rgba_premultiplied(128, 120, 96, 128)
               },
