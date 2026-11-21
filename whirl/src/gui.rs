@@ -1854,6 +1854,7 @@ impl eframe::App for WhirlApp {
                 let s = serde_saphyr::to_string_with_options(self.layout.as_ref().unwrap(), serde_saphyr::ser_options! {
                   compact_list_indent: true,
                   yaml_12: true,
+                  no_lang_directive: true,
                 }).unwrap();
                 match std::fs::write(&yml_path, s) {
                   Ok(_) => self.status_msg = Some((false, std::time::Instant::now(), f!("status-saved", path => yml_file_name.to_string_lossy()))),

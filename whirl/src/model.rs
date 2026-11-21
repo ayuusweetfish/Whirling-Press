@@ -1,9 +1,19 @@
 use serde::{Deserialize, Serialize};
+use serde_saphyr::{FlowMap, FlowSeq, Tagged};
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Layout {
   pub page: (f32, f32),
   pub elements: Vec<Element>,
+}
+impl Serialize for Layout {
+  fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+    use serde::ser::SerializeMap;
+    let mut map = serializer.serialize_map(Some(2))?;
+    map.serialize_entry("page", &FlowSeq(self.page))?;
+    map.serialize_entry("elements", &self.elements.iter().map(FlowMap).collect::<Vec<_>>())?;
+    map.end()
+  }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -86,16 +96,33 @@ impl<T> From<T> for FieldOrLiteral<T> {
   }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub enum Content {
   #[serde(rename = "image")]
   Image {
     src: String,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(default)]
     fit: ImageFit,
   },
   #[serde(rename = "text")]
   Text(Vec<TextSegment>),
+}
+#[derive(Serialize)]
+struct ImageContent<'a> {
+  src: &'a str,
+  #[serde(skip_serializing_if = "is_default")]
+  fit: ImageFit,
+}
+impl Serialize for Content {
+  fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+    match self {
+      Content::Image { src, fit } => Tagged(
+        ImageContent { src, fit: *fit },
+        Some("!image".into()),
+      ).serialize(serializer),
+      Content::Text(segments) => Tagged(segments, Some("!text".into())).serialize(serializer),
+    }
+  }
 }
 #[derive(Debug, Clone, Deserialize, Serialize, Default, PartialEq, Copy)]
 #[serde(rename_all = "snake_case")]
