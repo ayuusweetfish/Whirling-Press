@@ -1973,7 +1973,7 @@ impl eframe::App for WhirlApp {
       self.ui_landing(ui);
     }
     if let Some((_, t, _)) = self.status_msg
-      && t.elapsed() > std::time::Duration::from_secs(3)
+      && t.elapsed() > std::time::Duration::from_secs(5)
     {
       self.status_msg = None;
     }
