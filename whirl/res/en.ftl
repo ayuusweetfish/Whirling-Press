@@ -11,10 +11,14 @@ process-csv-fields-duplicate = CSV field `{$field}` duplicate
 process-io = I/O error on `{$path}`: {$error}
 process-expr-nonexistent-field =
   Element {$index}, expression at characters {$start}-{$end} references nonexistent field `{$name}`
-process-render-typst-compilation =
-  Element {$index}, compilation failed: {$message}
-process-render-typst-compilation-detached =
-  Compilation failed: {$message}
+process-render-typst-compilation-element-asset =
+  Element {$index}, asset file {$asset}: {$message}
+process-render-typst-compilation-element =
+  Element {$index}: {$message}
+process-render-typst-compilation-asset =
+  Asset file {$asset}: {$message}
+process-render-typst-compilation-general =
+  Compilation error: {$message}
 
 open-content-folder = Open content folder
 or-drag-and-drop = or drag-and-drop

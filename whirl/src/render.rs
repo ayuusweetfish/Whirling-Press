@@ -209,10 +209,9 @@ impl typst::World for SimpleWorld {
 }
 
 #[derive(Debug)]
-pub(crate) enum TypstFileRange {
-  Source(std::ops::Range<usize>),
-  Asset(String, std::ops::Range<usize>),
-  Detached,
+pub(crate) struct TypstFileRange {
+  pub source: std::ops::Range<usize>,
+  pub asset: Option<String>,
 }
 
 #[derive(Debug)]
@@ -222,19 +221,18 @@ pub(crate) enum RenderError {
 
 fn dispatch_errors(world: &SimpleWorld, diags: Vec<typst::diag::SourceDiagnostic>) -> RenderError {
   use typst::{World, WorldExt};
-  use typst::syntax::DiagSpanKind;
 
   RenderError::TypstCompilation(diags.into_iter().map(|d| {
-    let file_range = match d.span.get() {
-      DiagSpanKind::Detached => TypstFileRange::Detached,
-      DiagSpanKind::Number { id, .. } | DiagSpanKind::Range { id, .. } => {
-        let range = world.range(d.span).unwrap_or(0..0);
-        if id == world.main() {
-          TypstFileRange::Source(range)
-        } else {
-          TypstFileRange::Asset(id.vpath().get_without_slash().to_string(), range)
-        }
-      }
+    let trace_span = d.trace.last().map(|t| t.span.into()).unwrap_or(d.span);
+    let source_range =
+      if trace_span.id() == Some(world.main()) { world.range(trace_span) }
+      else { None };
+    let file_range = TypstFileRange {
+      source: source_range.unwrap_or(0..0),
+      asset: d.span.id().and_then(|id|
+        if id == world.main() { None }
+        else { Some(id.vpath().get_without_slash().to_string()) }
+      ),
     };
     (file_range, d.message.to_string())
   }).collect())

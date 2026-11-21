@@ -291,7 +291,7 @@ fn element_to_image<P: AsRef<std::path::Path>>(root_path: P, el: &model::Element
     let buf = render::to_rgba(root_path, &src, RENDER_TEX_SCALE)
       .map_err(|e| {
         let crate::render::RenderError::TypstCompilation(diags) = e;
-        ProcessError::Render(crate::RenderErrorLocation::Element(0), diags[0].1.clone())
+        ProcessError::Render(crate::RenderErrorLocation { element: Some(0), asset: diags[0].0.asset.clone() }, diags[0].1.clone())
       })?;
     Ok(buf)
   }
@@ -1673,7 +1673,7 @@ impl WhirlApp {
         self.text_sel_range = Some((start, end));
       },
       Err(crate::ProcessError::Render(location, msg)) => {
-        if let Some(index) = location.element() {
+        if let Some(index) = location.element {
           self.sel_element = Some(index);
           self.sel_element_scroll = true;
         }

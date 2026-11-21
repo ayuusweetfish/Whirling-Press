@@ -11,9 +11,13 @@ process-csv-fields-duplicate = CSV 列名 `{$field}` 存在重复
 process-io = 处理文件 `{$path}` 时错误：{$error}
 process-expr-nonexistent-field =
   元素 {$index}，表达式字符位置 {$start}-{$end} 引用的列名 `{$name}` 不存在
-process-render-typst-compilation =
-  元素 {$index}，编译错误：{$message}
-process-render-typst-compilation-detached =
+process-render-typst-compilation-element-asset =
+  元素 {$index}，资源文件 {$asset}：{$message}
+process-render-typst-compilation-element =
+  元素 {$index}：{$message}
+process-render-typst-compilation-asset =
+  资源文件 {$asset}：{$message}
+process-render-typst-compilation-general =
   编译错误：{$message}
 
 open-content-folder = 打开文件夹

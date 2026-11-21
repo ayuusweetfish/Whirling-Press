@@ -325,26 +325,26 @@ fn get_csv_fields<P: AsRef<Path>>(path: P) -> Result<Vec<String>, ProcessError> 
 }
 
 #[derive(Debug)]
-enum RenderErrorLocation {
-  Element(usize),
-  Detached,
+struct RenderErrorLocation {
+  pub element: Option<usize>,
+  pub asset: Option<String>,
 }
 
 impl RenderErrorLocation {
-  fn element(&self) -> Option<usize> {
-    match self {
-      RenderErrorLocation::Element(i) => Some(*i),
-      _ => None,
-    }
-  }
-
   fn describe(&self, message: &str) -> String {
     match self {
-      RenderErrorLocation::Element(index) => {
-        f!("process-render-typst-compilation", index => *index, message => message)
+      RenderErrorLocation { element: Some(index), asset: Some(asset) } => {
+        f!("process-render-typst-compilation-element-asset", index => *index, asset => asset, message => message)
       }
-      RenderErrorLocation::Detached => {
-        f!("process-render-typst-compilation-detached", message => message)
+      RenderErrorLocation { element: Some(index), asset: None } => {
+        f!("process-render-typst-compilation-element", index => *index, message => message)
+      }
+      RenderErrorLocation { element: None, asset: Some(asset) } => {
+        // TODO: Eliminate this possibility?
+        f!("process-render-typst-compilation-asset", asset => asset, message => message)
+      }
+      RenderErrorLocation { element: None, asset: None } => {
+        f!("process-render-typst-compilation-general", message => message)
       }
     }
   }
@@ -408,17 +408,9 @@ fn classify_diagnostic(
   diag: &(render::TypstFileRange, String),
   ranges: &[std::ops::Range<usize>],
 ) -> RenderErrorLocation {
-  match &diag.0 {
-    render::TypstFileRange::Source(range) => {
-      if let Some(i) = ranges.iter().position(|r| r.contains(&range.start)) {
-        RenderErrorLocation::Element(i)
-      } else {
-        RenderErrorLocation::Detached
-      }
-    },
-    render::TypstFileRange::Asset(_file, _range) => RenderErrorLocation::Detached,
-    render::TypstFileRange::Detached => RenderErrorLocation::Detached,
-  }
+  let range = &diag.0.source;
+  let i = ranges.iter().position(|r| r.contains(&range.start));
+  RenderErrorLocation { element: i, asset: diag.0.asset.clone() }
 }
 
 fn process_pack<P: AsRef<Path>, R, F: FnOnce(P, &str) -> Result<R, render::RenderError>>(path: P, layout: Option<&model::Layout>, mode: SourceMode, render: F) -> Result<R, ProcessError> {
@@ -445,7 +437,7 @@ fn process_pack<P: AsRef<Path>, R, F: FnOnce(P, &str) -> Result<R, render::Rende
     .map_err(|e| {
       let crate::render::RenderError::TypstCompilation(diags) = e;
       let Some(diag) = diags.first() else {
-        return ProcessError::Render(RenderErrorLocation::Detached, "compilation failed without diagnostics".to_string());
+        return ProcessError::Render(RenderErrorLocation { element: None, asset: None }, "compilation failed without diagnostics".to_string());
       };
       ProcessError::Render(classify_diagnostic(diag, &ranges), diag.1.clone())
     })?;
