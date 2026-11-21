@@ -1013,6 +1013,8 @@ impl WhirlApp {
           self.sel_element = None;
         }
 
+        let r = (4.0 * self.canvas.zoom).clamp(2.0, 4.0);
+
         for (i, el) in self.layout.as_ref().unwrap().elements.iter().enumerate() {
           let tex = &self.element_texs[i];
           let corners = [
@@ -1023,30 +1025,13 @@ impl WhirlApp {
           ];
           tex.draw(&painter, corners);
 
-          let r = (4.0 * self.canvas.zoom).clamp(2.0, 4.0);
           let corners_content = [
             doc_to_canvas(element_tex_pos_content(&el, tex.size(), (0., 0.))),
             doc_to_canvas(element_tex_pos_content(&el, tex.size(), (1., 0.))),
             doc_to_canvas(element_tex_pos_content(&el, tex.size(), (1., 1.))),
             doc_to_canvas(element_tex_pos_content(&el, tex.size(), (0., 1.))),
           ];
-          let mut inside = false;
-          if let Some(p) = hover_pos && point_in_simple_polygon(p, &corners_content) {
-            inside = true;
-          }
-          if self.sel_element == Some(i) {
-            inside = true;
-          }
-          if inside {
-            painter.line(
-              vec![
-                corners_content[0].into(), corners_content[1].into(),
-                corners_content[2].into(), corners_content[3].into(),
-                corners_content[0].into()
-              ],
-              egui::Stroke::new(r * 0.5, egui::Color32::from_rgba_premultiplied(24, 24, 24, 255)),
-            );
-          }
+
           // Anchor display
           if self.sel_element == Some(i) {
             let anchor_canvas = doc_to_canvas((el.x, el.y));
@@ -1068,6 +1053,49 @@ impl WhirlApp {
               },
               stroke: egui::Stroke::new(r * 0.5, egui::Color32::from_rgba_premultiplied(24, 24, 24, 255)),
             }));
+          }
+        }
+
+        // Borders
+        for (i, el) in self.layout.as_ref().unwrap().elements.iter().enumerate() {
+          // XXX: DRY
+          let tex = &self.element_texs[i];
+          let corners_content = [
+            doc_to_canvas(element_tex_pos_content(&el, tex.size(), (0., 0.))),
+            doc_to_canvas(element_tex_pos_content(&el, tex.size(), (1., 0.))),
+            doc_to_canvas(element_tex_pos_content(&el, tex.size(), (1., 1.))),
+            doc_to_canvas(element_tex_pos_content(&el, tex.size(), (0., 1.))),
+          ];
+          let mut tint = None;
+          if let Some(p) = hover_pos && point_in_simple_polygon(p, &corners_content) {
+            tint = Some((
+              egui::Color32::from_rgba_premultiplied(24, 24, 24, 64),
+              egui::Color32::from_rgba_premultiplied(64, 64, 64, 64),
+            ));
+          }
+          if self.sel_element == Some(i) {
+            tint = Some((
+              egui::Color32::from_rgba_premultiplied(24, 24, 24, 255),
+              egui::Color32::from_rgba_premultiplied(255, 255, 255, 255),
+            ));
+          }
+          if let Some((t1, t2)) = tint {
+            painter.line(
+              vec![
+                corners_content[0].into(), corners_content[1].into(),
+                corners_content[2].into(), corners_content[3].into(),
+                corners_content[0].into()
+              ],
+              egui::Stroke::new(r * 0.5 + 1., t2),
+            );
+            painter.line(
+              vec![
+                corners_content[0].into(), corners_content[1].into(),
+                corners_content[2].into(), corners_content[3].into(),
+                corners_content[0].into()
+              ],
+              egui::Stroke::new(r * 0.5, t1),
+            );
           }
         }
 
