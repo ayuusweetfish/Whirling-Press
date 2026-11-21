@@ -20,6 +20,14 @@ process-render-typst-compilation-asset =
 process-render-typst-compilation-general =
   编译错误：{$message}
 
+typst-error-unknown-image-format = 未知的图像格式
+typst-error-file-not-found = 未找到文件 {$path}
+typst-error-is-directory = {$path} 是目录
+typst-error-parse-svg = 无效的 SVG
+typst-error-decode-image = 无效的图像
+typst-error-color-wrong-length = 颜色字符串长度错误
+typst-error-color-non-hex = 颜色字符串包含非十六进制字符
+
 open-content-folder = 打开文件夹
 or-drag-and-drop = 或拖放到此处
 

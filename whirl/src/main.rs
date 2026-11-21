@@ -330,8 +330,57 @@ struct RenderErrorLocation {
   pub asset: Option<String>,
 }
 
+fn translate_typst_message(s: &str) -> String {
+  let s = s.trim();
+
+  if s == "unknown image format" {
+    return f!("typst-error-unknown-image-format");
+  }
+
+  if let Some(path) = s
+    .strip_prefix("file not found (searched at ")
+    .and_then(|s| s.strip_suffix(')'))
+  {
+    return f!("typst-error-file-not-found", path => path);
+  }
+
+  if let Some(path) = s
+    .strip_prefix("failed to load file (")
+    .and_then(|s| s.strip_suffix(": is a directory)"))
+  {
+    return f!("typst-error-is-directory", path => path);
+  }
+
+  if let Some(pos) = s
+    .strip_prefix("failed to parse SVG (unknown token at ")
+    .and_then(|s| s.strip_suffix(')'))
+  {
+    if let Some((_line, _col)) = pos.split_once(':') {
+      return f!("typst-error-parse-svg");
+    }
+  }
+
+  if let Some(_reason) = s
+    .strip_prefix("failed to decode image (")
+    .and_then(|s| s.strip_suffix(')'))
+  {
+    return f!("typst-error-decode-image");
+  }
+
+  if s == "color string has wrong length" {
+    return f!("typst-error-color-wrong-length");
+  }
+
+  if s == "color string contains non-hexadecimal letters" {
+    return f!("typst-error-color-non-hex");
+  }
+
+  s.to_string()
+}
+
 impl RenderErrorLocation {
   fn describe(&self, message: &str) -> String {
+    let message = translate_typst_message(message);
     match self {
       RenderErrorLocation { element: Some(index), asset: Some(asset) } => {
         f!("process-render-typst-compilation-element-asset", index => *index, asset => asset, message => message)

@@ -20,6 +20,14 @@ process-render-typst-compilation-asset =
 process-render-typst-compilation-general =
   Compilation error: {$message}
 
+typst-error-unknown-image-format = unknown image format
+typst-error-file-not-found = file {$path} not found
+typst-error-is-directory = {$path} is a directory
+typst-error-parse-svg = invalid SVG
+typst-error-decode-image = invalid image
+typst-error-color-wrong-length = color string has wrong length
+typst-error-color-non-hex = color string contains non-hexadecimal letters
+
 open-content-folder = Open content folder
 or-drag-and-drop = or drag-and-drop
 
