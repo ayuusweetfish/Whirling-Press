@@ -832,7 +832,7 @@ impl WhirlApp {
            i.events.iter().any(|event| matches!(event, egui::Event::MouseWheel { .. })))
         ) {
           ui.input(|i| {
-            self.canvas.zoom *= i.zoom_delta();
+            self.canvas.zoom = (self.canvas.zoom * i.zoom_delta()).clamp(0.02, 50.);
             self.canvas.origin = (
               self.canvas.origin.0 - i.translation_delta().x / self.canvas.zoom,
               self.canvas.origin.1 - i.translation_delta().y / self.canvas.zoom,
@@ -857,6 +857,7 @@ impl WhirlApp {
               if keep_x { p0.0 } else { round(p0.0 + round(new_delta.0, pos_move_precision), pos_round_precision) },
               if keep_y { p0.1 } else { round(p0.1 + round(new_delta.1, pos_move_precision), pos_round_precision) },
             );
+            ui.set_cursor_icon(egui::CursorIcon::Grabbing);
           } else {
             self.canvas.origin = (
               self.canvas.origin.0 - resp.drag_delta().x / self.canvas.zoom,
@@ -883,11 +884,12 @@ impl WhirlApp {
         // Hover position in canvas coordinates
         let hover_pos: Option<(f32, f32)> = resp.hover_pos().map(|p| p.into());
 
+        let corner_r = (5.0 * self.canvas.zoom).min(5.0).round_ties_even() as u8;
         painter.add(egui::Shape::rect_stroke(
           egui::Rect::from_min_size(
             doc_to_canvas((0., 0.)).into(),
             [page_w * self.canvas.zoom, page_h * self.canvas.zoom].into()),
-          egui::CornerRadius::same(5),
+          egui::CornerRadius::same(corner_r),
           egui::Stroke::new(1., egui::Color32::from_rgba_premultiplied(64, 64, 64, 128)),
           egui::StrokeKind::Outside,
         ));
@@ -895,7 +897,7 @@ impl WhirlApp {
           egui::Rect::from_min_size(
             doc_to_canvas((0., 0.)).into(),
             [page_w * self.canvas.zoom, page_h * self.canvas.zoom].into()),
-          egui::CornerRadius::same(5),
+          egui::CornerRadius::same(corner_r),
           egui::Color32::from_rgba_premultiplied(255, 255, 255, 255),
         ));
 
@@ -1024,36 +1026,6 @@ impl WhirlApp {
             doc_to_canvas(element_tex_pos(&el, tex.size(), (0., 1.))).into(),
           ];
           tex.draw(&painter, corners);
-
-          let corners_content = [
-            doc_to_canvas(element_tex_pos_content(&el, tex.size(), (0., 0.))),
-            doc_to_canvas(element_tex_pos_content(&el, tex.size(), (1., 0.))),
-            doc_to_canvas(element_tex_pos_content(&el, tex.size(), (1., 1.))),
-            doc_to_canvas(element_tex_pos_content(&el, tex.size(), (0., 1.))),
-          ];
-
-          // Anchor display
-          if self.sel_element == Some(i) {
-            let anchor_canvas = doc_to_canvas((el.x, el.y));
-            if self.dragged_element.is_none()
-              && resp.is_pointer_button_down_on()
-              && ui.input(|i| i.pointer.primary_pressed())
-              && let Some(p) = ui.input(|i| i.pointer.press_origin())
-              && point_in_simple_polygon(p.into(), &corners_content)
-            {
-              self.dragged_element = Some((i, (el.x, el.y), (0., 0.)));
-            }
-            painter.add(egui::Shape::Circle(egui::epaint::CircleShape {
-              center: anchor_canvas.into(),
-              radius: r,
-              fill: if let Some((j, _, _)) = self.dragged_element && j == i {
-                egui::Color32::from_rgba_premultiplied(128, 120, 96, 255)
-              } else {
-                egui::Color32::from_rgba_premultiplied(128, 120, 96, 128)
-              },
-              stroke: egui::Stroke::new(r * 0.5, egui::Color32::from_rgba_premultiplied(24, 24, 24, 255)),
-            }));
-          }
         }
 
         // Borders
@@ -1096,6 +1068,29 @@ impl WhirlApp {
               ],
               egui::Stroke::new(r * 0.5, t1),
             );
+          }
+
+          // Anchor display
+          if self.sel_element == Some(i) {
+            let anchor_canvas = doc_to_canvas((el.x, el.y));
+            if self.dragged_element.is_none()
+              && resp.is_pointer_button_down_on()
+              && ui.input(|i| i.pointer.primary_pressed())
+              && let Some(p) = ui.input(|i| i.pointer.press_origin())
+              && point_in_simple_polygon(p.into(), &corners_content)
+            {
+              self.dragged_element = Some((i, (el.x, el.y), (0., 0.)));
+            }
+            painter.add(egui::Shape::Circle(egui::epaint::CircleShape {
+              center: anchor_canvas.into(),
+              radius: r,
+              fill: if let Some((j, _, _)) = self.dragged_element && j == i {
+                egui::Color32::from_rgba_premultiplied(192, 180, 144, 255)
+              } else {
+                egui::Color32::from_rgba_premultiplied(255, 240, 192, 255)
+              },
+              stroke: egui::Stroke::new(r * 0.5, egui::Color32::from_rgba_premultiplied(24, 24, 24, 255)),
+            }));
           }
         }
 
