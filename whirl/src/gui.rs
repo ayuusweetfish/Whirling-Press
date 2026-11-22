@@ -874,33 +874,6 @@ impl WhirlApp {
             .min((c_height - 24.0).max(24.0) / page_h);
         }
 
-        let doc_to_canvas = |(x, y): (f32, f32)| -> (f32, f32) {
-          (
-            c_width / 2.0 + (x - (self.canvas.origin.0 + page_w / 2.0)) * self.canvas.zoom,
-            c_height / 2.0 + (y - (self.canvas.origin.1 + page_h / 2.0)) * self.canvas.zoom,
-          )
-        };
-
-        // Hover position in canvas coordinates
-        let hover_pos: Option<(f32, f32)> = resp.hover_pos().map(|p| p.into());
-
-        let corner_r = (5.0 * self.canvas.zoom).min(5.0).round_ties_even() as u8;
-        painter.add(egui::Shape::rect_stroke(
-          egui::Rect::from_min_size(
-            doc_to_canvas((0., 0.)).into(),
-            [page_w * self.canvas.zoom, page_h * self.canvas.zoom].into()),
-          egui::CornerRadius::same(corner_r),
-          egui::Stroke::new(1., egui::Color32::from_rgba_premultiplied(64, 64, 64, 128)),
-          egui::StrokeKind::Outside,
-        ));
-        painter.add(egui::Shape::rect_filled(
-          egui::Rect::from_min_size(
-            doc_to_canvas((0., 0.)).into(),
-            [page_w * self.canvas.zoom, page_h * self.canvas.zoom].into()),
-          egui::CornerRadius::same(corner_r),
-          egui::Color32::from_rgba_premultiplied(255, 255, 255, 255),
-        ));
-
         // Transforms a point in a rectangular region (texture)
         // with a pinned anchor into world coordinates
         fn transformed_anchored(
@@ -947,6 +920,87 @@ impl WhirlApp {
              RENDER_TEX_MARGIN * RENDER_TEX_SCALE + ty * (h - RENDER_TEX_MARGIN * RENDER_TEX_SCALE * 2.)),
           )
         }
+
+        fn element_aabb(el: &model::Element, tex_size: (f32, f32)) -> (f32, f32, f32, f32) {
+          [(0., 0.), (1., 0.), (1., 1.), (0., 1.)]
+            .into_iter()
+            .fold(
+              (f32::INFINITY, f32::INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY),
+              |aabb, (tx, ty)| {
+                let (x, y) = element_tex_pos_content(el, tex_size, (tx, ty));
+                (aabb.0.min(x), aabb.1.min(y), aabb.2.max(x), aabb.3.max(y))
+              },
+            )
+        }
+        fn clamp_pan(
+          mut origin: (f32, f32),
+          view: (f32, f32),   // Visible size in document units
+          page: (f32, f32),
+          rects: impl IntoIterator<Item = (f32, f32, f32, f32)>,
+        ) -> (f32, f32) {
+          let (mut x1, mut x2) = (f32::INFINITY, f32::NEG_INFINITY);
+          let (mut y1, mut y2) = (f32::INFINITY, f32::NEG_INFINITY);
+          let rate = 1. / 3.;
+          for (rx1, ry1, rx2, ry2) in rects {
+            x1 = x1.min(rx1 + (rx2 - rx1) * rate);
+            x2 = x2.max(rx2 - (rx2 - rx1) * rate);
+            y1 = y1.min(ry1 + (ry2 - ry1) * rate);
+            y2 = y2.max(ry2 - (ry2 - ry1) * rate);
+          }
+          let (x0, y0) = (
+            origin.0 + page.0 / 2. - view.0 / 2.,
+            origin.1 + page.1 / 2. - view.1 / 2.,
+          );
+          if x0 > x2 {
+            origin.0 -= x0 - x2;
+          } else if x0 + view.0 < x1 {
+            origin.0 += x1 - x0 - view.0;
+          }
+          if y0 > y2 {
+            origin.1 -= y0 - y2;
+          } else if y0 + view.1 < y1 {
+            origin.1 += y1 - y0 - view.1;
+          }
+          origin
+        }
+
+        self.canvas.origin = clamp_pan(
+          self.canvas.origin,
+          (c_width / self.canvas.zoom, c_height / self.canvas.zoom),
+          (page_w, page_h),
+          std::iter::once((0., 0., page_w, page_h)).chain(
+            self.layout.as_ref().unwrap().elements.iter()
+              .zip(&self.element_texs)
+              .map(|(el, tex)| element_aabb(el, tex.size())),
+          ),
+        );
+
+        let doc_to_canvas = |(x, y): (f32, f32)| -> (f32, f32) {
+          (
+            c_width / 2.0 + (x - (self.canvas.origin.0 + page_w / 2.0)) * self.canvas.zoom,
+            c_height / 2.0 + (y - (self.canvas.origin.1 + page_h / 2.0)) * self.canvas.zoom,
+          )
+        };
+
+        // Hover position in canvas coordinates
+        let hover_pos: Option<(f32, f32)> = resp.hover_pos().map(|p| p.into());
+
+        let corner_r = (5.0 * self.canvas.zoom).min(5.0).round_ties_even() as u8;
+        painter.add(egui::Shape::rect_stroke(
+          egui::Rect::from_min_size(
+            doc_to_canvas((0., 0.)).into(),
+            [page_w * self.canvas.zoom, page_h * self.canvas.zoom].into()),
+          egui::CornerRadius::same(corner_r),
+          egui::Stroke::new(1., egui::Color32::from_rgba_premultiplied(64, 64, 64, 128)),
+          egui::StrokeKind::Outside,
+        ));
+        painter.add(egui::Shape::rect_filled(
+          egui::Rect::from_min_size(
+            doc_to_canvas((0., 0.)).into(),
+            [page_w * self.canvas.zoom, page_h * self.canvas.zoom].into()),
+          egui::CornerRadius::same(corner_r),
+          egui::Color32::from_rgba_premultiplied(255, 255, 255, 255),
+        ));
 
         pub fn point_in_simple_polygon(p: (f32, f32), a: &[(f32, f32)]) -> bool {
           // Even-odd crossing number; optimization by W. Randolph Franklin
